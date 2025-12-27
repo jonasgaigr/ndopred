@@ -11,10 +11,12 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
     dplyr,
+    giscoR,
     lubridate,
     magrittr,
+    RCzechia,
     rndop (>= 0.2.1.9000),
     sf,
     terra
-Remotes:  
+Remotes: 
     kalab-oto/rndop
