@@ -101,15 +101,26 @@ server <- function(input, output, session) {
     data <- assessment_results()
     res <- data$res
 
-    # Transpose the data so it's a vertical list
     data.frame(
-      "Metric" = c("Species", "Category", "EOO (km2)", "AOO (km2)", "Locations"),
+      "Assessment Component" = c(
+        "Taxon",
+        "Calculated Category",
+        "Criteria String",
+        "EOO (km2)",
+        "AOO (km2)",
+        "Locations",
+        "Trend (10y %)",
+        "Criterion A Flag"
+      ),
       "Value" = c(
         as.character(res$Species),
         as.character(res$Category),
-        format(res$EOO_km2, nsmall = 2),
-        format(res$AOO_km2, nsmall = 2),
-        format(res$Locations, nsmall = 0)
+        as.character(res$Criteria),
+        base::format(res$EOO_km2, nsmall = 2),
+        base::format(res$AOO_km2, nsmall = 2),
+        base::format(res$Locations, nsmall = 0),
+        as.character(res$Trend_Perc),
+        as.character(res$Flags)
       )
     )
   }, striped = TRUE, spacing = 'm', width = '100%')
