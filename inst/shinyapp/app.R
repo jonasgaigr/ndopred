@@ -214,11 +214,42 @@ server <- function(input, output, session) {
   })
 
   output$metrics_table <- renderTable({
-    res <- assessment_results()$res
+    data <- assessment_results()
+    res <- data$res
+    exp <- expert_final() # Get the reactive expert data
+
     data.frame(
-      "Component" = c("Taxon", "Calculated", "Criteria", "EOO", "AOO", "Locs", "Trend"),
-      "Value" = c(res$Species, res$Category, res$Criteria, res$EOO_km2, res$AOO_km2, res$Locations, res$Trend_Perc)
+      "Component" = c(
+        "Taxon",
+        "Automated Category",
+        "Expert Category",
+        "Automated Criteria",
+        "Expert Criteria",
+        "EOO (km2)",
+        "AOO (km2)",
+        "Locations"
+      ),
+      "Value" = c(
+        as.character(res$Species),
+        as.character(res$Category),
+        as.character(exp$category),
+        as.character(res$Criteria),
+        as.character(exp$criteria),
+        base::format(res$EOO_km2, nsmall = 2),
+        base::format(res$AOO_km2, nsmall = 2),
+        base::format(res$Locations, nsmall = 0)
+      )
     )
+  }, striped = TRUE, spacing = 'm', width = '100%')
+
+  # Update the Live Category UI in the sidebar
+  output$live_category_ui <- renderUI({
+    exp <- expert_final()
+    color <- if(exp$category %in% c("CR", "EN", "VU")) "#f2dede" else "#dff0d8"
+
+    div(style = paste0("background-color:", color, "; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #ccc;"),
+        h2(exp$category, style="margin:0; font-weight: bold;"),
+        p(tags$small(exp$criteria))) # Show the code (e.g. B2ab(ii)) under the big Category
   })
 
   output$trend_text <- renderPrint({ assessment_results()$trend })
