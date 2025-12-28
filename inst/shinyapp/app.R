@@ -95,15 +95,25 @@ server <- function(input, output, session) {
       res <- summarize_assessment(input$species_name, eoo, aoo, trend, locs)
 
       # ---------------------------------------------------------
-      # 6. EXTENDED AUTOMATION: Integrate Criterion C & D1
+      # 6. EXTENDED AUTOMATION: Integrate Criterion C, D1, and NT
       # ---------------------------------------------------------
       new_crit <- res$Criteria
+      # Update rank helper to include NT
+      get_cat_rank <- function(cat) {
+        match(cat, c("DD", "LC", "NT", "VU", "EN", "CR", "RE", "EX"))
+      }
       current_rank <- get_cat_rank(res$Category)
 
-      # A. Check D1 (Very Small Population)
+      # --- A. Check D1 (Very Small Population) ---
       if (!is.na(pop_metrics$total_mature)) {
         N <- pop_metrics$total_mature
-        cat_d1 <- dplyr::case_when(N < 50 ~ "CR", N < 250 ~ "EN", N < 1000 ~ "VU", TRUE ~ "LC")
+        # NT Threshold for D1 is typically not formally defined but often considered around < 2000
+        cat_d1 <- dplyr::case_when(
+          N < 50 ~ "CR",
+          N < 250 ~ "EN",
+          N < 1000 ~ "VU",
+          TRUE ~ "LC"
+        )
 
         if (get_cat_rank(cat_d1) > current_rank) {
           res$Category <- cat_d1
@@ -112,24 +122,58 @@ server <- function(input, output, session) {
         }
       }
 
-      # B. Check C (Small Pop + Decline)
-      # We assume C1 applies if decline rate is significant (<= -10%)
+      # --- B. Check C (Small Pop + Decline) ---
       if (!is.na(pop_metrics$total_mature) && !is.na(pop_metrics$decline_rate)) {
         N <- pop_metrics$total_mature
         Decline <- pop_metrics$decline_rate
 
-        # Must meet Thresholds (<10k) AND Decline
         if (N < 10000 && Decline <= -10) {
           cat_c <- dplyr::case_when(N < 250 ~ "CR", N < 2500 ~ "EN", TRUE ~ "VU")
-
           if (get_cat_rank(cat_c) > current_rank) {
             res$Category <- cat_c
             current_rank <- get_cat_rank(cat_c)
             new_crit <- paste(new_crit, "C1", sep=";")
-          } else if (get_cat_rank(cat_c) == current_rank) {
-            # Append criteria if same level
-            new_crit <- paste(new_crit, "C1", sep=";")
           }
+        }
+      }
+
+      # --- C. NEAR THREATENED (NT) CHECK ---
+      # Only run if currently LC or DD
+      if (res$Category %in% c("LC", "DD")) {
+        is_nt <- FALSE
+        nt_reason <- ""
+
+        # 1. NT based on Decline (Criterion A approximation)
+        # Close to VU (>= 30% decline). We flag if decline is 20-29%
+        if (!is.na(res$Trend_Perc)) {
+          trend_val <- abs(as.numeric(res$Trend_Perc))
+          if (trend_val >= 20 && trend_val < 30) {
+            is_nt <- TRUE
+            nt_reason <- c(nt_reason, "A (Decline ~20-30%)")
+          }
+        }
+
+        # 2. NT based on Range (Criterion B approximation)
+        # Close to VU (EOO < 20k, AOO < 2k) but maybe missing subcriteria (fragmentation/decline)
+        # OR values are just slightly above threshold (e.g., EOO 20k-30k)
+        if (res$EOO_km2 > 0 && res$EOO_km2 < 30000 && res$Locations <= 15) {
+          # If strictly <20k but missing subcriteria, it's a strong NT candidate
+          is_nt <- TRUE
+          nt_reason <- c(nt_reason, "B (Close to thresholds)")
+        }
+
+        # 3. NT based on Population (Criterion C/D1 approximation)
+        # Close to VU threshold (< 1000 mature)
+        if (!is.na(pop_metrics$total_mature)) {
+          if (pop_metrics$total_mature >= 1000 && pop_metrics$total_mature < 2000) {
+            is_nt <- TRUE
+            nt_reason <- c(nt_reason, "D1 (Pop ~1000-2000)")
+          }
+        }
+
+        if (is_nt) {
+          res$Category <- "NT"
+          res$Criteria <- paste("Close to:", paste(nt_reason, collapse=", "))
         }
       }
 
