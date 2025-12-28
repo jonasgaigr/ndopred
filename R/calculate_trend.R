@@ -1,32 +1,27 @@
-#' Calculate AOO Trend (Criterion A proxy)
+#' Calculate Trend (Comparing Recent vs Previous Window)
 #'
-#' @param occurrence_data An sf object.
-#' @param window_years Numeric. The period to compare (default 10 years).
+#' @param occurrence_data Data frame (must contain DATUM_OD or 'year' col)
+#' @param window_years Numeric (default 10)
 #' @export
 calculate_trend <- function(occurrence_data, window_years = 10) {
 
-  # 1. Handle YYYYMMDD format
-  # We convert to character first, then parse as Year-Month-Day
-  data_with_years <- occurrence_data %>%
-    dplyr::mutate(
-      date_clean = lubridate::ymd(as.character(DATUM_OD)),
-      obs_year = lubridate::year(date_clean)
-    ) %>%
-    dplyr::filter(!is.na(obs_year))
+  # Ensure dates are cleaned
+  if (!"year" %in% names(occurrence_data)) {
+    occurrence_data <- clean_dates(occurrence_data)
+  }
 
-  # 2. Get the actual time range for the message
-  year_min <- min(data_with_years$obs_year, na.rm = TRUE)
-  year_max <- max(data_with_years$obs_year, na.rm = TRUE)
-  message(paste("Successfully parsed records from year", year_min, "to", year_max))
+  current_year <- as.numeric(format(Sys.Date(), "%Y"))
 
-  # 3. Define Periods (Based on the last available year)
-  p2_start <- year_max - window_years + 1
+  # Define Periods
+  # P2 = Recent (e.g., 2015-2025)
+  # P1 = Previous (e.g., 2005-2015)
+  p2_start <- current_year - window_years
   p1_start <- p2_start - window_years
 
-  p1_data <- data_with_years %>% dplyr::filter(obs_year >= p1_start & obs_year < p2_start)
-  p2_data <- data_with_years %>% dplyr::filter(obs_year >= p2_start)
+  p1_data <- occurrence_data %>% dplyr::filter(year >= p1_start & year < p2_start)
+  p2_data <- occurrence_data %>% dplyr::filter(year >= p2_start)
 
-  # 4. Calculate AOO using our existing function
+  # Calculate AOO for both periods
   aoo_p1 <- calculate_aoo(p1_data)$area_km2
   aoo_p2 <- calculate_aoo(p2_data)$area_km2
 
@@ -37,7 +32,9 @@ calculate_trend <- function(occurrence_data, window_years = 10) {
   }
 
   return(list(
-    range = paste(year_min, "-", year_max),
+    range = paste(p1_start, "-", current_year),
+    period_1_range = paste(p1_start, "-", p2_start - 1),
+    period_2_range = paste(p2_start, "-", current_year),
     period_1_aoo = aoo_p1,
     period_2_aoo = aoo_p2,
     percent_change = perc_change
