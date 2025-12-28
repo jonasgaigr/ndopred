@@ -74,19 +74,51 @@ server <- function(input, output, session) {
     data <- assessment_results()
     res <- data$res
 
-    tagList(
-      wellPanel(
-        h5("Criterion B: Geographic Range"),
-        checkboxInput("check_b1", "B1: EOO Threshold met", value = grepl("B1", res$Criteria)),
-        checkboxInput("check_b2", "B2: AOO Threshold met", value = grepl("B2", res$Criteria)),
-        checkboxInput("check_loc", "a: Low Locations / Fragmented", value = (res$Locations <= 10)),
-        checkboxInput("check_b_decline", "b(ii): Continuing Decline in AOO", value = grepl("b\\(ii\\)", res$Criteria)),
-        checkboxInput("check_b_habitat", "b(iii): Decline in Habitat Quality", value = FALSE),
+    # Logic to determine automated pre-fill states
+    is_b1 <- grepl("B1", res$Criteria)
+    is_b2 <- grepl("B2", res$Criteria)
+    is_decline <- grepl("b\\(ii\\)", res$Criteria)
+    is_d2 <- grepl("D2", res$Criteria)
+    is_crit_a <- res$Flags != "None"
 
-        hr(),
-        h5("Criterion A & D"),
-        checkboxInput("check_a", paste("A2: Apply Trend Logic?", res$Flags), value = (res$Flags != "None")),
-        checkboxInput("check_d2", "D2: Very Restricted (VU)", value = grepl("D2", res$Criteria))
+    tagList(
+      fluidRow(
+        column(6,
+               wellPanel(
+                 h4("Criterion A: Population Reduction"),
+                 p(tags$small("Trend based on last 10 years of data.")),
+                 checkboxInput("check_a", paste("A2: Significant Decline?", res$Flags), value = is_crit_a),
+
+                 hr(),
+                 h4("Criterion B: Geographic Range"),
+                 checkboxGroupInput("check_b_type", "Thresholds met:",
+                                    choices = c("B1: EOO < 20,000 km²" = "B1",
+                                                "B2: AOO < 2,000 km²" = "B2"),
+                                    selected = c(if(is_b1) "B1", if(is_b2) "B2")),
+                 checkboxInput("check_loc", "a: Severely Fragmented / Low Locations (≤10)", value = (res$Locations <= 10)),
+                 p(tags$strong("b: Continuing Decline in:")),
+                 checkboxInput("check_b_ii", "(ii) Area of occupancy (AOO)", value = is_decline),
+                 checkboxInput("check_b_iii", "(iii) Area, extent and/or quality of habitat", value = FALSE),
+                 checkboxInput("check_b_iv", "(iv) Number of locations or subpopulations", value = FALSE),
+                 checkboxInput("check_b_v", "(v) Number of mature individuals", value = FALSE)
+               )
+        ),
+        column(6,
+               wellPanel(
+                 h4("Criterion C: Small Population & Decline"),
+                 p(tags$small("Requires count of mature individuals.")),
+                 checkboxInput("check_c", "C: < 10,000 mature individuals + decline", value = FALSE),
+
+                 hr(),
+                 h4("Criterion D: Very Small or Restricted"),
+                 checkboxInput("check_d1", "D1: < 1,000 mature individuals (VU/EN/CR)", value = FALSE),
+                 checkboxInput("check_d2", "D2: Very restricted AOO (<20 km²) or Locations (≤5)", value = is_d2),
+
+                 hr(),
+                 h4("Criterion E: Quantitative Analysis"),
+                 checkboxInput("check_e", "E: Statistical Extinction Risk (PVA)", value = FALSE)
+               )
+        )
       )
     )
   })
@@ -97,21 +129,11 @@ server <- function(input, output, session) {
     req(assessment_results())
     res <- assessment_results()$res
 
-    # Start with LC
+    # 1. Initialize logic variables
     cats <- "LC"
+    expert_codes <- c()
 
-    # Criterion B Logic: (Threshold) AND (Locations) AND (Decline)
-    b_threshold <- input$check_b1 || input$check_b2
-    if (b_threshold && input$check_loc && (input$check_b_decline || input$check_b_habitat)) {
-      b_cat <- if(input$check_b1) {
-        dplyr::case_when(res$EOO_km2 < 100 ~ "CR", res$EOO_km2 < 5000 ~ "EN", TRUE ~ "VU")
-      } else {
-        dplyr::case_when(res$AOO_km2 < 10 ~ "CR", res$AOO_km2 < 500 ~ "EN", TRUE ~ "VU")
-      }
-      cats <- c(cats, b_cat)
-    }
-
-    # Criterion A Logic (if expert confirms)
+    # --- Criterion A ---
     if (isTRUE(input$check_a)) {
       a_cat <- dplyr::case_when(
         res$Trend_Perc <= -80 ~ "CR",
@@ -119,16 +141,54 @@ server <- function(input, output, session) {
         res$Trend_Perc <= -30 ~ "VU",
         TRUE ~ "LC"
       )
-      cats <- c(cats, a_cat)
+      if (a_cat != "LC") {
+        cats <- c(cats, a_cat)
+        expert_codes <- c(expert_codes, "A2")
+      }
     }
 
-    # Criterion D2
-    if (isTRUE(input$check_d2)) cats <- c(cats, "VU")
+    # --- Criterion B ---
+    # Fix the '||' error by checking if "B1" or "B2" is in the selected vector
+    b1_selected <- "B1" %in% input$check_b_type
+    b2_selected <- "B2" %in% input$check_b_type
 
-    # Hierarchical Pick
-    levels <- c("LC", "VU", "EN", "CR")
-    final <- levels[max(match(cats, levels))]
-    return(final)
+    # Check for any 'b' sub-criteria
+    b_sub_codes <- c(
+      if(isTRUE(input$check_b_ii)) "ii",
+      if(isTRUE(input$check_b_iii)) "iii",
+      if(isTRUE(input$check_b_iv)) "iv",
+      if(isTRUE(input$check_b_v)) "v"
+    )
+
+    if ((b1_selected || b2_selected) && isTRUE(input$check_loc) && length(b_sub_codes) > 0) {
+      sub_str <- paste0("ab(", paste(b_sub_codes, collapse = ","), ")")
+
+      if (b1_selected) {
+        b1_cat <- dplyr::case_when(res$EOO_km2 < 100 ~ "CR", res$EOO_km2 < 5000 ~ "EN", TRUE ~ "VU")
+        cats <- c(cats, b1_cat)
+        expert_codes <- c(expert_codes, paste0("B1", sub_str))
+      }
+      if (b2_selected) {
+        b2_cat <- dplyr::case_when(res$AOO_km2 < 10 ~ "CR", res$AOO_km2 < 500 ~ "EN", TRUE ~ "VU")
+        cats <- c(cats, b2_cat)
+        expert_codes <- c(expert_codes, paste0("B2", sub_str))
+      }
+    }
+
+    # --- Criterion D ---
+    if (isTRUE(input$check_d2)) {
+      cats <- c(cats, "VU")
+      expert_codes <- c(expert_codes, "D2")
+    }
+
+    # 2. Final Hierarchical Category
+    levels <- c("DD", "LC", "VU", "EN", "CR", "RE", "EX")
+    final_cat <- levels[max(base::match(cats, levels), na.rm = TRUE)]
+
+    # 3. Final Criteria String
+    final_criteria <- if(length(expert_codes) > 0) paste(unique(expert_codes), collapse = "; ") else ""
+
+    return(list(category = final_cat, criteria = final_criteria))
   })
 
   # --- 4. Live Category Display ---
