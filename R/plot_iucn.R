@@ -1,62 +1,47 @@
-#' Plot IUCN Assessment Map in S-JTSK with Temporal Context
+#' Plot IUCN Assessment Map
 #'
-#' @param species_name Character name of species.
-#' @param window Numeric. The number of years for the "Recent" period (default 10).
+#' @param species_name Character.
+#' @param occ_data An existing sf object (optional). If NULL, it will download.
+#' @param window Numeric.
 #' @export
-plot_iucn <- function(species_name, window = 10) {
-  # 1. Get all data
-  occ_all <- get_assessment_data(species_name)
+plot_iucn <- function(species_name, occ_data = NULL, window = 10) {
 
-  # Calculate cutoff
+  # 1. Use provided data or download if missing
+  occ_all <- if (!is.null(occ_data)) occ_data else get_assessment_data(species_name)
+
+  if (nrow(occ_all) == 0) return(NULL)
+
   cutoff_year <- as.numeric(format(Sys.Date(), "%Y")) - window
 
-  # 2. Prepare Temporal Layers
-  # We parse the year from DATUM_OD as we did in calculation functions
+  # 2. Add Status column
   occ_all <- occ_all %>%
     dplyr::mutate(
+      # Safely handle year extraction
       year = as.numeric(substr(as.character(DATUM_OD), 1, 4)),
       Status = ifelse(year >= cutoff_year, "Recent", "Historical")
     )
 
-  # 3. Calculate Metrics (STRICTLY Recent Only)
+  # 3. Calculate Metrics for the plot (Recent Only)
   eoo <- calculate_eoo(occ_all, year_start = cutoff_year)
   aoo <- calculate_aoo(occ_all, year_start = cutoff_year)
 
-  # 4. Get Czech Border
+  # 4. Transform to S-JTSK for plotting
   cz_border <- giscoR::gisco_get_countries(country = "Czech Republic", resolution = "03") %>%
     sf::st_transform(5514)
 
-  # 5. Transform all to S-JTSK (5514) for plotting
   occ_5514 <- sf::st_transform(occ_all, 5514)
   eoo_5514 <- if(!is.null(eoo$geom)) sf::st_transform(eoo$geom, 5514) else NULL
   aoo_5514 <- if(!is.null(aoo$geom)) sf::st_transform(aoo$geom, 5514) else NULL
 
-  # 6. Create Plot
-  library(ggplot2)
-
+  # 5. ggplot
   ggplot() +
-    # Background Czech Border
     geom_sf(data = cz_border, fill = "gray99", color = "gray85") +
-
-    # EOO Hull (Recent Only)
     {if(!is.null(eoo_5514)) geom_sf(data = eoo_5514, fill = "red", alpha = 0.05, color = "red", linetype = "dashed")} +
-
-    # AOO Grids (Recent Only)
     {if(!is.null(aoo_5514)) geom_sf(data = aoo_5514, fill = "blue", alpha = 0.3, color = NA)} +
-
-    # Points: Historical in Light Grey, Recent in Black
     geom_sf(data = occ_5514, aes(color = Status), alpha = 0.7, size = 1.5) +
-
     scale_color_manual(values = c("Historical" = "gray70", "Recent" = "black")) +
-
     coord_sf(datum = 5514) +
     theme_minimal() +
     theme(legend.position = "bottom") +
-    labs(
-      title = paste("IUCN Assessment:", species_name),
-      subtitle = paste("Recent window:", cutoff_year, "-", format(Sys.Date(), "%Y"),
-                       "| Red: Recent EOO | Blue: Recent AOO"),
-      caption = "Base map: giscoR | Data: NDOP",
-      color = "Record Status"
-    )
+    labs(title = species_name, subtitle = "Red: EOO | Blue: AOO")
 }
