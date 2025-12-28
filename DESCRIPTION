@@ -17,6 +17,7 @@ Imports:
     RCzechia,
     rndop (>= 0.2.1.9000),
     sf,
+    shiny,
     terra
 Remotes: 
     kalab-oto/rndop
