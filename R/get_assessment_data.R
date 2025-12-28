@@ -14,6 +14,8 @@ get_assessment_data <- function(species_name, year_start = NULL) {
   # In NDOP, X and Y are usually S-JTSK
   cleaned_sf <- raw_data %>%
     dplyr::filter(!is.na(X), !is.na(Y)) %>%
+    dplyr::filter(NEGATIV == 0) %>%
+    dplyr::filter(KATASTR != "") %>%
     sf::st_as_sf(coords = c("X", "Y"), crs = 5514) %>%
     # Transform to LAEA Europe (EPSG:3035) for accurate area calculations
     sf::st_transform(crs = 3035)
