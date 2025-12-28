@@ -40,72 +40,82 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
-  # 1. Create a reactive that ONLY updates when the button is clicked
-  assessment_data <- eventReactive(input$run_calc, {
+  # 1. THE SINGLE SOURCE OF TRUTH
+  # This block runs ONCE per button click.
+  assessment_results <- eventReactive(input$run_calc, {
     req(input$species_name)
 
-    # Everything inside here happens ONLY when button is pressed
-    withProgress(message = 'Processing...', value = 0, {
-
-      # Fetch All Data
+    withProgress(message = 'Accessing NDOP...', value = 0, {
+      # Download
       occ_all <- get_assessment_data(input$species_name)
-      incProgress(0.3)
+      incProgress(0.4, message = "Processing spatial data...")
 
-      # Define Window
-      cutoff <- as.numeric(format(Sys.Date(), "%Y")) - input$window
-      occ_recent <- get_assessment_data(input$species_name, year_start = cutoff)
-      incProgress(0.3)
-
-      # Perform Logic
-      if (nrow(occ_recent) == 0) {
-        note <- if(nrow(occ_all) > 0) "Historical only." else "No records found."
-        res <- data.frame(Species=input$species_name, EOO_km2=0, AOO_km2=0, Locations=0,
-                          Trend_Perc="NA", Category="RE", Note=note)
-        trend <- list(percent_change = NA)
-      } else {
-        eoo <- calculate_eoo(occ_all, year_start = cutoff)
-        aoo <- calculate_aoo(occ_all, year_start = cutoff)
-        locs <- calculate_locations(occ_all, year_start = cutoff)
-        trend <- calculate_trend(occ_all, window_years = input$window)
-        res <- summarize_assessment(input$species_name, eoo, aoo, trend, locs)
+      if (nrow(occ_all) == 0) {
+        return(list(
+          res = data.frame(Species=input$species_name, Category="DD", Note="No records found.",
+                           EOO_km2=0, AOO_km2=0, Locations=0),
+          trend = list(percent_change = NA),
+          occ_all = occ_all
+        ))
       }
-      incProgress(0.4)
 
-      # Return a list containing everything we need
-      list(res = res, trend = trend, occ_recent = occ_recent)
+      # Calculations
+      cutoff <- as.numeric(format(Sys.Date(), "%Y")) - input$window
+      eoo <- calculate_eoo(occ_all, year_start = cutoff)
+      aoo <- calculate_aoo(occ_all, year_start = cutoff)
+      locs <- calculate_locations(occ_all, year_start = cutoff)
+      trend <- calculate_trend(occ_all, window_years = input$window)
+
+      res <- summarize_assessment(input$species_name, eoo, aoo, trend, locs)
+      incProgress(0.6, message = "Finalizing UI...")
+
+      # Return the list with all objects
+      list(res = res, trend = trend, occ_all = occ_all)
     })
   })
 
-  # --- OUTPUTS ---
+  # --- OUTPUTS (All calling assessment_results() now) ---
 
   output$map_plot <- renderPlot({
-    # Access the reactive result. If button hasn't been clicked, this stops here.
-    data <- assessment_data()
-
-    # We use the species name from the result to ensure it matches the calculation
-    plot_iucn(data$res$Species, window = input$window)
+    # Access the reactive list
+    data <- assessment_results()
+    # Use the shared occ_all data to prevent a 2nd download
+    plot_iucn(data$res$Species, occ_data = data$occ_all, window = input$window)
   })
 
   output$status_ui <- renderUI({
-    data <- assessment_data()
+    data <- assessment_results()
     res <- data$res
 
+    # Visual styling based on Category
     color <- if(res$Category %in% c("RE", "CR", "EN", "VU")) "#f2dede" else "#dff0d8"
     text_color <- if(res$Category %in% c("RE", "CR", "EN", "VU")) "#a94442" else "#3c763d"
 
     div(style = paste0("background-color:", color, "; color:", text_color,
                        "; padding: 15px; border-radius: 5px; border: 1px solid;"),
-        h3(res$Category),
-        p(res$Note))
+        h3(res$Category, style="margin-top:0;"),
+        p(strong("Note: "), res$Note))
   })
 
   output$metrics_table <- renderTable({
-    data <- assessment_data()
-    data$res[, c("Species", "Category", "EOO_km2", "AOO_km2", "Locations")]
-  })
+    data <- assessment_results()
+    res <- data$res
+
+    # Transpose the data so it's a vertical list
+    data.frame(
+      "Metric" = c("Species", "Category", "EOO (km2)", "AOO (km2)", "Locations"),
+      "Value" = c(
+        as.character(res$Species),
+        as.character(res$Category),
+        format(res$EOO_km2, nsmall = 2),
+        format(res$AOO_km2, nsmall = 2),
+        format(res$Locations, nsmall = 0)
+      )
+    )
+  }, striped = TRUE, spacing = 'm', width = '100%')
 
   output$trend_text <- renderPrint({
-    data <- assessment_data()
+    data <- assessment_results()
     data$trend
   })
 }
