@@ -14,9 +14,9 @@ get_mature_terms <- function() {
     "farátní imaga",
     "imaga",
     "kopulace",          # Count as 2
-    "samci",
-    "samice",
-    "vychovaní samci",
+    "samci",             # Male
+    "samice",            # Female
+    "vychovaní samci",   # Male
 
     # --- PLANTS ---
     "kvetoucí a plodné lodyhy",
@@ -27,6 +27,6 @@ get_mature_terms <- function() {
     "kvetoucí prýty",
     "kvetoucí stébla",
     "kvetoucí trsy",
-    "zralé tobolky"      # Implies successful reproduction
+    "zralé tobolky"
   )
 }
