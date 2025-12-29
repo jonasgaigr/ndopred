@@ -9,6 +9,16 @@ library(dplyr)
 # ------------------------------------------------------------------------------
 ui <- fluidPage(
   theme = shinythemes::shinytheme("flatly"),
+
+  # --- 1. ENABLE BOOTSTRAP TOOLTIPS ---
+  tags$head(
+    tags$script(HTML("
+      $(function () {
+        $('[data-toggle=\"tooltip\"]').tooltip();
+      });
+    "))
+  ),
+
   titlePanel("NDOP Red List Assessor v0.1"),
 
   sidebarLayout(
@@ -106,19 +116,13 @@ server <- function(input, output, session) {
     current_rank <- get_cat_rank(res$Category)
 
     if (input$use_pop) {
-      # D1
       if (!is.na(pop$total_mature)) {
         cat_d1 <- dplyr::case_when(pop$total_mature < 50 ~ "CR", pop$total_mature < 250 ~ "EN", pop$total_mature < 1000 ~ "VU", TRUE ~ "LC")
-        if (get_cat_rank(cat_d1) > current_rank) {
-          res$Category <- cat_d1; current_rank <- get_cat_rank(cat_d1); new_crit <- paste(new_crit, "D1", sep=";")
-        }
+        if (get_cat_rank(cat_d1) > current_rank) { res$Category <- cat_d1; current_rank <- get_cat_rank(cat_d1); new_crit <- paste(new_crit, "D1", sep=";") }
       }
-      # C
       if (!is.na(pop$total_mature) && !is.na(pop$decline_rate) && pop$total_mature < 10000 && pop$decline_rate <= -10) {
         cat_c <- dplyr::case_when(pop$total_mature < 250 ~ "CR", pop$total_mature < 2500 ~ "EN", TRUE ~ "VU")
-        if (get_cat_rank(cat_c) >= current_rank) {
-          res$Category <- cat_c; current_rank <- get_cat_rank(cat_c); new_crit <- paste(new_crit, "C1", sep=";")
-        }
+        if (get_cat_rank(cat_c) >= current_rank) { res$Category <- cat_c; current_rank <- get_cat_rank(cat_c); new_crit <- paste(new_crit, "C1", sep=";") }
       }
     }
 
@@ -138,6 +142,11 @@ server <- function(input, output, session) {
   })
 
   # --- 4. EXPERT PANEL ---
+  # Helper to create tooltip spans
+  tooltip_span <- function(label, text) {
+    tags$span(label, `data-toggle` = "tooltip", `data-placement` = "right", title = text, style = "border-bottom: 1px dotted #777; cursor: help;")
+  }
+
   output$verification_panel <- renderUI({
     req(assessment_results())
     res <- assessment_results()$res
@@ -145,41 +154,51 @@ server <- function(input, output, session) {
 
     curr_trend <- if(!is.na(res$Trend_Perc)) paste0(round(abs(res$Trend_Perc), 1), "%") else "NA"
     pop_str <- if(!is.na(pop$total_mature)) paste(pop$total_mature) else "Unknown"
-
-    # Fluctuation Logic
     fluct_str <- if(!is.na(pop$fluct_ratio)) paste0(pop$fluct_ratio, "x") else "NA"
     has_extreme_fluct <- !is.na(pop$fluct_ratio) && pop$fluct_ratio > 10
 
     tagList(
+      # Re-initialize tooltips whenever UI updates
+      tags$script("$('[data-toggle=\"tooltip\"]').tooltip();"),
+
       fluidRow(
         column(4, wellPanel(
           h4("A. Population Reduction"),
           p(tags$small("Automated Trend: ", curr_trend)),
-          checkboxGroupInput("check_a_type", "Type:", inline = TRUE, choices = c("A1","A2","A3","A4"), selected = if(!is.na(res$Trend_Perc) && as.numeric(res$Trend_Perc) <= -30) "A2"),
+          checkboxGroupInput("check_a_type", "Type:", inline = TRUE,
+                             choiceNames = list(
+                               tooltip_span("A1", "Causes reversible AND understood AND ceased (90/70/50%)"),
+                               tooltip_span("A2", "Causes NOT ceased/understood/reversible (80/50/30%)"),
+                               tooltip_span("A3", "Projected future reduction"),
+                               tooltip_span("A4", "Includes past and future")
+                             ),
+                             choiceValues = c("A1", "A2", "A3", "A4"),
+                             selected = if(!is.na(res$Trend_Perc) && as.numeric(res$Trend_Perc) <= -30) "A2"
+          ),
           numericInput("manual_a_trend", "Manual %:", value = NA, min = 0, max = 100),
-          checkboxGroupInput("a_basis", "Basis:", inline = TRUE, choices = c("a","b","c","d","e"), selected = "b")
+          checkboxGroupInput("a_basis", "Basis:", inline = TRUE,
+                             choiceNames = list(
+                               tooltip_span("a", "Direct observation"),
+                               tooltip_span("b", "Index of abundance"),
+                               tooltip_span("c", "Decline in AOO/EOO/Habitat"),
+                               tooltip_span("d", "Exploitation"),
+                               tooltip_span("e", "Biotic effects")
+                             ),
+                             choiceValues = c("a","b","c","d","e"), selected = "b")
         )),
         column(4, wellPanel(
           h4("B. Geographic Range"),
           p(tags$small(paste0("EOO: ", base::format(res$EOO_km2, nsmall=1), " | AOO: ", base::format(res$AOO_km2, nsmall=1)))),
-          checkboxInput("check_loc", "a) Frag / Low Locs", value = (res$Locations <= 10)),
-          checkboxInput("check_b_decline", "b) Continuing Decline", value = (!is.na(res$Trend_Perc) && as.numeric(res$Trend_Perc) < 0)),
-
-          # AUTO-FILLED FLUCTUATION CHECKBOX
-          checkboxInput("check_b_fluct",
-                        tags$span(paste0("c) Extr. Fluctuations (", fluct_str, ")"),
-                                  title = "Max/Min > 10. Check manually for sampling bias!"),
-                        value = has_extreme_fluct)
+          checkboxInput("check_loc", tooltip_span("a) Frag / Low Locs", "Severely fragmented OR Locations ≤ 10 (VU), 5 (EN), 1 (CR)"), value = (res$Locations <= 10)),
+          checkboxInput("check_b_decline", tooltip_span("b) Continuing Decline", "Decline in EOO, AOO, Habitat, Locations, or Individuals"), value = (!is.na(res$Trend_Perc) && as.numeric(res$Trend_Perc) < 0)),
+          checkboxInput("check_b_fluct", tooltip_span(paste0("c) Extr. Fluctuations (", fluct_str, ")"), "Max/Min > 10. Check manually!"), value = has_extreme_fluct)
         )),
         column(4, wellPanel(
           h4("C. Small Pop & Decline"),
           p(tags$small(paste0("Est. Mature: ", pop_str))),
           numericInput("pop_size_c", "Mature Individuals:", value = pop$total_mature, min = 0),
-          checkboxInput("check_c1", "C1. Decline", value = (!is.na(pop$decline_rate) && pop$decline_rate <= -10)),
-
-          # AUTO-FILLED C2 CHECKBOX (Fluctuations part of C2b)
-          checkboxInput("check_c2", "C2. Subpops/Fluct.", value = has_extreme_fluct),
-
+          checkboxInput("check_c1", tooltip_span("C1. Decline", ">10% (VU), >20% (EN), >25% (CR) in 3gen/10yr"), value = (!is.na(pop$decline_rate) && pop$decline_rate <= -10)),
+          checkboxInput("check_c2", tooltip_span("C2. Subpops/Fluct.", "Small subpopulations or % in one subpop or fluctuations"), value = has_extreme_fluct),
           if(!input$use_pop) p(style="color:red; font-size:0.8em;", "Pop. criteria disabled.")
         ))
       ),
@@ -188,7 +207,8 @@ server <- function(input, output, session) {
           h4("D. Very Small/Restricted"),
           numericInput("pop_size_d1", "D1 Mature:", value = pop$total_mature, min = 0),
           hr(),
-          checkboxInput("check_d2", "D2. Restricted (VU)", value = (res$AOO_km2 < 20 || res$Locations <= 5))
+          checkboxInput("check_d2", tooltip_span("D2. Restricted (VU)", "AOO < 20 km² or Locations ≤ 5"), value = (res$AOO_km2 < 20 || res$Locations <= 5)),
+          if(!input$use_pop) p(style="color:red; font-size:0.8em;", "D1 currently disabled in settings.")
         )),
         column(4, wellPanel(
           h4("E. Quantitative"),
