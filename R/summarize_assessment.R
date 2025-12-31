@@ -1,83 +1,115 @@
-#' Summarize Assessment with IUCN Labeling and Flags
+#' Summarize Assessment with Strict IUCN Cascade Logic
+#'
+#' Applies strict "2 of 3" subcriteria rules for Criterion B and integrates
+#' population metrics for D2 and Criterion B(c) fluctuations.
+#'
+#' @param species Character string. Species name.
+#' @param eoo List containing `area_km2`.
+#' @param aoo List containing `area_km2`.
+#' @param trend List containing `percent_change`.
+#' @param locations Numeric. Number of locations.
+#' @param pop_metrics List containing `decline_rate` and `fluct_ratio`.
+#' @return A data frame with the automated category and criteria.
 #' @export
-summarize_assessment <- function(species, eoo, aoo, trend, locations) {
+summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics) {
 
-  # 1. Evaluate B1 (EOO) and B2 (AOO) thresholds
-  cat_b1 <- dplyr::case_when(
-    eoo$area_km2 < 100 ~ "CR",
-    eoo$area_km2 < 5000 ~ "EN",
-    eoo$area_km2 < 20000 ~ "VU",
-    TRUE ~ "LC"
-  )
+  eoo_val <- eoo$area_km2
+  aoo_val <- aoo$area_km2
+  locs_val <- locations
 
-  cat_b2 <- dplyr::case_when(
-    aoo$area_km2 < 10 ~ "CR",
-    aoo$area_km2 < 500 ~ "EN",
-    aoo$area_km2 < 2000 ~ "VU",
-    TRUE ~ "LC"
-  )
+  # Safe numeric conversions for binary flags
+  # Using suppressWarnings to handle cases where input might be "NA" string
+  trend_val <- suppressWarnings(as.numeric(trend$percent_change))
+  pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
+  fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
 
-  # 2. Check for "Continuing Decline" (Criterion b)
-  # We use the trend slope as a proxy for 'b(ii)' (decline in AOO)
-  has_decline <- !is.na(trend$percent_change) && trend$percent_change < 0
+  # Determine active sub-criteria flags (Binary)
+  # b: Continuing Decline (either AOO/EOO trend or Pop trend)
+  has_decline <- (!is.na(trend_val) && trend_val < 0) ||
+    (!is.na(pop_decline) && pop_decline < 0)
 
-  # 3. Build Criterion B Strings
-  # Note: IUCN requires (a) AND (b) to be met for B
-  crit_parts <- c()
+  # c: Extreme Fluctuations (> 10x)
+  has_fluct <- (!is.na(fluct_ratio) && fluct_ratio > 10)
 
-  if (cat_b1 != "LC" && locations <= 10) {
-    decline_code <- if(has_decline) "b(ii)" else ""
-    crit_parts <- c(crit_parts, paste0("B1a", decline_code))
+  # --- CASCADE LOGIC ---
+  # Internal function to evaluate B1 (EOO) or B2 (AOO) levels
+  evaluate_b <- function(area_val, type) {
+    t_cr <- if(type=="B1") 100 else 10
+    t_en <- if(type=="B1") 5000 else 500
+    t_vu <- if(type=="B1") 20000 else 2000
+
+    # Check CR
+    if (area_val < t_cr) {
+      met_a <- (locs_val == 1)
+      # Must meet 2 of 3: (a) Locs, (b) Decline, (c) Fluctuation
+      if (sum(met_a, has_decline, has_fluct) >= 2) {
+        code <- paste0(type, if(met_a)"a"else"", if(has_decline)"b(ii)"else"", if(has_fluct)"c"else"")
+        return(list(cat="CR", code=code))
+      }
+    }
+    # Check EN
+    if (area_val < t_en) {
+      met_a <- (locs_val <= 5)
+      if (sum(met_a, has_decline, has_fluct) >= 2) {
+        code <- paste0(type, if(met_a)"a"else"", if(has_decline)"b(ii)"else"", if(has_fluct)"c"else"")
+        return(list(cat="EN", code=code))
+      }
+    }
+    # Check VU
+    if (area_val < t_vu) {
+      met_a <- (locs_val <= 10)
+      if (sum(met_a, has_decline, has_fluct) >= 2) {
+        code <- paste0(type, if(met_a)"a"else"", if(has_decline)"b(ii)"else"", if(has_fluct)"c"else"")
+        return(list(cat="VU", code=code))
+      }
+    }
+    return(list(cat="LC", code=""))
   }
 
-  if (cat_b2 != "LC" && locations <= 10) {
-    decline_code <- if(has_decline) "b(ii)" else ""
-    crit_parts <- c(crit_parts, paste0("B2a", decline_code))
+  b1_res <- evaluate_b(eoo_val, "B1")
+  b2_res <- evaluate_b(aoo_val, "B2")
+
+  # Rank and Select Highest Category
+  cats <- c("LC", "NT", "VU", "EN", "CR")
+  get_rank <- function(x) match(x, cats)
+
+  final_cat <- "LC"
+  final_crit <- c()
+
+  # Apply B1
+  if (get_rank(b1_res$cat) > get_rank(final_cat)) {
+    final_cat <- b1_res$cat
+    final_crit <- c(b1_res$code)
   }
 
-  # 4. Criterion D2 (Very restricted range/locations)
-  cat_d <- "LC"
-  if (aoo$area_km2 < 20 || locations <= 5) {
-    cat_d <- "VU"
-    crit_parts <- c(crit_parts, "D2")
+  # Apply B2
+  if (get_rank(b2_res$cat) > get_rank(final_cat)) {
+    final_cat <- b2_res$cat
+    final_crit <- c(b2_res$code)
+  } else if (get_rank(b2_res$cat) == get_rank(final_cat) && b2_res$cat != "LC") {
+    final_crit <- c(final_crit, b2_res$code)
   }
 
-  # 5. Criterion A Flagging (Expert confirmation required)
-  a_flag <- "None"
-  if (!is.na(trend$percent_change)) {
-    a_flag <- dplyr::case_when(
-      trend$percent_change <= -80 ~ "Potentially CR (A2)",
-      trend$percent_change <= -50 ~ "Potentially EN (A2)",
-      trend$percent_change <= -30 ~ "Potentially VU (A2)",
-      TRUE ~ "None"
-    )
+  # Apply D2 Criteria (Only valid if category is VU or lower)
+  is_d2 <- (aoo_val < 20 || locs_val <= 5)
+  if (is_d2) {
+    if (get_rank(final_cat) < get_rank("VU")) {
+      final_cat <- "VU"
+      final_crit <- c("D2")
+    } else if (final_cat == "VU") {
+      final_crit <- c(final_crit, "D2")
+    }
   }
 
-  # 6. Final Category Determination (Hierarchical)
-  cat_levels <- c("LC", "VU", "EN", "CR")
-  # Filter only the categories triggered by Criterion B or D
-  triggered_cats <- c(
-    if(locations <= 10) cat_b1,
-    if(locations <= 10) cat_b2,
-    cat_d
-  )
-
-  final_cat <- if(length(triggered_cats) > 0) {
-    cat_levels[max(match(triggered_cats, cat_levels))]
-  } else {
-    "LC"
-  }
-
-  # Final result data frame
   return(data.frame(
     Species = species,
     Category = final_cat,
-    Criteria = paste(unique(crit_parts), collapse = "; "),
-    EOO_km2 = round(eoo$area_km2, 2),
-    AOO_km2 = round(aoo$area_km2, 2),
+    Criteria = paste(unique(final_crit), collapse = "; "),
+    EOO_km2 = round(eoo_val, 2),
+    AOO_km2 = round(aoo_val, 2),
     Locations = locations,
     Trend_Perc = ifelse(is.na(trend$percent_change), "NA", round(trend$percent_change, 1)),
-    Flags = a_flag,
+    Flags = "None",
     stringsAsFactors = FALSE
   ))
 }
