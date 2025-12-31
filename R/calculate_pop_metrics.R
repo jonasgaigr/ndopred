@@ -1,9 +1,12 @@
 #' Calculate Population Metrics for IUCN Criterion C/D
-#' Handles missing ROK column, maps NAZ_LOKAL, sums sexes, and DETECTS FLUCTUATIONS.
 #'
-#' @param occ_data Dataframe of occurrences
-#' @param window_years Number of recent years to consider
-#' @return List with total_mature, decline_rate, max_subpop, and fluctuation_ratio
+#' Handles missing ROK column, maps NAZ_LOKAL, correctly sums sexes (Males + Females vs Total),
+#' and detects extreme fluctuations.
+#'
+#' @param occ_data Dataframe or sf object of occurrences.
+#' @param window_years Number of recent years to consider.
+#' @return A list with total_mature, decline_rate, max_subpop, and fluct_ratio.
+#' @export
 calculate_pop_metrics <- function(occ_data, window_years = 10) {
 
   # 1. Standardize Data Structure
@@ -105,7 +108,6 @@ calculate_pop_metrics <- function(occ_data, window_years = 10) {
 
   # --- FLUCTUATION CALCULATION ---
   # Ratio of Max Year to Min Year
-  # We require at least 3 years of data to judge "fluctuation" vs just "two points"
   fluct_ratio <- NA
   if (nrow(yearly_totals) >= 3) {
     min_val <- min(yearly_totals$total_year)
@@ -114,8 +116,7 @@ calculate_pop_metrics <- function(occ_data, window_years = 10) {
     if (min_val > 0) {
       fluct_ratio <- max_val / min_val
     } else {
-      # If min is 0 but max is significant, it's effectively infinite fluctuation
-      # We just set it to a high number if max > 0
+      # If min is 0 but max is significant, set high ratio
       fluct_ratio <- if(max_val > 0) 999 else 1
     }
   }
