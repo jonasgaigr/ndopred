@@ -1,5 +1,10 @@
 #' Get List of Mature Life Stages
-#' Based on user-provided NDOP options
+#'
+#' Defines the specific terms from NDOP that represent reproductive capability
+#' for both animals and plants.
+#'
+#' @return A character vector of terms.
+#' @export
 get_mature_terms <- function() {
   c(
     # --- ANIMALS ---
