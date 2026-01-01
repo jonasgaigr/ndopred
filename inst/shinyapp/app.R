@@ -11,7 +11,6 @@ library(shinythemes)
 ui <- fluidPage(
   theme = shinythemes::shinytheme("flatly"),
 
-  # Initialize Bootstrap Tooltips
   tags$head(
     tags$script(HTML("
       $(function () {
@@ -67,7 +66,6 @@ ui <- fluidPage(
 # ------------------------------------------------------------------------------
 server <- function(input, output, session) {
 
-  # --- 1. HELPER FUNCTIONS ---
   get_cat_rank <- function(cat) match(cat, c("DD", "LC", "NT", "VU", "EN", "CR", "RE", "EX"))
   get_pop_groups <- function() c("Ryby a mihule", "Obojživelníci", "Plazi", "Ptáci", "Letouni", "Savci", "Cévnaté rostliny")
 
@@ -83,13 +81,11 @@ server <- function(input, output, session) {
     return(obj)
   }
 
-  # --- 2. REACTIVE STATE (Expert Overrides) ---
+  # --- 2. REACTIVE STATE ---
   rv <- reactiveValues(
     a_type = character(0), a_basis = "b", manual_trend = NA,
     loc = FALSE, b_subs = character(0), c_subs = character(0),
-    pop_c = NA,
-    # Expanded C State
-    c1 = FALSE, c2_ai = FALSE, c2_aii = FALSE, c2_b = FALSE,
+    pop_c = NA, c1 = FALSE, c2_ai = FALSE, c2_aii = FALSE, c2_b = FALSE,
     pop_d1 = NA, d2 = FALSE,
     e_cat = "None"
   )
@@ -139,14 +135,19 @@ server <- function(input, output, session) {
     req(raw_data())
     data <- raw_data()
 
+    # 1. Detect Pop Group FIRST
+    is_pop <- data$taxon_group %in% get_pop_groups()
+
+    # 2. Update Toggle UI
+    updateCheckboxInput(session, "use_pop", value = is_pop)
+
+    # 3. Summarize with explicit evaluate_pop flag
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
     summary_obj <- ndopred::summarize_assessment(
       species = data$species, eoo = data$eoo, aoo = data$aoo, trend = data$trend,
-      locations = locs_numeric, pop_metrics = data$pop
+      locations = locs_numeric, pop_metrics = data$pop,
+      evaluate_pop = is_pop # <--- CRITICAL FIX: Pass initial state
     )
-
-    is_pop <- data$taxon_group %in% get_pop_groups()
-    updateCheckboxInput(session, "use_pop", value = is_pop)
 
     dets <- summary_obj$details
     rv$a_type <- dets$a_type
@@ -154,17 +155,9 @@ server <- function(input, output, session) {
     rv$a_basis <- if(length(dets$a_basis) > 0) dets$a_basis else "b"
     rv$loc <- dets$loc_flag
 
-    # Strict Filter
-    b_init <- dets$b_indices
-    c_init <- dets$c_indices
-    if (!is_pop) {
-      b_init <- setdiff(b_init, "v")
-      c_init <- setdiff(c_init, "iv")
-    }
-    rv$b_subs <- b_init
-    rv$c_subs <- c_init
+    rv$b_subs <- dets$b_indices
+    rv$c_subs <- dets$c_indices
 
-    # C Criterion Sync
     rv$pop_c <- data$pop$total_mature
     rv$c1     <- as.logical(dets$c1)
     rv$c2_ai  <- as.logical(dets$c2_ai)
@@ -177,15 +170,14 @@ server <- function(input, output, session) {
   })
 
   # --- 5. UI INPUT OBSERVERS ---
-  observeEvent(input$check_a_type, { rv$a_type <- input$check_a_type }, ignoreNULL = FALSE)
-  observeEvent(input$manual_a_trend, { rv$manual_trend <- input$manual_a_trend }, ignoreNULL = FALSE)
-  observeEvent(input$a_basis, { rv$a_basis <- input$a_basis }, ignoreNULL = FALSE)
+  observeEvent(input$check_a_type, { rv$a_type <- input$check_a_type }, ignoreNULL=F)
+  observeEvent(input$manual_a_trend, { rv$manual_trend <- input$manual_a_trend }, ignoreNULL=F)
+  observeEvent(input$a_basis, { rv$a_basis <- input$a_basis }, ignoreNULL=F)
   observeEvent(input$check_loc, { rv$loc <- input$check_loc })
-  observeEvent(input$check_b_subs, { rv$b_subs <- input$check_b_subs }, ignoreNULL = FALSE)
-  observeEvent(input$check_c_subs, { rv$c_subs <- input$check_c_subs }, ignoreNULL = FALSE)
+  observeEvent(input$check_b_subs, { rv$b_subs <- input$check_b_subs }, ignoreNULL=F)
+  observeEvent(input$check_c_subs, { rv$c_subs <- input$check_c_subs }, ignoreNULL=F)
 
   observeEvent(input$pop_size_c, { rv$pop_c <- input$pop_size_c })
-  # C-Observers
   observeEvent(input$check_c1, { rv$c1 <- input$check_c1 })
   observeEvent(input$check_c2_ai, { rv$c2_ai <- input$check_c2_ai })
   observeEvent(input$check_c2_aii, { rv$c2_aii <- input$check_c2_aii })
@@ -207,86 +199,33 @@ server <- function(input, output, session) {
 
   # --- 7. AUTOMATED RESULTS DISPLAY ---
   assessment_display <- reactive({
-    data <- raw_data()
-    if (is.null(data)) return(NULL)
-
+    data <- raw_data(); if (is.null(data)) return(NULL)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
+
+    # PASS INPUT TOGGLE TO SUMMARY
     sum_obj <- ndopred::summarize_assessment(
       species = data$species, eoo = data$eoo, aoo = data$aoo, trend = data$trend,
-      locations = locs_numeric, pop_metrics = data$pop
+      locations = locs_numeric, pop_metrics = data$pop,
+      evaluate_pop = input$use_pop # <--- CRITICAL FIX: React to user toggle
     )
-    res <- sum_obj$result
-    dets <- sum_obj$details
-
-    # Logic to build "Automated" string based on toggle
-    # B Criteria re-calc
-    b_inds <- get_active_indices(dets$b_indices, "decline")
-    c_inds <- get_active_indices(dets$c_indices, "fluct")
-    has_b <- length(b_inds) > 0; has_c <- length(c_inds) > 0; has_a <- dets$loc_flag
-
-    recalc_b <- function(area, type) {
-      t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
-      curr_cat <- "LC"
-      if (!is.na(area)) {
-        if (area < t_cr) curr_cat <- "CR" else if (area < t_en) curr_cat <- "EN" else if (area < t_vu) curr_cat <- "VU"
-      }
-      if (curr_cat != "LC" && sum(has_a, has_b, has_c) >= 2) {
-        sub_str <- paste0(if(has_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_inds),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_inds),collapse=","),")")else"")
-        return(list(cat=curr_cat, code=paste0(type, sub_str)))
-      }
-      return(list(cat="LC", code=""))
-    }
-    b1 <- recalc_b(data$eoo$area_km2, "B1"); b2 <- recalc_b(data$aoo$area_km2, "B2")
-
-    cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
-    final_cat <- "LC"; final_crit <- c()
-
-    # A (Keep from summary)
-    # B (Recalculated)
-    if (get_rank(b1$cat) > get_rank(final_cat)) { final_cat <- b1$cat; final_crit <- c(b1$code) }
-    if (get_rank(b2$cat) > get_rank(final_cat)) { final_cat <- b2$cat; final_crit <- c(b2$code) }
-    else if (get_rank(b2$cat) == get_rank(final_cat) && b2$cat != "LC") final_crit <- c(final_crit, b2$code)
-
-    # C (Only if Pop ON)
-    if (input$use_pop && !is.na(data$pop$total_mature)) {
-      # Since we don't have C recalc logic here, we check if raw result has C and append it
-      # Caveat: This assumes raw C logic in summary is correct (it is)
-      if (grepl("C", res$Criteria)) {
-        # Ideally we parse, but let's assume if it exists in raw, it's valid when Pop is ON
-        # We need to extract the C part.
-        c_match <- regmatches(res$Criteria, regexpr("C[12ab(i)]+", res$Criteria))
-        if(length(c_match)>0) {
-          # Simple logic: if C-cat > final_cat, replace.
-          # This is a simplification for display.
-          # For 100% accuracy, we should replicate evaluate_c here.
-        }
-      }
-    }
-
-    # Fallback: Just return raw res if pop is ON, otherwise stripped B.
-    # The summary function actually returns a pretty good string, let's just use it
-    # but strip B components if pop is OFF.
+    res <- sum_obj$result; dets <- sum_obj$details
 
     return(list(res=res, dets=dets, data=data))
   })
 
   # --- 8. EXPERT FINAL VERDICT ---
   expert_final <- reactive({
-    req(raw_data())
-    data <- raw_data()
+    req(raw_data()); data <- raw_data()
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
-    # A. Reduction
     cat_A <- "LC"; code_A <- ""
     if (!is.na(tr_val) && length(rv$a_type) > 0) {
-      cat_A <- if("A1" %in% rv$a_type) dplyr::case_when(tr_val>=90~"CR", tr_val>=70~"EN", tr_val>=50~"VU", TRUE~"LC")
-      else dplyr::case_when(tr_val>=80~"CR", tr_val>=50~"EN", tr_val>=30~"VU", TRUE~"LC")
+      cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(tr_val>=90~"CR", tr_val>=70~"EN", tr_val>=50~"VU", TRUE~"LC") else dplyr::case_when(tr_val>=80~"CR", tr_val>=50~"EN", tr_val>=30~"VU", TRUE~"LC")
       if (cat_A != "LC") code_A <- paste0(rv$a_type[1], paste(sort(unique(rv$a_basis)), collapse=""))
     }
 
-    # B. Geographic Range
     b_valid <- get_active_indices(rv$b_subs, "decline"); c_valid <- get_active_indices(rv$c_subs, "fluct")
     has_b <- (length(b_valid) > 0); has_c <- (length(c_valid) > 0)
 
@@ -302,45 +241,24 @@ server <- function(input, output, session) {
     }
     res_b1 <- eval_b(eoo_v, "B1"); res_b2 <- eval_b(aoo_v, "B2")
 
-    # C. Small Population (Hierarchy)
     cat_C <- "LC"; code_C <- ""
     if (input$use_pop && !is.na(rv$pop_c)) {
-      # Evaluation Hierarchy: CR > EN > VU
-      eval_c_hier <- function(t_pop, t_c1, t_ai) {
+      eval_c <- function(t_pop, t_c1, t_sub) {
         if (rv$pop_c < t_pop) {
-          # C1
-          if (rv$c1) return(list(met=TRUE, type="1")) # Note: Expert just ticks 'decline', implied it meets rate?
-          # C2
+          if (rv$c1) return(list(met=TRUE, type="1"))
           if (rv$c2_ai || rv$c2_aii || rv$c2_b) {
-            # In strict expert mode, we rely on the checkbox being TRUE implies the condition is met
-            # Check 2a(i): subpop size. This is implicit in the checkbox being ticked by expert
-            flags <- c()
-            if(rv$c2_ai) flags<-c(flags, "a(i)")
-            if(rv$c2_aii) flags<-c(flags, "a(ii)")
-            if(rv$c2_b) flags<-c(flags, "b")
+            flags <- c(); if(rv$c2_ai) flags<-c(flags,"a(i)"); if(rv$c2_aii) flags<-c(flags,"a(ii)"); if(rv$c2_b) flags<-c(flags,"b")
             return(list(met=TRUE, type=paste0("2", paste(flags, collapse=""))))
           }
         }
         return(list(met=FALSE))
       }
-
-      # CR
-      r_cr <- eval_c_hier(250, NA, 50) # Thresholds implicit in expert judgment or calc?
-      # To fully automate expert override, we assume if they checked 'C1' and Pop < 250, it is C1-CR.
-      if (r_cr$met) { cat_C<-"CR"; code_C<-paste0("C", r_cr$type) }
-      else {
-        # EN
-        r_en <- eval_c_hier(2500, NA, 250)
-        if (r_en$met) { cat_C<-"EN"; code_C<-paste0("C", r_en$type) }
-        else {
-          # VU
-          r_vu <- eval_c_hier(10000, NA, 1000)
-          if (r_vu$met) { cat_C<-"VU"; code_C<-paste0("C", r_vu$type) }
-        }
-      }
+      r_cr <- eval_c(250, NA, NA); r_en <- eval_c(2500, NA, NA); r_vu <- eval_c(10000, NA, NA)
+      if(r_cr$met) { cat_C<-"CR"; code_C<-paste0("C", r_cr$type) }
+      else if(r_en$met) { cat_C<-"EN"; code_C<-paste0("C", r_en$type) }
+      else if(r_vu$met) { cat_C<-"VU"; code_C<-paste0("C", r_vu$type) }
     }
 
-    # D & E
     cat_D1 <- "LC"; code_D1 <- ""
     if (input$use_pop && !is.na(rv$pop_d1)) {
       cat_D1 <- dplyr::case_when(rv$pop_d1<50~"CR", rv$pop_d1<250~"EN", rv$pop_d1<1000~"VU", TRUE~"LC")
@@ -349,15 +267,13 @@ server <- function(input, output, session) {
     cat_D2 <- if(rv$d2) "VU" else "LC"; code_D2 <- if(rv$d2) "D2" else ""
     cat_E <- rv$e_cat; code_E <- if(cat_E!="None") "E" else ""; if (cat_E == "None") cat_E <- "LC"
 
-    # Rank & Return
-    rank_c <- c("LC", "NT", "VU", "EN", "CR"); get_r <- function(x) match(x, rank_c)
+    rank_c <- c("LC","NT","VU","EN","CR"); get_r <- function(x) match(x, rank_c)
     ranks <- c(get_r(cat_A), get_r(res_b1$cat), get_r(res_b2$cat), get_r(cat_C), get_r(cat_D1), get_r(cat_E))
     max_rank <- max(ranks, na.rm=T)
     if (rv$d2 && max_rank <= get_r("VU")) max_rank <- max(max_rank, get_r("VU"))
 
     final_cat <- rank_c[max_rank]; final_codes <- c()
     add_code <- function(c_code, c_cat) { if (c_code != "" && get_r(c_cat) >= max_rank) return(c_code) else return(NULL) }
-
     final_codes <- c(final_codes, add_code(code_A, cat_A), add_code(res_b1$code, res_b1$cat), add_code(res_b2$code, res_b2$cat),
                      add_code(code_C, cat_C), add_code(code_D1, cat_D1), add_code(code_E, cat_E))
     if (code_D2 != "" && final_cat == "VU") final_codes <- c(final_codes, code_D2)
@@ -366,15 +282,10 @@ server <- function(input, output, session) {
   })
 
   # --- 9. UI OUTPUTS ---
-  output$map_plot <- renderPlot({
-    req(raw_data()); d <- raw_data()
-    tryCatch({ ndopred::plot_iucn(d$species, occ_data=d$occ_all, window=d$window_used) }, error = function(e) { plot(1,1,type="n"); text(1,1,"Map Error") })
-  })
+  output$map_plot <- renderPlot({ req(raw_data()); d<-raw_data(); tryCatch({ndopred::plot_iucn(d$species, occ_data=d$occ_all, window=d$window_used)}, error=function(e){plot(1,1,type="n");text(1,1,"Map Error")}) })
 
   output$verification_panel <- renderUI({
-    req(assessment_display())
-    res <- assessment_display()$res
-    data_raw <- raw_data()
+    req(assessment_display()); res <- assessment_display()$res; data_raw <- raw_data()
     t_val <- suppressWarnings(as.numeric(get_val(data_raw$trend, "percent_change")))
     auto_trend_txt <- if(!is.na(t_val)) paste0("Auto: ", round(t_val, 1), "%") else "Auto: NA"
 
@@ -382,12 +293,13 @@ server <- function(input, output, session) {
     lbl_b_v <- if(input$use_pop) tooltip_span("v", "Mature Individuals") else tags$span("v (Pop Only)", style=style_disabled)
     lbl_c_iv <- if(input$use_pop) tooltip_span("iv", "Mature Individuals") else tags$span("iv (Pop Only)", style=style_disabled)
 
-    # Tooltips
-    tip_c1 <- "Continuous decline > 10% (VU), 20% (EN), or 25% (CR) within 3 generations."
-    tip_c2 <- "Continuous decline observed, projected, or inferred."
-    tip_c2ai <- "Small subpopulations: < 50 (CR), < 250 (EN), < 1000 (VU) mature individuals."
-    tip_c2aii <- "One subpopulation contains 90-100% of all mature individuals."
-    tip_c2b <- "Extreme fluctuations in the number of mature individuals."
+    tip_c1 <- "Decline >= 10%(VU)/20%(EN)/25%(CR) in 3gen/10yr"
+    tip_c2 <- "Decline AND (Small Subs/Concentrated OR Fluctuations)"
+    tip_c2ai <- "Small subpopulations: < 50 (CR), < 250 (EN), < 1000 (VU)"
+    tip_c2aii <- "One subpopulation contains 90-100% of mature individuals"
+    tip_c2b <- "Extreme fluctuations in mature individuals"
+    tip_d1 <- "Mature < 1000 (VU), < 250 (EN), < 50 (CR)"
+    tip_d2 <- "AOO < 20 km2 or Locations <= 5"
 
     tagList(
       div(style="margin-bottom:15px; background:#f9f9f9; padding:10px; border-left: 5px solid #337ab7;",
@@ -407,7 +319,6 @@ server <- function(input, output, session) {
                             tags$div(style="margin-top:5px;", tags$label("c) Fluctuation:", style="font-weight:bold;"),
                                      checkboxGroupInput("check_c_subs", label=NULL, inline=T, choiceNames=list(tooltip_span("i","EOO"), tooltip_span("ii","AOO"), tooltip_span("iii","Locs"), lbl_c_iv), choiceValues=c("i","ii","iii","iv"), selected=rv$c_subs))
         )),
-
         column(4, wellPanel(h4("C. Small Pop"),
                             if(input$use_pop) tagList(
                               numericInput("pop_size_c", "Mature:", value=rv$pop_c),
@@ -422,18 +333,14 @@ server <- function(input, output, session) {
         )
       ),
       fluidRow(
-        column(4, wellPanel(h4("D. Very Small"), if(input$use_pop) numericInput("pop_size_d1", "D1 Mature:", value=rv$pop_d1) else div(style="color:#999;", "D1 Disabled"), checkboxInput("check_d2", "D2. Restricted", value=rv$d2))),
+        column(4, wellPanel(h4("D. Very Small"), if(input$use_pop) numericInput("pop_size_d1", "D1 Mature:", value=rv$pop_d1) else div(style="color:#999;", "D1 Disabled"), checkboxInput("check_d2", tooltip_span("D2. Restricted", tip_d2), value=rv$d2))),
         column(4, wellPanel(h4("E. Quantitative"), selectInput("check_e", "Extinction Prob:", choices=c("None","CR","EN","VU"), selected=rv$e_cat)))
       )
     )
   })
 
   output$live_category_ui <- renderUI({ exp<-expert_final(); div(style=paste0("background-color:", if(exp$category%in%c("CR","EN","VU"))"#f2dede" else "#dff0d8", "; padding:10px; border:1px solid #ccc; text-align:center;"), h2(exp$category, style="margin:0;"), p(tags$small(exp$criteria))) })
-
   output$status_ui <- renderUI({ res<-assessment_display()$res; div(style="background-color:#eee; padding:15px; border:1px solid;", h3(res$Category, style="margin-top:0;"), p(strong("Automated: "), res$Criteria)) })
-
-  output$metrics_table <- renderTable({ data<-assessment_display(); res<-data$res; pop<-data$data$pop; exp<-expert_final();
-  data.frame(Metric=c("Taxon","Expert Cat","Expert Crit","EOO","AOO","Locs","Mature","Fluct"), Value=c(res$Species, exp$category, exp$criteria, base::format(res$EOO_km2, nsmall=1), base::format(res$AOO_km2, nsmall=1), as.character(res$Locations), if(!is.na(pop$total_mature)) as.character(pop$total_mature) else "Unk", if(!is.na(pop$fluct_ratio)) paste0(pop$fluct_ratio,"x") else "-")) })
+  output$metrics_table <- renderTable({ data<-assessment_display(); res<-data$res; pop<-data$data$pop; exp<-expert_final(); data.frame(Metric=c("Taxon","Expert Cat","Expert Crit","EOO","AOO","Locs","Mature","Fluct"), Value=c(res$Species, exp$category, exp$criteria, base::format(res$EOO_km2, nsmall=1), base::format(res$AOO_km2, nsmall=1), as.character(res$Locations), if(!is.na(pop$total_mature)) as.character(pop$total_mature) else "Unk", if(!is.na(pop$fluct_ratio)) paste0(pop$fluct_ratio,"x") else "-")) })
 }
-
 shinyApp(ui, server)
