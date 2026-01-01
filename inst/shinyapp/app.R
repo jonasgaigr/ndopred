@@ -14,6 +14,7 @@ ui <- fluidPage(
       width = 3,
       textInput("species_name", "Species Name:", value = "Onthophagus medius"),
       numericInput("window", "Recent Window (Years):", value = 10),
+      numericInput("gen_length", "Generation Length (Years):", value = 1, min = 1),
       actionButton("run_calc", "Run Assessment", class = "btn-primary", style="width: 100%"),
       hr(),
       h4("Assessment Settings"),
