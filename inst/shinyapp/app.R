@@ -11,6 +11,7 @@ library(shinythemes)
 ui <- fluidPage(
   theme = shinythemes::shinytheme("flatly"),
 
+  # Initialize Bootstrap Tooltips
   tags$head(
     tags$script(HTML("
       $(function () {
@@ -144,21 +145,22 @@ server <- function(input, output, session) {
       locations = locs_numeric, pop_metrics = data$pop
     )
 
-    # 1. Detect Pop Group
+    # 1. Detect Pop Group and set Toggle
     is_pop <- data$taxon_group %in% get_pop_groups()
     updateCheckboxInput(session, "use_pop", value = is_pop)
 
-    # 2. Update Expert State from Details
+    # 2. Update Expert State
     dets <- summary_obj$details
     rv$a_type <- dets$a_type
     rv$manual_trend <- NA
-    rv$a_basis <- "b"
+
+    # Defaults for A-basis: use what was detected (b or c) or default to b if empty
+    rv$a_basis <- if(length(dets$a_basis) > 0) dets$a_basis else "b"
+
     rv$loc <- dets$loc_flag
 
-    # --- CRITICAL FIX: FILTER INDICES ON LOAD ---
-    # We strictly filter out 'v' and 'iv' from the expert state
-    # if the species is not in a pop group.
-
+    # --- CRITICAL FIX: STRICT FILTER ON LOAD ---
+    # Strip 'v' and 'iv' if pop criteria are not active
     b_init <- dets$b_indices
     c_init <- dets$c_indices
     if (!is_pop) {
@@ -179,6 +181,7 @@ server <- function(input, output, session) {
 
   # --- 5. LOGIC HELPERS ---
 
+  # Filter Indices helper
   get_active_indices <- function(indices, type="decline") {
     active <- indices
     if (!input$use_pop) {
@@ -189,14 +192,14 @@ server <- function(input, output, session) {
   }
 
   # --- 6. AUTOMATED RESULTS DISPLAY ---
-  # Re-calculates string for "Automated Results" box based on current Toggle state
+  # Re-evaluates final category for display based on current User Toggle
   assessment_display <- reactive({
     data <- raw_data()
     if (is.null(data)) return(NULL)
 
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
 
-    # Get raw object (contains ALL flags including i,ii,iii,v)
+    # Get raw object (contains ALL flags)
     sum_obj <- ndopred::summarize_assessment(
       species = data$species, eoo = data$eoo, aoo = data$aoo, trend = data$trend,
       locations = locs_numeric, pop_metrics = data$pop
@@ -204,10 +207,10 @@ server <- function(input, output, session) {
     res <- sum_obj$result
     dets <- sum_obj$details
 
-    # --- RECONSTRUCT AUTOMATED STRING BASED ON UI TOGGLE ---
+    # --- RECONSTRUCT AUTOMATED STRING ---
     final_crit <- character(0)
 
-    # 1. Filter indices based on toggle
+    # 1. Active Flags
     b_inds <- get_active_indices(dets$b_indices, "decline")
     c_inds <- get_active_indices(dets$c_indices, "fluct")
 
@@ -215,19 +218,16 @@ server <- function(input, output, session) {
     has_c <- length(c_inds) > 0
     has_a <- dets$loc_flag
 
-    # 2. Re-evaluate B-Criteria levels with filtered indices
+    # 2. Re-eval B
     recalc_b <- function(area, type) {
       t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
-
       curr_cat <- "LC"
       if (!is.na(area)) {
         if (area < t_cr) curr_cat <- "CR"
         else if (area < t_en) curr_cat <- "EN"
         else if (area < t_vu) curr_cat <- "VU"
       }
-
       if (curr_cat != "LC") {
-        # Check if 2 of 3 conditions are met (using FILTERED flags)
         if (sum(has_a, has_b, has_c) >= 2) {
           sub_str <- ""
           if (has_a) sub_str <- paste0(sub_str, "a")
@@ -242,24 +242,29 @@ server <- function(input, output, session) {
     b1_new <- recalc_b(data$eoo$area_km2, "B1")
     b2_new <- recalc_b(data$aoo$area_km2, "B2")
 
-    # 3. Determine Highest Category (Automated)
+    # 3. Aggregation
     cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
     final_cat <- "LC"
 
-    # Compare B1
     if (get_rank(b1_new$cat) > get_rank(final_cat)) { final_cat <- b1_new$cat; final_crit <- c(b1_new$code) }
 
-    # Compare B2
     if (get_rank(b2_new$cat) > get_rank(final_cat)) { final_cat <- b2_new$cat; final_crit <- c(b2_new$code) }
     else if (get_rank(b2_new$cat) == get_rank(final_cat) && b2_new$cat != "LC") { final_crit <- c(final_crit, b2_new$code) }
 
-    # D2 Check (Spatial only)
+    # A Criteria (Keep raw from summary, but check if it depends on Pop)
+    # If A was A2b (pop index) and use_pop is OFF, should we drop A?
+    # IUCN: If you don't use pop criteria, you might still use A if it's based on spatial (c).
+    # Since summarize_assessment separates A types, we can check.
+    # However, for simplicity and compliance, A usually stands independent of the C/D toggle.
+    # We will assume A is valid.
+
+    # Check D2 (Spatial)
     if (dets$d2_flag) {
       if (get_rank(final_cat) < get_rank("VU")) { final_cat <- "VU"; final_crit <- c("D2") }
       else if (final_cat == "VU") final_crit <- c(final_crit, "D2")
     }
 
-    # If using Pop, check D1
+    # Check D1 (Pop)
     if (input$use_pop && !is.na(data$pop$total_mature)) {
       mat <- data$pop$total_mature
       cat_d1 <- dplyr::case_when(mat < 50 ~ "CR", mat < 250 ~ "EN", mat < 1000 ~ "VU", TRUE ~ "LC")
@@ -270,7 +275,6 @@ server <- function(input, output, session) {
     str_out <- paste(unique(final_crit), collapse="; ")
     if(str_out == "") str_out <- "None"
 
-    # Update the display object
     res$Category <- final_cat
     res$Criteria <- str_out
 
@@ -295,7 +299,6 @@ server <- function(input, output, session) {
     }
 
     # B. Geographic Range
-    # Use filtered indices
     b_valid <- get_active_indices(rv$b_subs, "decline")
     c_valid <- get_active_indices(rv$c_subs, "fluct")
 
@@ -316,7 +319,6 @@ server <- function(input, output, session) {
         }
         return(NULL)
       }
-
       if (area < t_cr) { r <- check_level(); if(!is.null(r)) return(list(cat="CR", code=r)) }
       if (area < t_en) { r <- check_level(); if(!is.null(r)) return(list(cat="EN", code=r)) }
       if (area < t_vu) { r <- check_level(); if(!is.null(r)) return(list(cat="VU", code=r)) }
@@ -326,7 +328,7 @@ server <- function(input, output, session) {
     res_b1 <- eval_b_expert(eoo_v, "B1")
     res_b2 <- eval_b_expert(aoo_v, "B2")
 
-    # C, D, E Logic
+    # C, D, E
     cat_C <- "LC"; code_C <- ""
     cat_D1 <- "LC"; code_D1 <- ""
     if (input$use_pop) {
@@ -342,7 +344,7 @@ server <- function(input, output, session) {
     cat_D2 <- if(rv$d2) "VU" else "LC"; code_D2 <- if(rv$d2) "D2" else ""
     cat_E <- rv$e_cat; code_E <- if(cat_E!="None") "E" else ""; if (cat_E == "None") cat_E <- "LC"
 
-    # Rank
+    # Aggregate
     rank_c <- c("LC", "NT", "VU", "EN", "CR"); get_r <- function(x) match(x, rank_c)
     ranks <- c(get_r(cat_A), get_r(res_b1$cat), get_r(res_b2$cat), get_r(cat_C), get_r(cat_D1), get_r(cat_E))
     max_rank <- max(ranks, na.rm=T)
@@ -378,9 +380,10 @@ server <- function(input, output, session) {
     req(assessment_display())
     res <- assessment_display()$res
 
-    # VISUAL STYLING FOR DISABLED ELEMENTS
+    # VISUAL STYLING
     style_disabled <- "color: #999; text-decoration: line-through; cursor: not-allowed;"
 
+    # Restore Tooltips
     lbl_b_v <- if(input$use_pop) tooltip_span("v", "Mature Individuals") else tags$span("v (Pop Only)", style=style_disabled)
     lbl_c_iv <- if(input$use_pop) tooltip_span("iv", "Mature Individuals") else tags$span("iv (Pop Only)", style=style_disabled)
 
@@ -393,7 +396,9 @@ server <- function(input, output, session) {
         column(4, wellPanel(h4("A. Reduction"),
                             checkboxGroupInput("check_a_type", "Type:", inline=T, choices=c("A1","A2","A3","A4"), selected=rv$a_type),
                             numericInput("manual_a_trend", "Manual %:", value=rv$manual_trend),
-                            checkboxGroupInput("a_basis", "Basis:", inline=T, choices=c("a","b","c","d","e"), selected=rv$a_basis))),
+                            checkboxGroupInput("a_basis", "Basis:", inline=T,
+                                               choiceNames = list(tooltip_span("a","Direct Obs"), tooltip_span("b","Index"), tooltip_span("c","Decline AOO/EOO"), tooltip_span("d","Exploitation"), tooltip_span("e","Introduced")),
+                                               choiceValues = c("a","b","c","d","e"), selected=rv$a_basis))),
 
         column(4, wellPanel(h4("B. Geographic Range"),
                             p(tags$small(paste0("EOO: ", base::format(res$EOO_km2, nsmall=1), " | AOO: ", base::format(res$AOO_km2, nsmall=1)))),
