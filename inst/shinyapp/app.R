@@ -69,9 +69,11 @@ server <- function(input, output, session) {
     y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
+    # *** FIXED TYPO HERE (sum_obj vs summary_obj) ***
     sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
 
-    dets <- summary_obj$details
+    dets <- sum_obj$details # <--- This line was causing the error
+
     rv$a_type <- dets$a_type; rv$manual_trend <- NA; rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"; rv$loc <- dets$loc_flag
     b_init <- dets$b_indices; c_init <- dets$c_indices
     if (!is_pop) { b_init <- setdiff(b_init, "v"); c_init <- setdiff(c_init, "iv") }
@@ -115,8 +117,6 @@ server <- function(input, output, session) {
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
     # 1. Global Presence Gate for Expert Logic
-    # If AOO=0 (and no manual trend provided indicating extant but unmapped), we skip A/B calc to avoid false CR.
-    # We assume if the expert manually inputs a trend, they believe the species exists.
     is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(rv$manual_trend))
 
     cat_A <- "LC"; code_A <- ""
@@ -130,7 +130,6 @@ server <- function(input, output, session) {
     has_b <- (length(b_valid) > 0); has_c <- (length(c_valid) > 0)
 
     eval_b <- function(area, type) {
-      # FIX: Force area > 0 to evaluate B
       if (!is.na(area) && area > 0) {
         t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
         met_a <- rv$loc
@@ -173,7 +172,6 @@ server <- function(input, output, session) {
       if (cat_D1 != "LC") code_D1 <- "D1"
     }
 
-    # D2 (Require Extant)
     cat_D2 <- "LC"; code_D2 <- ""
     if (is_extant && rv$d2) { cat_D2 <- "VU"; code_D2 <- "D2" }
 
@@ -192,7 +190,7 @@ server <- function(input, output, session) {
 
     # Fallback for Zero Data in Expert Mode (unless manual trend override)
     if (!is_extant && final_cat == "LC" && is.null(rv$manual_trend)) {
-      final_cat <- "DD" # Or RE if user checked RE/EX manually
+      final_cat <- "DD"
     }
 
     return(list(category = final_cat, criteria = paste(unique(final_codes), collapse = "; ")))
