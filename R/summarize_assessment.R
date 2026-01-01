@@ -1,6 +1,7 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
-#' Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
+#' Evaluates Criteria A-E, plus Pre-Assessment for RE/DD.
+#' FIX: Prevents CR/EN/VU assignment if species is absent (AOO=0).
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -20,7 +21,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
 
   # Check Regionally Extinct (RE)
-  # Condition: Last record is older than 50 years (IUCN "Time-Lag" heuristic)
   if (!is.na(year_last) && (current_year - year_last) > 50) {
     return(list(
       result = data.frame(
@@ -36,7 +36,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   }
 
   # Check Data Deficient (DD) - Global poverty
-  # Condition: Fewer than 3 records TOTAL (Insufficient for robust AOO/EOO/Trend)
   if (!is.na(n_records) && n_records < 3) {
     return(list(
       result = data.frame(
@@ -51,24 +50,17 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ))
   }
 
-  # --- START STANDARD ASSESSMENT ---
+  # --- SETUP VARIABLES ---
   eoo_val <- eoo$area_km2
   aoo_val <- aoo$area_km2
   locs_val <- locations
-
-  # Safe conversions
   trend_val <- suppressWarnings(as.numeric(trend$percent_change))
-
-  # Population Metrics
   pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
   fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
   total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
   max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
 
-  # DERIVED METRIC
-  prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
-    max_subpop / total_mature
-  } else { 0 }
+  prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) max_subpop/total_mature else 0
 
   # --- 1. DETECT FLAGS ---
   has_decline_any <- (!is.na(trend_val) && trend_val < 0)
@@ -86,13 +78,19 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   loc_flag <- (locs_val <= 10)
 
-  # --- 2. EVALUATE B CRITERIA (Modified for NT) ---
+  # *** GLOBAL GATE: IS SPECIES EXTANT IN WINDOW? ***
+  # If AOO is 0, we treat it as "Absent in window".
+  # This prevents A/B criteria from triggering on "0 < Threshold".
+  is_extant <- (!is.na(aoo_val) && aoo_val > 0)
+
+  # --- 2. EVALUATE B CRITERIA ---
   evaluate_b <- function(area_val, type) {
+    if (!is_extant) return(list(cat="LC", code="")) # Skip B if absent
+
     t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
     cat <- "LC"; code <- ""
 
-    # FIX: Require area > 0 to assess B (prevents 0 triggering CR)
-    if (!is.na(area_val) && area_val > 0) {
+    if (!is.na(area_val)) {
       if (area_val < t_cr)      { curr_cat <- "CR"; thresh_loc <- 1 }
       else if (area_val < t_en) { curr_cat <- "EN"; thresh_loc <- 5 }
       else if (area_val < t_vu) { curr_cat <- "VU"; thresh_loc <- 10 }
@@ -134,16 +132,19 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
 
-  cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
-  cat_a_pop <- "LC"
-  if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
+  # Only evaluate A if extant (prevents "100% decline to zero" from triggering CR for an extinct species)
+  if (is_extant) {
+    cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
+    cat_a_pop <- "LC"
+    if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
 
-  cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
+    cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
 
-  if (get_rank(cat_a_pop) >= get_rank(cat_a_spatial) && cat_a_pop != "LC") {
-    cat_A <- cat_a_pop; a_type <- "A2"; a_basis <- "b"; code_A <- "A2b"
-  } else if (cat_a_spatial != "LC") {
-    cat_A <- cat_a_spatial; a_type <- "A2"; a_basis <- "c"; code_A <- "A2c"
+    if (get_rank(cat_a_pop) >= get_rank(cat_a_spatial) && cat_a_pop != "LC") {
+      cat_A <- cat_a_pop; a_type <- "A2"; a_basis <- "b"; code_A <- "A2b"
+    } else if (cat_a_spatial != "LC") {
+      cat_A <- cat_a_spatial; a_type <- "A2"; a_basis <- "c"; code_A <- "A2c"
+    }
   }
 
   # --- 4. EVALUATE C CRITERIA ---
@@ -151,7 +152,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   c1_flag <- FALSE; c2_ai_flag <- FALSE; c2_aii_flag <- FALSE; c2_b_flag <- FALSE
 
   if (evaluate_pop && !is.na(total_mature)) {
-
     evaluate_c_level <- function(thresh_pop, thresh_c1_decline, thresh_subpop) {
       if (total_mature < thresh_pop) {
         if (!is.na(pop_decline) && abs(pop_decline) >= thresh_c1_decline) return(list(met=TRUE, type="1"))
@@ -212,9 +212,8 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat(b2_res$cat, b2_res$code)
   update_cat(cat_C, code_C)
 
-  # D2 Check (Spatial)
-  # FIX: Ensure AOO > 0. If AOO is 0, the species is absent in the window, not "restricted".
-  is_d2 <- (aoo_val > 0 && (aoo_val < 20 || locs_val <= 5))
+  # D2 Check - REQUIRES EXTANT
+  is_d2 <- (is_extant && (aoo_val < 20 || locs_val <= 5))
   d2_active <- FALSE
   if (is_d2) {
     if (get_rank(final_cat) < get_rank("VU")) { final_cat <- "VU"; final_crit <- c("D2"); d2_active <- TRUE }
@@ -223,7 +222,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   # D1 Check
   d1_active <- FALSE
-  if (evaluate_pop && !is.na(total_mature)) {
+  if (evaluate_pop && !is.na(total_mature) && total_mature > 0) { # Requires mature > 0
     if (total_mature < 50) cat_d1 <- "CR"
     else if (total_mature < 250) cat_d1 <- "EN"
     else if (total_mature < 1000) cat_d1 <- "VU"
@@ -235,11 +234,10 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # FIX: Catch-all for Zero Recent Data (AOO=0) but not RE (Last recorded < 50y)
-  # If we ended up as LC but there is no spatial data, it is DD.
-  if (final_cat == "LC" && aoo_val == 0) {
+  # *** CATCH-ALL: IF NOT EXTANT (AOO=0) AND NOT RE, THEN DD ***
+  if (!is_extant && final_cat == "LC") {
     final_cat <- "DD"
-    final_crit <- "No recent spatial data"
+    final_crit <- "Absent in recent window"
   }
 
   crit_string <- paste(unique(final_crit), collapse="; ")
