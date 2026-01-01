@@ -20,7 +20,8 @@ get_assessment_data <- function(species_name, year_start = NULL) {
   cleaned_sf <- raw_data %>%
     dplyr::filter(!is.na(X), !is.na(Y)) %>%
     dplyr::filter(NEGATIV == 0) %>%
-    dplyr::filter(KATASTR != "")
+    dplyr::filter(KATASTR != "") %>%
+    dplyr::filter(VEROH != 3 & VEROH != 9)
 
   # Handle case where filtering out negatives leaves 0 rows
   if (nrow(cleaned_sf) == 0) {
