@@ -20,7 +20,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   # Safe conversions
   trend_val <- suppressWarnings(as.numeric(trend$percent_change))
 
-  # Population Metrics (Matching keys from calculate_pop_metrics)
+  # Population Metrics
   pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
   fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
   total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
@@ -50,6 +50,9 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   c_indices_b <- character(0)
   if (has_fluct) c_indices_b <- c(c_indices_b, "iv") # For B criterion
 
+  # *** FIX: Define loc_flag (Locations <= 10 or Severe Frag) ***
+  loc_flag <- (locs_val <= 10)
+
   # --- 2. EVALUATE B CRITERIA (Geographic Range) ---
   evaluate_b <- function(area_val, type) {
     t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
@@ -62,11 +65,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
       else                      { curr_cat <- "LC"; thresh_loc <- 0 }
 
       if (curr_cat != "LC") {
-        met_a <- (locs_val <= thresh_loc)
-        if (sum(met_a, has_b_decline, has_fluct) >= 2) {
+        # Check specific threshold for this category
+        met_a_specific <- (locs_val <= thresh_loc)
+
+        if (sum(met_a_specific, has_b_decline, has_fluct) >= 2) {
           cat <- curr_cat
           sub_str <- ""
-          if (met_a) sub_str <- paste0(sub_str, "a")
+          if (met_a_specific) sub_str <- paste0(sub_str, "a")
           if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
           if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
           code <- paste0(type, sub_str)
@@ -122,7 +127,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         # Check C2: Decline + (Structure OR Fluctuation)
         if (has_decline_any) {
           is_ai  <- (!is.na(max_subpop) && max_subpop <= thresh_subpop)
-          is_aii <- (!is.na(prop_largest) && prop_largest >= 0.95) # 95-100% in one subpop
+          is_aii <- (!is.na(prop_largest) && prop_largest >= 0.95)
           is_b   <- has_fluct
 
           if (is_ai || is_aii || is_b) {
@@ -138,21 +143,21 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
       return(list(met=FALSE))
     }
 
-    # Check CR (250 mature, 50 subpop)
+    # Check CR
     c_cr <- evaluate_c_level(250, 25, 50)
     if (c_cr$met) {
       cat_C <- "CR"; code_C <- paste0("C", c_cr$type)
       if(grepl("1", c_cr$type)) c1_flag <- TRUE
       if(!is.null(c_cr$flags)) { c2_ai_flag<-c_cr$flags['ai']; c2_aii_flag<-c_cr$flags['aii']; c2_b_flag<-c_cr$flags['b'] }
     } else {
-      # Check EN (2500 mature, 250 subpop)
+      # Check EN
       c_en <- evaluate_c_level(2500, 20, 250)
       if (c_en$met) {
         cat_C <- "EN"; code_C <- paste0("C", c_en$type)
         if(grepl("1", c_en$type)) c1_flag <- TRUE
         if(!is.null(c_en$flags)) { c2_ai_flag<-c_en$flags['ai']; c2_aii_flag<-c_en$flags['aii']; c2_b_flag<-c_en$flags['b'] }
       } else {
-        # Check VU (10000 mature, 1000 subpop)
+        # Check VU
         c_vu <- evaluate_c_level(10000, 10, 1000)
         if (c_vu$met) {
           cat_C <- "VU"; code_C <- paste0("C", c_vu$type)
@@ -189,7 +194,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     else if (final_cat == "VU") { final_crit <- c(final_crit, "D2"); d2_active <- TRUE }
   }
 
-  # D1 Check (Very Small Pop)
+  # D1 Check
   d1_active <- FALSE
   if (!is.na(total_mature)) {
     if (total_mature < 50) { cat_d1 <- "CR" }
@@ -214,7 +219,8 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ),
     details = list(
       a_type = a_type, a_basis = a_basis,
-      b_indices = b_indices, c_indices = c_indices_b, loc_flag = loc_flag,
+      b_indices = b_indices, c_indices = c_indices_b,
+      loc_flag = loc_flag,  # <--- FIXED: Now explicitly defined
       c1 = c1_flag, c2_ai = c2_ai_flag, c2_aii = c2_aii_flag, c2_b = c2_b_flag,
       d1_flag = d1_active, d2_flag = d2_active
     )
