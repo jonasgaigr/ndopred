@@ -80,6 +80,11 @@ result <- summarize_assessment(
 
 print(result$result)
 ```
+## 5. Run the R Shiny app
+```r
+ndopred::run_app()
+```
+
 ## 🛠 Project Structure
 R/: Core functions (calculate_eoo, summarize_assessment, etc.).
 
@@ -88,4 +93,4 @@ inst/shinyapp/: Source code for the Shiny dashboard.
 tests/: Unit tests for IUCN logic integrity.
 
 ## ⚠️ Status
-Version 0.1 (Experimental). Logic is compliant with IUCN Guidelines v15.1. Always validate automated results with expert opinion.
+Version 0.1.1 (Experimental). Logic is compliant with IUCN Guidelines v15.1. Always validate automated results with expert opinion.
