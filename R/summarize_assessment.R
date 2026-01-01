@@ -65,7 +65,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # *** FIX: Define Helper Globally (Moved out of 'if' block) ***
+  # Define Helper Globally (Moved out of 'if' block)
   cats <- c("LC", "NT", "VU", "EN", "CR")
   get_rank <- function(x) match(x, cats)
 
@@ -106,15 +106,16 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         cond_sum <- sum(met_a_specific, has_b_decline, has_fluct)
 
         if (cond_sum >= 2) {
+          # Standard Threatened logic
           cat <- curr_cat
-          sub_str <- ""
-          if (met_a_specific) sub_str <- paste0(sub_str, "a")
-          if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
-          if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
-          code <- paste0(type, sub_str)
+          # ... (existing code to build sub_str)
         } else if (cond_sum == 1) {
           cat <- "NT"
           code <- paste0(type, " (close)")
+        } else if (cond_sum == 0 && (curr_cat == "CR" || curr_cat == "EN")) {
+          # NEW: Section 10.1 - Restricted area but no current threats
+          cat <- "NT"
+          code <- paste0(type, " (restricted)")
         }
       }
     }
