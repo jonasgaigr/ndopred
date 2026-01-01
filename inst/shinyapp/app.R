@@ -48,13 +48,12 @@ server <- function(input, output, session) {
     withProgress(message = 'Accessing NDOP...', value = 0, {
       occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) NULL)
 
-      # *** FIX ISSUE 2: Handle 0 records gracefully for DD ***
+      # Handle 0 records gracefully for DD
       if (is.null(occ_raw) || nrow(occ_raw) == 0) {
-        # Return a safe empty structure instead of NULL so assessment proceeds to DD
         return(list(
           eoo=list(area_km2=NA), aoo=list(area_km2=NA), locs=NA,
           trend=list(percent_change=NA), pop=list(),
-          occ_all=data.frame(ROK=numeric(0)), # Empty DF
+          occ_all=data.frame(ROK=numeric(0)),
           taxon_group="Unknown", species=input$species_name, window_used=input$window
         ))
       }
@@ -78,7 +77,6 @@ server <- function(input, output, session) {
     updateCheckboxInput(session, "use_pop", value = is_pop)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
 
-    # Robust Year Last calculation (handle empty vector)
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
@@ -124,8 +122,7 @@ server <- function(input, output, session) {
 
     data <- raw_data()
 
-    # *** FIX ISSUE 1: Harmonize RE/DD Pre-Checks ***
-    # Copy exact logic from summarize_assessment to ensure expert default matches
+    # Harmonize RE/DD Pre-Checks
     current_year <- as.numeric(format(Sys.Date(), "%Y"))
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
@@ -139,7 +136,7 @@ server <- function(input, output, session) {
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
-    # 1. Global Presence Gate for Expert Logic
+    # Global Presence Gate for Expert Logic
     is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(rv$manual_trend))
 
     cat_A <- "LC"; code_A <- ""
@@ -211,8 +208,8 @@ server <- function(input, output, session) {
                      add_code(code_C, cat_C), add_code(code_D1, cat_D1), add_code(code_E, cat_E))
     if (code_D2 != "" && final_cat == "VU") final_codes <- c(final_codes, code_D2)
 
-    # *** FIX ISSUE 1: Harmonize Catch-All DD ***
-    if (!is_extant && final_cat == "LC" && is.null(rv$manual_trend)) {
+    # *** FIXED: Check is.na() instead of is.null() for initialization check ***
+    if (!is_extant && final_cat == "LC" && is.na(rv$manual_trend)) {
       final_cat <- "DD"
     }
 
