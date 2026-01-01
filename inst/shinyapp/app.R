@@ -66,12 +66,10 @@ server <- function(input, output, session) {
     is_pop <- data$taxon_group %in% get_pop_groups()
     updateCheckboxInput(session, "use_pop", value = is_pop)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
-
-    # Calculate pre-assessment metrics
     y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
-    summary_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
+    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
 
     dets <- summary_obj$details
     rv$a_type <- dets$a_type; rv$manual_trend <- NA; rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"; rv$loc <- dets$loc_flag
@@ -103,25 +101,26 @@ server <- function(input, output, session) {
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
     y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
-
     sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop, year_last=y_last, n_records=n_rec)
     return(list(res=sum_obj$result, dets=sum_obj$details, data=data))
   })
 
   expert_final <- reactive({
     req(raw_data());
-    # 0. Immediate Override Check
-    if (!is.null(rv$manual_cat) && rv$manual_cat != "None") {
-      return(list(category = rv$manual_cat, criteria = "Expert Override"))
-    }
+    if (!is.null(rv$manual_cat) && rv$manual_cat != "None") return(list(category = rv$manual_cat, criteria = "Expert Override"))
 
     data <- raw_data()
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
+    # 1. Global Presence Gate for Expert Logic
+    # If AOO=0 (and no manual trend provided indicating extant but unmapped), we skip A/B calc to avoid false CR.
+    # We assume if the expert manually inputs a trend, they believe the species exists.
+    is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(rv$manual_trend))
+
     cat_A <- "LC"; code_A <- ""
-    if (!is.na(tr_val) && length(rv$a_type) > 0) {
+    if (is_extant && !is.na(tr_val) && length(rv$a_type) > 0) {
       cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(tr_val>=90~"CR", tr_val>=70~"EN", tr_val>=50~"VU", tr_val>=20~"NT", TRUE~"LC") else dplyr::case_when(tr_val>=80~"CR", tr_val>=50~"EN", tr_val>=30~"VU", tr_val>=20~"NT", TRUE~"LC")
       if (cat_A != "LC" && cat_A != "NT") code_A <- paste0(rv$a_type[1], paste(sort(unique(rv$a_basis)), collapse=""))
     }
@@ -131,15 +130,18 @@ server <- function(input, output, session) {
     has_b <- (length(b_valid) > 0); has_c <- (length(c_valid) > 0)
 
     eval_b <- function(area, type) {
-      t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
-      met_a <- rv$loc
-      if (area < t_cr) curr="CR" else if(area < t_en) curr="EN" else if(area < t_vu) curr="VU" else curr="LC"
-      if (curr!="LC") {
-        cond_sum <- sum(met_a, has_b, has_c)
-        if (cond_sum >= 2) {
-          s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
-          return(list(cat=curr, code=paste0(type, s)))
-        } else if (cond_sum == 1) return(list(cat="NT", code=""))
+      # FIX: Force area > 0 to evaluate B
+      if (!is.na(area) && area > 0) {
+        t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
+        met_a <- rv$loc
+        if (area < t_cr) curr="CR" else if(area < t_en) curr="EN" else if(area < t_vu) curr="VU" else curr="LC"
+        if (curr!="LC") {
+          cond_sum <- sum(met_a, has_b, has_c)
+          if (cond_sum >= 2) {
+            s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
+            return(list(cat=curr, code=paste0(type, s)))
+          } else if (cond_sum == 1) return(list(cat="NT", code=""))
+        }
       }
       return(list(cat="LC", code=""))
     }
@@ -170,19 +172,28 @@ server <- function(input, output, session) {
       cat_D1 <- dplyr::case_when(rv$pop_d1<50~"CR", rv$pop_d1<250~"EN", rv$pop_d1<1000~"VU", TRUE~"LC")
       if (cat_D1 != "LC") code_D1 <- "D1"
     }
-    cat_D2 <- if(rv$d2) "VU" else "LC"; code_D2 <- if(rv$d2) "D2" else ""
+
+    # D2 (Require Extant)
+    cat_D2 <- "LC"; code_D2 <- ""
+    if (is_extant && rv$d2) { cat_D2 <- "VU"; code_D2 <- "D2" }
+
     cat_E <- rv$e_cat; code_E <- if(cat_E!="None") "E" else ""; if (cat_E == "None") cat_E <- "LC"
 
     rank_c <- c("LC","NT","VU","EN","CR"); get_r <- function(x) match(x, rank_c)
     ranks <- c(get_r(cat_A), get_r(res_b1$cat), get_r(res_b2$cat), get_r(cat_C), get_r(cat_D1), get_r(cat_E))
     max_rank <- max(ranks, na.rm=T)
-    if (rv$d2 && max_rank <= get_r("VU")) max_rank <- max(max_rank, get_r("VU"))
+    if (rv$d2 && max_rank <= get_r("VU") && is_extant) max_rank <- max(max_rank, get_r("VU"))
 
     final_cat <- rank_c[max_rank]; final_codes <- c()
     add_code <- function(c_code, c_cat) { if (c_code != "" && get_r(c_cat) >= max_rank) return(c_code) else return(NULL) }
     final_codes <- c(final_codes, add_code(code_A, cat_A), add_code(res_b1$code, res_b1$cat), add_code(res_b2$code, res_b2$cat),
                      add_code(code_C, cat_C), add_code(code_D1, cat_D1), add_code(code_E, cat_E))
     if (code_D2 != "" && final_cat == "VU") final_codes <- c(final_codes, code_D2)
+
+    # Fallback for Zero Data in Expert Mode (unless manual trend override)
+    if (!is_extant && final_cat == "LC" && is.null(rv$manual_trend)) {
+      final_cat <- "DD" # Or RE if user checked RE/EX manually
+    }
 
     return(list(category = final_cat, criteria = paste(unique(final_codes), collapse = "; ")))
   })
@@ -201,14 +212,10 @@ server <- function(input, output, session) {
     tagList(
       div(style="margin-bottom:15px; background:#f9f9f9; padding:10px; border-left: 5px solid #337ab7;",
           tags$small(strong("Automated Baseline:")), h4(paste0(res$Category, ": ", res$Criteria), style="margin-top:0; color:#337ab7;")),
-
-      # *** NEW: Manual Category Override ***
       div(style="margin-bottom:15px; border:1px solid #d6d6d6; padding:10px; background: #fff;",
           h5(strong("Force Category Override"), style="margin-top:0;"),
           selectInput("manual_cat_override", label=NULL, choices=c("None", "DD", "RE", "EW", "EX"), selected=rv$manual_cat, width="100%"),
-          p(tags$small("Select to strictly enforce DD/RE/EW/EX regardless of calculated metrics."), style="color:#777;")
-      ),
-
+          p(tags$small("Select to strictly enforce DD/RE/EW/EX regardless of calculated metrics."), style="color:#777;")),
       fluidRow(
         column(4, wellPanel(h4("A. Reduction"),
                             p(tags$small(strong(auto_trend_txt), style="color:#337ab7; margin-right:5px;"), "(Calculated)"),
