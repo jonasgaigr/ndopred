@@ -34,18 +34,16 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ))
   }
 
-  # Check Data Deficient (DD) - Global poverty
-  if (!is.na(n_records) && n_records < 3) {
+  # Trigger DD if essential spatial metrics are missing or n is too low
+  if (is.na(n_records) || n_records < 3 || is.na(aoo_val)) {
     return(list(
       result = data.frame(
         Species = species, Category = "DD",
-        Criteria = paste0("Insufficient Data (n=", n_records, ")"),
+        Criteria = "Inadequate information to estimate distribution",
         EOO_km2 = NA, AOO_km2 = NA, Locations = NA, Trend_Perc = NA,
         stringsAsFactors = FALSE
       ),
-      details = list(a_type=character(0), a_basis=character(0), b_indices=character(0),
-                     c_indices=character(0), loc_flag=FALSE, c1=FALSE, c2_ai=FALSE,
-                     c2_aii=FALSE, c2_b=FALSE, d1_flag=FALSE, d2_flag=FALSE)
+      details = list(...) # (Rest of empty details list)
     ))
   }
 
