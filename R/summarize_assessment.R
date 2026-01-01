@@ -1,6 +1,6 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
-#' Evaluates Criteria A, B, C, and D with NT implementation.
+#' Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -8,11 +8,50 @@
 #' @param trend List containing `percent_change`.
 #' @param locations Numeric. Number of locations.
 #' @param pop_metrics List containing `decline_rate`, `fluct_ratio`, `total_mature`, and `max_subpop`.
-#' @param evaluate_pop Logical. If FALSE, ignores Criteria C, D1, and pop-dependent subcriteria (v, iv, A2b).
+#' @param evaluate_pop Logical. If FALSE, ignores Criteria C, D1, and pop-dependent subcriteria.
+#' @param year_last Numeric. The most recent year observed in the dataset.
+#' @param n_records Numeric. Total number of records in the dataset.
 #' @return A list containing `result` (display dataframe) and `details` (boolean flags).
 #' @export
-summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics, evaluate_pop = TRUE) {
+summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics,
+                                 evaluate_pop = TRUE, year_last = NA, n_records = NA) {
 
+  # --- 0. PRE-ASSESSMENT CHECKS (RE & DD) ---
+  current_year <- as.numeric(format(Sys.Date(), "%Y"))
+
+  # Check Regionally Extinct (RE)
+  # Condition: Last record is older than 50 years (IUCN "Time-Lag" heuristic)
+  if (!is.na(year_last) && (current_year - year_last) > 50) {
+    return(list(
+      result = data.frame(
+        Species = species, Category = "RE",
+        Criteria = paste0("Last recorded: ", year_last),
+        EOO_km2 = NA, AOO_km2 = NA, Locations = NA, Trend_Perc = NA,
+        stringsAsFactors = FALSE
+      ),
+      details = list(a_type=character(0), a_basis=character(0), b_indices=character(0),
+                     c_indices=character(0), loc_flag=FALSE, c1=FALSE, c2_ai=FALSE,
+                     c2_aii=FALSE, c2_b=FALSE, d1_flag=FALSE, d2_flag=FALSE)
+    ))
+  }
+
+  # Check Data Deficient (DD)
+  # Condition: Fewer than 3 records (Insufficient for robust AOO/EOO/Trend)
+  if (!is.na(n_records) && n_records < 3) {
+    return(list(
+      result = data.frame(
+        Species = species, Category = "DD",
+        Criteria = paste0("Insufficient Data (n=", n_records, ")"),
+        EOO_km2 = NA, AOO_km2 = NA, Locations = NA, Trend_Perc = NA,
+        stringsAsFactors = FALSE
+      ),
+      details = list(a_type=character(0), a_basis=character(0), b_indices=character(0),
+                     c_indices=character(0), loc_flag=FALSE, c1=FALSE, c2_ai=FALSE,
+                     c2_aii=FALSE, c2_b=FALSE, d1_flag=FALSE, d2_flag=FALSE)
+    ))
+  }
+
+  # --- START STANDARD ASSESSMENT ---
   eoo_val <- eoo$area_km2
   aoo_val <- aoo$area_km2
   locs_val <- locations
@@ -62,7 +101,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         met_a_specific <- (locs_val <= thresh_loc)
         cond_sum <- sum(met_a_specific, has_b_decline, has_fluct)
 
-        # VU/EN/CR requires 2 of 3 conditions
         if (cond_sum >= 2) {
           cat <- curr_cat
           sub_str <- ""
@@ -70,9 +108,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
           if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
           if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
           code <- paste0(type, sub_str)
-        }
-        # NT Logic: Meets Area threshold but only 1 condition
-        else if (cond_sum == 1) {
+        } else if (cond_sum == 1) {
           cat <- "NT"
           code <- paste0(type, " (close)")
         }
@@ -91,7 +127,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     if (val >= 80) return("CR")
     if (val >= 50) return("EN")
     if (val >= 30) return("VU")
-    if (val >= 20) return("NT") # Added NT check
+    if (val >= 20) return("NT")
     return("LC")
   }
 
@@ -132,34 +168,30 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
             return(list(met=TRUE, type=paste0("2", code_parts), flags=c(ai=is_ai, aii=is_aii, b=is_b)))
           }
         }
-        # If population is small enough for this category but fails C1/C2 checks, it's potentially NT
         return(list(met=FALSE, near=TRUE))
       }
       return(list(met=FALSE, near=FALSE))
     }
 
-    # Check CR
+    # Check CR/EN/VU
     c_cr <- evaluate_c_level(250, 25, 50)
     if (c_cr$met) {
       cat_C <- "CR"; code_C <- paste0("C", c_cr$type)
       if(grepl("1", c_cr$type)) c1_flag <- TRUE
       if(!is.null(c_cr$flags)) { c2_ai_flag<-c_cr$flags['ai']; c2_aii_flag<-c_cr$flags['aii']; c2_b_flag<-c_cr$flags['b'] }
     } else {
-      # Check EN
       c_en <- evaluate_c_level(2500, 20, 250)
       if (c_en$met) {
         cat_C <- "EN"; code_C <- paste0("C", c_en$type)
         if(grepl("1", c_en$type)) c1_flag <- TRUE
         if(!is.null(c_en$flags)) { c2_ai_flag<-c_en$flags['ai']; c2_aii_flag<-c_en$flags['aii']; c2_b_flag<-c_en$flags['b'] }
       } else {
-        # Check VU
         c_vu <- evaluate_c_level(10000, 10, 1000)
         if (c_vu$met) {
           cat_C <- "VU"; code_C <- paste0("C", c_vu$type)
           if(grepl("1", c_vu$type)) c1_flag <- TRUE
           if(!is.null(c_vu$flags)) { c2_ai_flag<-c_vu$flags['ai']; c2_aii_flag<-c_vu$flags['aii']; c2_b_flag<-c_vu$flags['b'] }
         } else if (c_vu$near || c_en$near || c_cr$near) {
-          # NT Logic: Population < 10,000 but failed C1/C2 subcriteria
           cat_C <- "NT"
         }
       }
@@ -173,7 +205,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     if (get_rank(new_cat) > get_rank(final_cat)) {
       final_cat <<- new_cat; final_crit <<- c(new_code)
     } else if (get_rank(new_cat) == get_rank(final_cat) && new_cat != "LC" && new_cat != "NT") {
-      # We usually don't list criteria for NT/LC, but if we have multiple NTs, we can list "NT" once
       final_crit <<- c(final_crit, new_code)
     }
   }
@@ -183,7 +214,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat(b2_res$cat, b2_res$code)
   update_cat(cat_C, code_C)
 
-  # D2 Check (Spatial)
+  # D2 Check
   is_d2 <- (aoo_val < 20 || locs_val <= 5)
   d2_active <- FALSE
   if (is_d2) {
@@ -191,7 +222,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     else if (final_cat == "VU") { final_crit <- c(final_crit, "D2"); d2_active <- TRUE }
   }
 
-  # D1 Check (Pop)
+  # D1 Check
   d1_active <- FALSE
   if (evaluate_pop && !is.na(total_mature)) {
     if (total_mature < 50) cat_d1 <- "CR"
