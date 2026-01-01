@@ -5,6 +5,9 @@
 #' @export
 calculate_aoo <- function(occurrence_data, grid_size = 2000, year_start = NULL) {
 
+  # IUCN Guideline Section 4.10.2: Mandatory 2x2 km grid
+  grid_size <- 2000
+
   # 1. Temporal Filter
   if (!is.null(year_start) && nrow(occurrence_data) > 0) {
     occurrence_data <- occurrence_data %>%
