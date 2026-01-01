@@ -1,16 +1,22 @@
 Package: ndopred
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Automated IUCN Red List Assessment for NDOP Data
+Version: 0.1.0
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Jonáš", "Gaigr", , "jonas.gaigr@aopk.gov.cz", role = c("aut", "cre"))
+Description: Automates the calculation of IUCN Red List metrics using occurrence 
+    data from the NDOP database. It includes functions to calculate Extent of 
+    Occurrence (EOO), Area of Occupancy (AOO), population trends (Criterion A), 
+    and population size metrics (Criteria C/D). The package implements strict 
+    IUCN guidelines, including logic for Near Threatened (NT), Data Deficient (DD), 
+    and Regionally Extinct (RE) statuses. Includes an interactive Shiny dashboard 
+    for expert verification and manual overrides.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
     dplyr,
+    ggplot2,
     giscoR,
     lubridate,
     magrittr,
@@ -18,6 +24,7 @@ Imports:
     rndop (>= 0.2.1.9000),
     sf,
     shiny,
+    shinythemes,
     terra
 Remotes: 
     kalab-oto/rndop
