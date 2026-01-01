@@ -1,0 +1,37 @@
+---
+title: "ndopred: Assessment Methodology"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ndopred: Assessment Methodology}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Introduction
+The `ndopred` package implements IUCN Red List Categories and Criteria (Version 15.1). This vignette explains the automated logic used to derive categories from NDOP occurrence data.
+
+## 1. Automated Filters (Pre-Assessment)
+Before calculating threat categories, the package applies two filters to identify taxa that cannot be assessed using standard metrics:
+
+* **Regionally Extinct (RE):** Triggered if the time lag between the current year and the last record is > 50 years.
+* **Data Deficient (DD):** Triggered if the total number of records ($n$) is < 3, or if the species is absent in the recent assessment window but does not meet the 50-year RE threshold.
+
+## 2. Spatial Metrics
+* **AOO:** Calculated using a 2x2 km grid.
+* **EOO:** Calculated using a Minimum Convex Hull. 
+* **Locations:** Calculated by identifying distinct threats or spatial clusters.
+
+## 3. The "Near Threatened" (NT) Implementation
+A species is flagged as **NT** if it strictly fails the VU thresholds but meets one of the following:
+* **Criterion A:** A reduction of 20% to 29%.
+* **Criterion B:** Meets the Area threshold for VU/EN/CR but satisfies only **one** of the three required conditions ($a, b, or c$).
+
+## 4. Hierarchy of Logic
+The package follows a strict hierarchy to ensure no "false positives" occur for extinct or data-poor species:
+
+
+
+1.  Check for RE/DD status.
+2.  Check for extant status in window ($AOO > 0$).
+3.  Calculate Criteria A–E.
+4.  Apply Expert Overrides (DD/RE/EW/EX).
