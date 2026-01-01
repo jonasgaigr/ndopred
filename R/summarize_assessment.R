@@ -59,9 +59,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
   max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
 
-  prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
-    max_subpop / total_mature
-  } else { 0 }
+  # --- DERIVED METRIC (Safer version) ---
+  prop_largest <- 0
+  if (length(max_subpop) > 0 && length(total_mature) > 0) {
+    if (!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
+      prop_largest <- max_subpop / total_mature
+    }
+  }
 
   # *** FIX: Define Helper Globally (Moved out of 'if' block) ***
   cats <- c("LC", "NT", "VU", "EN", "CR")
