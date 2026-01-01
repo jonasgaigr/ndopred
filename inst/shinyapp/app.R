@@ -36,12 +36,12 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  get_cat_rank <- function(cat) match(cat, c("DD", "LC", "NT", "VU", "EN", "CR", "RE", "EX"))
+  get_cat_rank <- function(cat) match(cat, c("DD", "LC", "NT", "VU", "EN", "CR", "RE", "EX", "EW"))
   get_pop_groups <- function() c("Ryby a mihule", "Obojživelníci", "Plazi", "Ptáci", "Letouni", "Savci", "Cévnaté rostliny")
   tooltip_span <- function(label, text) tags$span(label, `data-toggle` = "tooltip", `data-placement` = "top", title = text, style = "border-bottom: 1px dotted #777; cursor: help; margin-right: 5px;")
   get_val <- function(obj, field = "val") { if (is.list(obj) && field %in% names(obj)) return(obj[[field]]); if (is.list(obj) && "area_km2" %in% names(obj)) return(obj[["area_km2"]]); if (is.list(obj) && "n_locations" %in% names(obj)) return(obj[["n_locations"]]); if (is.list(obj) && "percent_change" %in% names(obj)) return(obj[["percent_change"]]); return(obj) }
 
-  rv <- reactiveValues(a_type=character(0), a_basis="b", manual_trend=NA, loc=FALSE, b_subs=character(0), c_subs=character(0), pop_c=NA, c1=FALSE, c2_ai=FALSE, c2_aii=FALSE, c2_b=FALSE, pop_d1=NA, d2=FALSE, e_cat="None")
+  rv <- reactiveValues(a_type=character(0), a_basis="b", manual_trend=NA, loc=FALSE, b_subs=character(0), c_subs=character(0), pop_c=NA, c1=FALSE, c2_ai=FALSE, c2_aii=FALSE, c2_b=FALSE, pop_d1=NA, d2=FALSE, e_cat="None", manual_cat="None")
 
   raw_data <- eventReactive(input$run_calc, {
     req(input$species_name)
@@ -66,14 +66,20 @@ server <- function(input, output, session) {
     is_pop <- data$taxon_group %in% get_pop_groups()
     updateCheckboxInput(session, "use_pop", value = is_pop)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
-    summary_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop)
+
+    # Calculate pre-assessment metrics
+    y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
+    n_rec  <- nrow(data$occ_all)
+
+    summary_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
+
     dets <- summary_obj$details
     rv$a_type <- dets$a_type; rv$manual_trend <- NA; rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"; rv$loc <- dets$loc_flag
     b_init <- dets$b_indices; c_init <- dets$c_indices
     if (!is_pop) { b_init <- setdiff(b_init, "v"); c_init <- setdiff(c_init, "iv") }
     rv$b_subs <- b_init; rv$c_subs <- c_init
     rv$pop_c <- data$pop$total_mature; rv$c1 <- as.logical(dets$c1); rv$c2_ai <- as.logical(dets$c2_ai); rv$c2_aii <- as.logical(dets$c2_aii); rv$c2_b <- as.logical(dets$c2_b)
-    rv$pop_d1 <- data$pop$total_mature; rv$d2 <- dets$d2_flag; rv$e_cat <- "None"
+    rv$pop_d1 <- data$pop$total_mature; rv$d2 <- dets$d2_flag; rv$e_cat <- "None"; rv$manual_cat <- "None"
   })
 
   observeEvent(input$check_a_type, { rv$a_type <- input$check_a_type }, ignoreNULL=F)
@@ -90,28 +96,36 @@ server <- function(input, output, session) {
   observeEvent(input$pop_size_d1, { rv$pop_d1 <- input$pop_size_d1 })
   observeEvent(input$check_d2, { rv$d2 <- input$check_d2 })
   observeEvent(input$check_e, { rv$e_cat <- input$check_e })
+  observeEvent(input$manual_cat_override, { rv$manual_cat <- input$manual_cat_override })
 
   assessment_display <- reactive({
     data <- raw_data(); if(is.null(data)) return(NULL)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
-    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop)
+    y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
+    n_rec  <- nrow(data$occ_all)
+
+    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop, year_last=y_last, n_records=n_rec)
     return(list(res=sum_obj$result, dets=sum_obj$details, data=data))
   })
 
   expert_final <- reactive({
-    req(raw_data()); data <- raw_data()
+    req(raw_data());
+    # 0. Immediate Override Check
+    if (!is.null(rv$manual_cat) && rv$manual_cat != "None") {
+      return(list(category = rv$manual_cat, criteria = "Expert Override"))
+    }
+
+    data <- raw_data()
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
-    # A with NT
     cat_A <- "LC"; code_A <- ""
     if (!is.na(tr_val) && length(rv$a_type) > 0) {
       cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(tr_val>=90~"CR", tr_val>=70~"EN", tr_val>=50~"VU", tr_val>=20~"NT", TRUE~"LC") else dplyr::case_when(tr_val>=80~"CR", tr_val>=50~"EN", tr_val>=30~"VU", tr_val>=20~"NT", TRUE~"LC")
       if (cat_A != "LC" && cat_A != "NT") code_A <- paste0(rv$a_type[1], paste(sort(unique(rv$a_basis)), collapse=""))
     }
 
-    # B with NT
     b_valid <- if(!input$use_pop) setdiff(rv$b_subs, "v") else rv$b_subs
     c_valid <- if(!input$use_pop) setdiff(rv$c_subs, "iv") else rv$c_subs
     has_b <- (length(b_valid) > 0); has_c <- (length(c_valid) > 0)
@@ -120,21 +134,17 @@ server <- function(input, output, session) {
       t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
       met_a <- rv$loc
       if (area < t_cr) curr="CR" else if(area < t_en) curr="EN" else if(area < t_vu) curr="VU" else curr="LC"
-
       if (curr!="LC") {
         cond_sum <- sum(met_a, has_b, has_c)
         if (cond_sum >= 2) {
           s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
           return(list(cat=curr, code=paste0(type, s)))
-        } else if (cond_sum == 1) {
-          return(list(cat="NT", code=""))
-        }
+        } else if (cond_sum == 1) return(list(cat="NT", code=""))
       }
       return(list(cat="LC", code=""))
     }
     res_b1 <- eval_b(eoo_v, "B1"); res_b2 <- eval_b(aoo_v, "B2")
 
-    # C with NT
     cat_C <- "LC"; code_C <- ""
     if (input$use_pop && !is.na(rv$pop_c)) {
       eval_c <- function(t_pop, t_c1, t_sub) {
@@ -144,7 +154,7 @@ server <- function(input, output, session) {
             flags <- c(); if(rv$c2_ai) flags<-c(flags,"a(i)"); if(rv$c2_aii) flags<-c(flags,"a(ii)"); if(rv$c2_b) flags<-c(flags,"b")
             return(list(met=TRUE, type=paste0("2", paste(flags, collapse=""))))
           }
-          return(list(met=FALSE, near=TRUE)) # Failed specific criteria but pop small
+          return(list(met=FALSE, near=TRUE))
         }
         return(list(met=FALSE, near=FALSE))
       }
@@ -191,6 +201,14 @@ server <- function(input, output, session) {
     tagList(
       div(style="margin-bottom:15px; background:#f9f9f9; padding:10px; border-left: 5px solid #337ab7;",
           tags$small(strong("Automated Baseline:")), h4(paste0(res$Category, ": ", res$Criteria), style="margin-top:0; color:#337ab7;")),
+
+      # *** NEW: Manual Category Override ***
+      div(style="margin-bottom:15px; border:1px solid #d6d6d6; padding:10px; background: #fff;",
+          h5(strong("Force Category Override"), style="margin-top:0;"),
+          selectInput("manual_cat_override", label=NULL, choices=c("None", "DD", "RE", "EW", "EX"), selected=rv$manual_cat, width="100%"),
+          p(tags$small("Select to strictly enforce DD/RE/EW/EX regardless of calculated metrics."), style="color:#777;")
+      ),
+
       fluidRow(
         column(4, wellPanel(h4("A. Reduction"),
                             p(tags$small(strong(auto_trend_txt), style="color:#337ab7; margin-right:5px;"), "(Calculated)"),
