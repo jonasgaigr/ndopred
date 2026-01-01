@@ -1,7 +1,6 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
-#' Evaluates Criteria A-E, plus Pre-Assessment for RE/DD.
-#' FIX: Prevents CR/EN/VU assignment if species is absent (AOO=0).
+#' Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -60,7 +59,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
   max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
 
-  prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) max_subpop/total_mature else 0
+  prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
+    max_subpop / total_mature
+  } else { 0 }
+
+  # *** FIX: Define Helper Globally (Moved out of 'if' block) ***
+  cats <- c("LC", "NT", "VU", "EN", "CR")
+  get_rank <- function(x) match(x, cats)
 
   # --- 1. DETECT FLAGS ---
   has_decline_any <- (!is.na(trend_val) && trend_val < 0)
@@ -79,8 +84,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   loc_flag <- (locs_val <= 10)
 
   # *** GLOBAL GATE: IS SPECIES EXTANT IN WINDOW? ***
-  # If AOO is 0, we treat it as "Absent in window".
-  # This prevents A/B criteria from triggering on "0 < Threshold".
   is_extant <- (!is.na(aoo_val) && aoo_val > 0)
 
   # --- 2. EVALUATE B CRITERIA ---
@@ -132,13 +135,11 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
 
-  # Only evaluate A if extant (prevents "100% decline to zero" from triggering CR for an extinct species)
+  # Only evaluate A if extant
   if (is_extant) {
     cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
     cat_a_pop <- "LC"
     if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
-
-    cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
 
     if (get_rank(cat_a_pop) >= get_rank(cat_a_spatial) && cat_a_pop != "LC") {
       cat_A <- cat_a_pop; a_type <- "A2"; a_basis <- "b"; code_A <- "A2b"
@@ -222,7 +223,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   # D1 Check
   d1_active <- FALSE
-  if (evaluate_pop && !is.na(total_mature) && total_mature > 0) { # Requires mature > 0
+  if (evaluate_pop && !is.na(total_mature) && total_mature > 0) {
     if (total_mature < 50) cat_d1 <- "CR"
     else if (total_mature < 250) cat_d1 <- "EN"
     else if (total_mature < 1000) cat_d1 <- "VU"
