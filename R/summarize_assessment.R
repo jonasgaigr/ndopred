@@ -1,7 +1,6 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
-#' Evaluates Criteria A, B, C, and D.
-#' Responds to evaluate_pop flag to conditionally suppress population-size dependent criteria.
+#' Evaluates Criteria A, B, C, and D with NT implementation.
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -27,42 +26,28 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
   max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
 
-  # DERIVED METRIC: Proportion in largest subpopulation (for C2a(ii))
+  # DERIVED METRIC
   prop_largest <- if(!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
     max_subpop / total_mature
-  } else {
-    0
-  }
+  } else { 0 }
 
-  # --- 1. DETECT FLAGS (Data Level) ---
-
-  # Continuing Decline (Any)
-  # If pop is ignored, we rely ONLY on spatial trend for the "Any Decline" flag
+  # --- 1. DETECT FLAGS ---
   has_decline_any <- (!is.na(trend_val) && trend_val < 0)
-  if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) {
-    has_decline_any <- TRUE
-  }
+  if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) has_decline_any <- TRUE
 
-  # Extreme Fluctuations (Mature Individuals)
   has_fluct <- (evaluate_pop && !is.na(fluct_ratio) && fluct_ratio > 10)
 
-  # B Sub-criteria Flags
   b_indices <- character(0)
   if (!is.na(trend_val) && trend_val < 0) b_indices <- c(b_indices, "i", "ii", "iii")
-
-  # Only add 'v' (Mature Individuals) if evaluating pop
   if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) b_indices <- c(b_indices, "v")
-
   has_b_decline <- length(b_indices) > 0
 
-  # B(c) Fluctuation indices
   c_indices_b <- character(0)
-  if (has_fluct) c_indices_b <- c(c_indices_b, "iv") # (iv) is Mature Individuals
+  if (has_fluct) c_indices_b <- c(c_indices_b, "iv")
 
-  # Locations flag
   loc_flag <- (locs_val <= 10)
 
-  # --- 2. EVALUATE B CRITERIA (Geographic Range) ---
+  # --- 2. EVALUATE B CRITERIA (Modified for NT) ---
   evaluate_b <- function(area_val, type) {
     t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
     cat <- "LC"; code <- ""
@@ -75,14 +60,21 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
       if (curr_cat != "LC") {
         met_a_specific <- (locs_val <= thresh_loc)
+        cond_sum <- sum(met_a_specific, has_b_decline, has_fluct)
 
-        if (sum(met_a_specific, has_b_decline, has_fluct) >= 2) {
+        # VU/EN/CR requires 2 of 3 conditions
+        if (cond_sum >= 2) {
           cat <- curr_cat
           sub_str <- ""
           if (met_a_specific) sub_str <- paste0(sub_str, "a")
           if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
           if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
           code <- paste0(type, sub_str)
+        }
+        # NT Logic: Meets Area threshold but only 1 condition
+        else if (cond_sum == 1) {
+          cat <- "NT"
+          code <- paste0(type, " (close)")
         }
       }
     }
@@ -92,26 +84,22 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b1_res <- evaluate_b(eoo_val, "B1")
   b2_res <- evaluate_b(aoo_val, "B2")
 
-  # --- 3. EVALUATE A CRITERIA ---
+  # --- 3. EVALUATE A CRITERIA (Modified for NT) ---
   get_a_cat <- function(val) {
     if (is.na(val)) return("LC")
     val <- abs(val)
     if (val >= 80) return("CR")
     if (val >= 50) return("EN")
     if (val >= 30) return("VU")
+    if (val >= 20) return("NT") # Added NT check
     return("LC")
   }
 
   cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
 
-  # Spatial A2c
   cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
-
-  # Pop A2b (Only if evaluate_pop is TRUE)
   cat_a_pop <- "LC"
-  if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) {
-    cat_a_pop <- get_a_cat(pop_decline)
-  }
+  if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
 
   cats <- c("LC", "NT", "VU", "EN", "CR"); get_rank <- function(x) match(x, cats)
 
@@ -121,57 +109,58 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     cat_A <- cat_a_spatial; a_type <- "A2"; a_basis <- "c"; code_A <- "A2c"
   }
 
-  # --- 4. EVALUATE C CRITERIA (Small Population) ---
+  # --- 4. EVALUATE C CRITERIA (Modified for NT) ---
   cat_C <- "LC"; code_C <- ""
-
   c1_flag <- FALSE; c2_ai_flag <- FALSE; c2_aii_flag <- FALSE; c2_b_flag <- FALSE
 
-  # Only evaluate C if toggle is ON
   if (evaluate_pop && !is.na(total_mature)) {
 
     evaluate_c_level <- function(thresh_pop, thresh_c1_decline, thresh_subpop) {
       if (total_mature < thresh_pop) {
         # Check C1
-        if (!is.na(pop_decline) && abs(pop_decline) >= thresh_c1_decline) {
-          return(list(met=TRUE, type="1"))
-        }
+        if (!is.na(pop_decline) && abs(pop_decline) >= thresh_c1_decline) return(list(met=TRUE, type="1"))
         # Check C2
         if (has_decline_any) {
           is_ai  <- (!is.na(max_subpop) && max_subpop <= thresh_subpop)
           is_aii <- (!is.na(prop_largest) && prop_largest >= 0.95)
           is_b   <- has_fluct
-
           if (is_ai || is_aii || is_b) {
             code_parts <- ""
             if (is_ai) code_parts <- paste0(code_parts, "a(i)")
             if (is_aii) code_parts <- paste0(code_parts, if(is_ai)","else"", "a(ii)")
             if (is_b) code_parts <- paste0(code_parts, "b")
-            return(list(met=TRUE, type=paste0("2", code_parts),
-                        flags=c(ai=is_ai, aii=is_aii, b=is_b)))
+            return(list(met=TRUE, type=paste0("2", code_parts), flags=c(ai=is_ai, aii=is_aii, b=is_b)))
           }
         }
+        # If population is small enough for this category but fails C1/C2 checks, it's potentially NT
+        return(list(met=FALSE, near=TRUE))
       }
-      return(list(met=FALSE))
+      return(list(met=FALSE, near=FALSE))
     }
 
-    # CR / EN / VU Checks
+    # Check CR
     c_cr <- evaluate_c_level(250, 25, 50)
     if (c_cr$met) {
       cat_C <- "CR"; code_C <- paste0("C", c_cr$type)
       if(grepl("1", c_cr$type)) c1_flag <- TRUE
       if(!is.null(c_cr$flags)) { c2_ai_flag<-c_cr$flags['ai']; c2_aii_flag<-c_cr$flags['aii']; c2_b_flag<-c_cr$flags['b'] }
     } else {
+      # Check EN
       c_en <- evaluate_c_level(2500, 20, 250)
       if (c_en$met) {
         cat_C <- "EN"; code_C <- paste0("C", c_en$type)
         if(grepl("1", c_en$type)) c1_flag <- TRUE
         if(!is.null(c_en$flags)) { c2_ai_flag<-c_en$flags['ai']; c2_aii_flag<-c_en$flags['aii']; c2_b_flag<-c_en$flags['b'] }
       } else {
+        # Check VU
         c_vu <- evaluate_c_level(10000, 10, 1000)
         if (c_vu$met) {
           cat_C <- "VU"; code_C <- paste0("C", c_vu$type)
           if(grepl("1", c_vu$type)) c1_flag <- TRUE
           if(!is.null(c_vu$flags)) { c2_ai_flag<-c_vu$flags['ai']; c2_aii_flag<-c_vu$flags['aii']; c2_b_flag<-c_vu$flags['b'] }
+        } else if (c_vu$near || c_en$near || c_cr$near) {
+          # NT Logic: Population < 10,000 but failed C1/C2 subcriteria
+          cat_C <- "NT"
         }
       }
     }
@@ -183,7 +172,8 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat <- function(new_cat, new_code) {
     if (get_rank(new_cat) > get_rank(final_cat)) {
       final_cat <<- new_cat; final_crit <<- c(new_code)
-    } else if (get_rank(new_cat) == get_rank(final_cat) && new_cat != "LC") {
+    } else if (get_rank(new_cat) == get_rank(final_cat) && new_cat != "LC" && new_cat != "NT") {
+      # We usually don't list criteria for NT/LC, but if we have multiple NTs, we can list "NT" once
       final_crit <<- c(final_crit, new_code)
     }
   }
@@ -193,7 +183,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat(b2_res$cat, b2_res$code)
   update_cat(cat_C, code_C)
 
-  # D2 Check
+  # D2 Check (Spatial)
   is_d2 <- (aoo_val < 20 || locs_val <= 5)
   d2_active <- FALSE
   if (is_d2) {
@@ -201,13 +191,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     else if (final_cat == "VU") { final_crit <- c(final_crit, "D2"); d2_active <- TRUE }
   }
 
-  # D1 Check (Only if toggle ON)
+  # D1 Check (Pop)
   d1_active <- FALSE
   if (evaluate_pop && !is.na(total_mature)) {
-    if (total_mature < 50) { cat_d1 <- "CR" }
-    else if (total_mature < 250) { cat_d1 <- "EN" }
-    else if (total_mature < 1000) { cat_d1 <- "VU" }
-    else { cat_d1 <- "LC" }
+    if (total_mature < 50) cat_d1 <- "CR"
+    else if (total_mature < 250) cat_d1 <- "EN"
+    else if (total_mature < 1000) cat_d1 <- "VU"
+    else cat_d1 <- "LC"
 
     if (cat_d1 != "LC") {
       if (get_rank(cat_d1) > get_rank(final_cat)) { final_cat <- cat_d1; final_crit <- c("D1"); d1_active<-TRUE }
