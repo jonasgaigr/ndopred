@@ -1,7 +1,7 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
-#' Applies strict "2 of 3" subcriteria rules for Criterion B and integrates
-#' population metrics for D2 and Criterion B(c) fluctuations.
+#' Evaluates Criteria A and B using both spatial and population trends.
+#' Returns raw boolean flags for UI filtering.
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -24,11 +24,11 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   # --- 1. DETECT SUB-CRITERIA FLAGS (Data Level) ---
 
-  # B(b) Continuing Decline
+  # B(b) Continuing Decline Flags
   b_indices <- character(0)
 
   # Spatial Decline (Trend < 0) -> triggers:
-  # (i) EOO, (ii) AOO, (iii) Habitat Quality (Inferred from trend)
+  # (i) EOO, (ii) AOO, (iii) Habitat Quality (Inferred)
   if (!is.na(trend_val) && trend_val < 0) {
     b_indices <- c(b_indices, "i", "ii", "iii")
   }
@@ -40,19 +40,18 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   has_decline <- length(b_indices) > 0
 
-  # B(c) Extreme Fluctuations
-  # i=EOO, ii=AOO, iii=Locations, iv=Mature Individuals
+  # B(c) Extreme Fluctuations Flags
   c_indices <- character(0)
   if (!is.na(fluct_ratio) && fluct_ratio > 10) {
     c_indices <- c(c_indices, "iv") # (iv) is Mature Indiv for Fluctuation
   }
-
   has_fluct <- length(c_indices) > 0
 
   # B(a) Severe Fragmentation / Locations
+  # Note: Specific thresholds (1, 5, 10) are checked in evaluate_b
   loc_flag <- (locs_val <= 10)
 
-  # --- 2. EVALUATE B CRITERIA ---
+  # --- 2. EVALUATE B CRITERIA (Geographic Range) ---
   evaluate_b <- function(area_val, type) {
     t_cr <- if(type=="B1") 100 else 10
     t_en <- if(type=="B1") 5000 else 500
@@ -74,7 +73,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
         if (conditions_met >= 2) {
           cat <- curr_cat
-          # Code generation (Data-driven, full flags)
+          # Code generation (includes ALL detected flags, filtering happens in UI)
           sub_str <- ""
           if (met_a) sub_str <- paste0(sub_str, "a")
           if (has_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
@@ -91,24 +90,52 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b1_res <- evaluate_b(eoo_val, "B1")
   b2_res <- evaluate_b(aoo_val, "B2")
 
-  # --- 3. EVALUATE A CRITERIA ---
-  cat_A <- "LC"; code_A <- ""
-  a_type <- character(0)
-  if (!is.na(trend_val) && trend_val <= -30) {
-    a_type <- "A2"
-    cat_A <- dplyr::case_when(trend_val <= -80 ~ "CR", trend_val <= -50 ~ "EN", TRUE ~ "VU")
-    code_A <- "A2b"
+  # --- 3. EVALUATE A CRITERIA (Population Reduction) ---
+  # We evaluate both Spatial (A2c) and Population (A2a/b) trends
+
+  get_a_cat <- function(val) {
+    if (is.na(val)) return("LC")
+    val <- abs(val) # Reduction is positive magnitude
+    if (val >= 80) return("CR")
+    if (val >= 50) return("EN")
+    if (val >= 30) return("VU")
+    return("LC")
   }
 
-  # --- 4. AGGREGATE RESULTS ---
+  # A2 based on Spatial data (c)
+  cat_a_spatial <- "LC"
+  if (!is.na(trend_val) && trend_val < 0) cat_a_spatial <- get_a_cat(trend_val)
+
+  # A2 based on Population data (b) - assuming Index of Abundance
+  cat_a_pop <- "LC"
+  if (!is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
+
+  # Select highest threat for A
   cats <- c("LC", "NT", "VU", "EN", "CR")
   get_rank <- function(x) match(x, cats)
 
+  cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
+
+  if (get_rank(cat_a_pop) >= get_rank(cat_a_spatial) && cat_a_pop != "LC") {
+    cat_A <- cat_a_pop
+    a_type <- "A2"
+    a_basis <- c("b") # Population index
+    code_A <- "A2b"
+  } else if (cat_a_spatial != "LC") {
+    cat_A <- cat_a_spatial
+    a_type <- "A2"
+    a_basis <- c("c") # Decline in AOO/EOO/Habitat
+    code_A <- "A2c"
+  }
+
+  # --- 4. AGGREGATE RESULTS ---
   final_cat <- "LC"
   final_crit <- character(0)
 
-  # Compare B
+  # Compare B1
   if (get_rank(b1_res$cat) > get_rank(final_cat)) { final_cat <- b1_res$cat; final_crit <- c(b1_res$code) }
+
+  # Compare B2
   if (get_rank(b2_res$cat) > get_rank(final_cat)) { final_cat <- b2_res$cat; final_crit <- c(b2_res$code) }
   else if (get_rank(b2_res$cat) == get_rank(final_cat) && b2_res$cat != "LC") { final_crit <- c(final_crit, b2_res$code) }
 
@@ -116,7 +143,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   if (get_rank(cat_A) > get_rank(final_cat)) { final_cat <- cat_A; final_crit <- c(code_A) }
   else if (get_rank(cat_A) == get_rank(final_cat) && cat_A != "LC") { final_crit <- c(final_crit, code_A) }
 
-  # D2 Check
+  # D2 Check (Restricted Area)
   is_d2 <- (aoo_val < 20 || locs_val <= 5)
   d2_active <- FALSE
   if (is_d2) {
@@ -140,6 +167,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ),
     details = list(
       a_type = a_type,
+      a_basis = a_basis,
       b_indices = b_indices,
       c_indices = c_indices,
       loc_flag = loc_flag,
