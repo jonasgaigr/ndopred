@@ -4,7 +4,17 @@
 \alias{summarize_assessment}
 \title{Summarize Assessment with Strict IUCN Cascade Logic}
 \usage{
-summarize_assessment(species, eoo, aoo, trend, locations, pop_metrics)
+summarize_assessment(
+  species,
+  eoo,
+  aoo,
+  trend,
+  locations,
+  pop_metrics,
+  evaluate_pop = TRUE,
+  year_last = NA,
+  n_records = NA
+)
 }
 \arguments{
 \item{species}{Character string. Species name.}
@@ -17,13 +27,17 @@ summarize_assessment(species, eoo, aoo, trend, locations, pop_metrics)
 
 \item{locations}{Numeric. Number of locations.}
 
-\item{pop_metrics}{List containing \code{decline_rate}, \code{fluct_ratio}, and \code{total_mature}.}
+\item{pop_metrics}{List containing \code{decline_rate}, \code{fluct_ratio}, \code{total_mature}, and \code{max_subpop}.}
+
+\item{evaluate_pop}{Logical. If FALSE, ignores Criteria C, D1, and pop-dependent subcriteria.}
+
+\item{year_last}{Numeric. The most recent year observed in the dataset.}
+
+\item{n_records}{Numeric. Total number of records in the dataset.}
 }
 \value{
-A list containing \code{result} (data.frame for display) and \code{details} (list of flags for UI).
+A list containing \code{result} (display dataframe) and \code{details} (boolean flags).
 }
 \description{
-Applies strict "2 of 3" subcriteria rules for Criterion B and integrates
-population metrics for D2 and Criterion B(c) fluctuations. Returns both
-a display-ready summary and raw boolean flags for UI pre-filling.
+Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
 }
