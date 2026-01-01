@@ -25,12 +25,12 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   # --- 1. DETECT SUB-CRITERIA FLAGS (Data Level) ---
 
   # B(b) Continuing Decline
-  # i=EOO, ii=AOO, iii=Habitat, iv=Locations, v=Mature Individuals
   b_indices <- character(0)
 
-  # Spatial Decline -> triggers (i) EOO and (ii) AOO
+  # Spatial Decline (Trend < 0) -> triggers:
+  # (i) EOO, (ii) AOO, (iii) Habitat Quality (Inferred from trend)
   if (!is.na(trend_val) && trend_val < 0) {
-    b_indices <- c(b_indices, "i", "ii")
+    b_indices <- c(b_indices, "i", "ii", "iii")
   }
 
   # Population Decline -> triggers (v) Mature Individuals
@@ -50,7 +50,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   has_fluct <- length(c_indices) > 0
 
   # B(a) Severe Fragmentation / Locations
-  loc_flag <- (locs_val <= 10) # General flag, specific thresholds checked in eval_b
+  loc_flag <- (locs_val <= 10)
 
   # --- 2. EVALUATE B CRITERIA ---
   evaluate_b <- function(area_val, type) {
@@ -92,13 +92,12 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b2_res <- evaluate_b(aoo_val, "B2")
 
   # --- 3. EVALUATE A CRITERIA ---
-  # Assuming A2 (Observed reduction)
   cat_A <- "LC"; code_A <- ""
   a_type <- character(0)
   if (!is.na(trend_val) && trend_val <= -30) {
     a_type <- "A2"
     cat_A <- dplyr::case_when(trend_val <= -80 ~ "CR", trend_val <= -50 ~ "EN", TRUE ~ "VU")
-    code_A <- "A2b" # Default basis b (abundance/biomass) approx by occurrence freq
+    code_A <- "A2b"
   }
 
   # --- 4. AGGREGATE RESULTS ---
