@@ -2,18 +2,17 @@
 % Please edit documentation in R/calculate_aoo.R
 \name{calculate_aoo}
 \alias{calculate_aoo}
-\title{Calculate Area of Occupancy (AOO)}
+\title{Calculate AOO with Temporal Filter}
 \usage{
-calculate_aoo(occurrence_data, grid_size = 2000)
+calculate_aoo(occurrence_data, grid_size = 2000, year_start = NULL)
 }
 \arguments{
-\item{occurrence_data}{An sf object (points).}
+\item{occurrence_data}{sf object}
 
-\item{grid_size}{Numeric. Grid cell size in meters. Default 2000 (2km).}
-}
-\value{
-A list containing the AOO area in km2 and the grid geometry.
+\item{grid_size}{Numeric (default 2000 for IUCN)}
+
+\item{year_start}{Numeric. Only records from this year onwards.}
 }
 \description{
-Calculate Area of Occupancy (AOO)
+Calculate AOO with Temporal Filter
 }

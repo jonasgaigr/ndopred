@@ -2,16 +2,15 @@
 % Please edit documentation in R/calculate_eoo.R
 \name{calculate_eoo}
 \alias{calculate_eoo}
-\title{Calculate Extent of Occurrence (EOO)}
+\title{Calculate EOO with Temporal Filter}
 \usage{
-calculate_eoo(occurrence_data)
+calculate_eoo(occurrence_data, year_start = NULL)
 }
 \arguments{
-\item{occurrence_data}{An sf object (points).}
-}
-\value{
-A list containing the EOO area in km2 and the polygon geometry.
+\item{occurrence_data}{sf object}
+
+\item{year_start}{Numeric. Only records from this year onwards.}
 }
 \description{
-Calculate Extent of Occurrence (EOO)
+Calculate EOO with Temporal Filter
 }

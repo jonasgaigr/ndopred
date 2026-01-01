@@ -2,20 +2,10 @@
 % Please edit documentation in R/get_assessment_data.R
 \name{get_assessment_data}
 \alias{get_assessment_data}
-\title{Get and Clean NDOP Data for IUCN Assessment}
+\title{Get and Clean NDOP Data}
 \usage{
-get_assessment_data(species_name, max_uncertainty = 500, year_start = NULL)
-}
-\arguments{
-\item{species_name}{Character. Scientific name of the species.}
-
-\item{max_uncertainty}{Numeric. Maximum allowable coordinate uncertainty in meters. Default 500.}
-
-\item{year_start}{Numeric. Optional filter for starting year.}
-}
-\value{
-An sf object of occurrences.
+get_assessment_data(species_name, year_start = NULL)
 }
 \description{
-Get and Clean NDOP Data for IUCN Assessment
+Get and Clean NDOP Data
 }
