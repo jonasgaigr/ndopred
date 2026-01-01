@@ -47,7 +47,18 @@ server <- function(input, output, session) {
     req(input$species_name)
     withProgress(message = 'Accessing NDOP...', value = 0, {
       occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) NULL)
-      if (is.null(occ_raw) || nrow(occ_raw) == 0) { showNotification("No data found.", type = "error"); return(NULL) }
+
+      # *** FIX ISSUE 2: Handle 0 records gracefully for DD ***
+      if (is.null(occ_raw) || nrow(occ_raw) == 0) {
+        # Return a safe empty structure instead of NULL so assessment proceeds to DD
+        return(list(
+          eoo=list(area_km2=NA), aoo=list(area_km2=NA), locs=NA,
+          trend=list(percent_change=NA), pop=list(),
+          occ_all=data.frame(ROK=numeric(0)), # Empty DF
+          taxon_group="Unknown", species=input$species_name, window_used=input$window
+        ))
+      }
+
       occ_all <- occ_raw
       if (!"ROK" %in% names(occ_all) && "DATUM_OD" %in% names(occ_all)) occ_all$ROK <- as.numeric(format(as.Date(occ_all$DATUM_OD), "%Y"))
       incProgress(0.3, message = "Calculating metrics...")
@@ -66,14 +77,14 @@ server <- function(input, output, session) {
     is_pop <- data$taxon_group %in% get_pop_groups()
     updateCheckboxInput(session, "use_pop", value = is_pop)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
-    y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
+
+    # Robust Year Last calculation (handle empty vector)
+    y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
-    # *** FIXED TYPO HERE (sum_obj vs summary_obj) ***
     sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
 
-    dets <- sum_obj$details # <--- This line was causing the error
-
+    dets <- sum_obj$details
     rv$a_type <- dets$a_type; rv$manual_trend <- NA; rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"; rv$loc <- dets$loc_flag
     b_init <- dets$b_indices; c_init <- dets$c_indices
     if (!is_pop) { b_init <- setdiff(b_init, "v"); c_init <- setdiff(c_init, "iv") }
@@ -101,7 +112,7 @@ server <- function(input, output, session) {
   assessment_display <- reactive({
     data <- raw_data(); if(is.null(data)) return(NULL)
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
-    y_last <- if(!all(is.na(data$occ_all$ROK))) max(data$occ_all$ROK, na.rm=T) else NA
+    y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
     sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop, year_last=y_last, n_records=n_rec)
     return(list(res=sum_obj$result, dets=sum_obj$details, data=data))
@@ -112,6 +123,18 @@ server <- function(input, output, session) {
     if (!is.null(rv$manual_cat) && rv$manual_cat != "None") return(list(category = rv$manual_cat, criteria = "Expert Override"))
 
     data <- raw_data()
+
+    # *** FIX ISSUE 1: Harmonize RE/DD Pre-Checks ***
+    # Copy exact logic from summarize_assessment to ensure expert default matches
+    current_year <- as.numeric(format(Sys.Date(), "%Y"))
+    y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
+    n_rec  <- nrow(data$occ_all)
+
+    # RE Pre-check
+    if (!is.na(y_last) && (current_year - y_last) > 50) return(list(category="RE", criteria=paste0("Last recorded: ", y_last)))
+    # DD Pre-check (Low Count)
+    if (n_rec < 3) return(list(category="DD", criteria=paste0("Insufficient Data (n=", n_rec, ")")))
+
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
@@ -188,7 +211,7 @@ server <- function(input, output, session) {
                      add_code(code_C, cat_C), add_code(code_D1, cat_D1), add_code(code_E, cat_E))
     if (code_D2 != "" && final_cat == "VU") final_codes <- c(final_codes, code_D2)
 
-    # Fallback for Zero Data in Expert Mode (unless manual trend override)
+    # *** FIX ISSUE 1: Harmonize Catch-All DD ***
     if (!is_extant && final_cat == "LC" && is.null(rv$manual_trend)) {
       final_cat <- "DD"
     }
