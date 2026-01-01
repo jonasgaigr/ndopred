@@ -218,6 +218,16 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   # D2 Check - REQUIRES EXTANT
   is_d2 <- (is_extant && (aoo_val < 20 || locs_val <= 5))
+  if (is_d2) {
+    # Add notation as per Section 8 guidelines
+    d2_note <- "D2 (Restricted/Threat Plausible)"
+    if (get_rank(final_cat) < get_rank("VU")) {
+      final_cat <- "VU"
+      final_crit <- c(d2_note)
+    } else if (final_cat == "VU") {
+      final_crit <- c(final_crit, d2_note)
+    }
+  }
   d2_active <- FALSE
   if (is_d2) {
     if (get_rank(final_cat) < get_rank("VU")) { final_cat <- "VU"; final_crit <- c("D2"); d2_active <- TRUE }
