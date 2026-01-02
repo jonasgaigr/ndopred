@@ -87,5 +87,9 @@ inst/shinyapp/: Source code for the Shiny dashboard.
 
 tests/: Unit tests for IUCN logic integrity.
 
+## Logo
+
+<img src="ndopred_hex.png" align="right" width="250" />
+
 ## ⚠️ Status
 Version 0.1 (Experimental). Logic is compliant with IUCN Guidelines v15.1. Always validate automated results with expert opinion.
