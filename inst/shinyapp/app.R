@@ -15,6 +15,7 @@ ui <- fluidPage(
       textInput("species_name", "Species Name:", value = "Onthophagus medius"),
       numericInput("window", "Recent Window (Years):", value = 10),
       numericInput("gen_length", "Generation Length (Years):", value = 1, min = 1),
+
       actionButton("run_calc", "Run Assessment", class = "btn-primary", style="width: 100%"),
       hr(),
       h4("Assessment Settings"),
@@ -53,7 +54,8 @@ server <- function(input, output, session) {
       if (is.null(occ_raw) || nrow(occ_raw) == 0) {
         return(list(
           eoo=list(area_km2=NA), aoo=list(area_km2=NA), locs=NA,
-          trend=list(percent_change=NA), pop=list(),
+          trend=list(percent_change=NA),
+          pop=list(decline_rate=NA, fluct_ratio=NA, total_mature=NA, max_subpop=NA),
           occ_all=data.frame(ROK=numeric(0)),
           taxon_group="Unknown", species=input$species_name, window_used=input$window
         ))
@@ -62,13 +64,21 @@ server <- function(input, output, session) {
       occ_all <- occ_raw
       if (!"ROK" %in% names(occ_all) && "DATUM_OD" %in% names(occ_all)) occ_all$ROK <- as.numeric(format(as.Date(occ_all$DATUM_OD), "%Y"))
       incProgress(0.3, message = "Calculating metrics...")
-      cutoff <- as.numeric(format(Sys.Date(), "%Y")) - input$window
+
+      # --- COMPLIANCE FIX: Section 4.4 (100-year Cap) ---
+      # "10 years or 3 generations, whichever is longer, up to a maximum of 100 years"
+      calc_gen_window <- 3 * input$gen_length
+      assess_window <- min(100, max(10, calc_gen_window))
+
+      cutoff <- as.numeric(format(Sys.Date(), "%Y")) - assess_window
+
       eoo_res <- ndopred::calculate_eoo(occ_all, year_start = cutoff)
       aoo_res <- ndopred::calculate_aoo(occ_all, year_start = cutoff)
       locs_res <- ndopred::calculate_locations(occ_all, year_start = cutoff)
-      trend_res <- ndopred::calculate_trend(occ_all, window_years = input$window)
-      pop_res <- ndopred::calculate_pop_metrics(occ_all, window_years = input$window)
-      list(eoo=eoo_res, aoo=aoo_res, locs=locs_res, trend=trend_res, pop=pop_res, occ_all=occ_all, taxon_group=if("KAT_TAX"%in%names(occ_all)) unique(occ_all$KAT_TAX)[1] else "Unknown", species=input$species_name, window_used=input$window)
+      trend_res <- ndopred::calculate_trend(occ_all, window_years = assess_window)
+      pop_res <- ndopred::calculate_pop_metrics(occ_all, window_years = assess_window)
+
+      list(eoo=eoo_res, aoo=aoo_res, locs=locs_res, trend=trend_res, pop=pop_res, occ_all=occ_all, taxon_group=if("KAT_TAX"%in%names(occ_all)) unique(occ_all$KAT_TAX)[1] else "Unknown", species=input$species_name, window_used=assess_window)
     })
   })
 
@@ -84,7 +94,30 @@ server <- function(input, output, session) {
     sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
 
     dets <- sum_obj$details
-    rv$a_type <- dets$a_type; rv$manual_trend <- NA; rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"; rv$loc <- dets$loc_flag
+    rv$a_type <- dets$a_type
+
+    # --- FIX CRASH: Robust Trend Extraction ---
+    # Safely extract values, defaulting to NA if list is empty or field missing
+    t_spatial <- suppressWarnings(as.numeric(get_val(data$trend, "percent_change")))
+    if(length(t_spatial) == 0) t_spatial <- NA
+
+    t_pop <- NA
+    if(!is.null(data$pop) && "decline_rate" %in% names(data$pop)) {
+      t_pop <- suppressWarnings(as.numeric(data$pop$decline_rate))
+    }
+    if(length(t_pop) == 0) t_pop <- NA
+
+    # Pick the most severe decline (lowest negative number)
+    t_init <- NA
+    if (!is.na(t_spatial) && !is.na(t_pop)) t_init <- min(t_spatial, t_pop)
+    else if (!is.na(t_spatial)) t_init <- t_spatial
+    else if (!is.na(t_pop)) t_init <- t_pop
+
+    rv$manual_trend <- if(!is.na(t_init)) t_init else NA
+
+    rv$a_basis <- if(length(dets$a_basis)>0) dets$a_basis else "b"
+    rv$loc <- dets$loc_flag
+
     b_init <- dets$b_indices; c_init <- dets$c_indices
     if (!is_pop) { b_init <- setdiff(b_init, "v"); c_init <- setdiff(c_init, "iv") }
     rv$b_subs <- b_init; rv$c_subs <- c_init
@@ -123,26 +156,27 @@ server <- function(input, output, session) {
 
     data <- raw_data()
 
-    # Harmonize RE/DD Pre-Checks
     current_year <- as.numeric(format(Sys.Date(), "%Y"))
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
-    # RE Pre-check
+    # RE Pre-Check (Section 11.2)
     if (!is.na(y_last) && (current_year - y_last) > 50) return(list(category="RE", criteria=paste0("Last recorded: ", y_last)))
-    # DD Pre-check (Low Count)
-    if (n_rec < 3) return(list(category="DD", criteria=paste0("Insufficient Data (n=", n_rec, ")")))
 
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
-    tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else abs(suppressWarnings(as.numeric(get_val(data$trend, "percent_change"))))
 
-    # Global Presence Gate for Expert Logic
-    is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(rv$manual_trend))
+    # DD Pre-Check (Section 10.3)
+    if (n_rec < 3 || is.na(aoo_v)) return(list(category="DD", criteria="Inadequate information"))
+
+    tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else 0
+    is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(tr_val) && tr_val != 0)
 
     cat_A <- "LC"; code_A <- ""
-    if (is_extant && !is.na(tr_val) && length(rv$a_type) > 0) {
-      cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(tr_val>=90~"CR", tr_val>=70~"EN", tr_val>=50~"VU", tr_val>=20~"NT", TRUE~"LC") else dplyr::case_when(tr_val>=80~"CR", tr_val>=50~"EN", tr_val>=30~"VU", tr_val>=20~"NT", TRUE~"LC")
+    # Criterion A Harmonized: Use manual trend if negative (Decline)
+    if (is_extant && !is.na(tr_val) && tr_val < 0 && length(rv$a_type) > 0) {
+      red_val <- abs(tr_val)
+      cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(red_val>=90~"CR", red_val>=70~"EN", red_val>=50~"VU", red_val>=20~"NT", TRUE~"LC") else dplyr::case_when(red_val>=80~"CR", red_val>=50~"EN", red_val>=30~"VU", red_val>=20~"NT", TRUE~"LC")
       if (cat_A != "LC" && cat_A != "NT") code_A <- paste0(rv$a_type[1], paste(sort(unique(rv$a_basis)), collapse=""))
     }
 
@@ -150,17 +184,29 @@ server <- function(input, output, session) {
     c_valid <- if(!input$use_pop) setdiff(rv$c_subs, "iv") else rv$c_subs
     has_b <- (length(b_valid) > 0); has_c <- (length(c_valid) > 0)
 
+    locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
+
     eval_b <- function(area, type) {
       if (!is.na(area) && area > 0) {
         t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
-        met_a <- rv$loc
+
         if (area < t_cr) curr="CR" else if(area < t_en) curr="EN" else if(area < t_vu) curr="VU" else curr="LC"
+
         if (curr!="LC") {
+          thresh_loc <- if(curr=="CR") 1 else if(curr=="EN") 5 else 10
+          met_a <- (rv$loc && !is.na(locs_numeric) && locs_numeric <= thresh_loc)
+
           cond_sum <- sum(met_a, has_b, has_c)
+
           if (cond_sum >= 2) {
             s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
             return(list(cat=curr, code=paste0(type, s)))
-          } else if (cond_sum == 1) return(list(cat="NT", code=""))
+          } else if (cond_sum == 1) {
+            return(list(cat="NT", code=""))
+          } else if (cond_sum == 0 && (curr == "CR" || curr == "EN")) {
+            # Section 10.1: NT Restricted
+            return(list(cat="NT", code=""))
+          }
         }
       }
       return(list(cat="LC", code=""))
@@ -209,7 +255,6 @@ server <- function(input, output, session) {
                      add_code(code_C, cat_C), add_code(code_D1, cat_D1), add_code(code_E, cat_E))
     if (code_D2 != "" && final_cat == "VU") final_codes <- c(final_codes, code_D2)
 
-    # *** FIXED: Check is.na() instead of is.null() for initialization check ***
     if (!is_extant && final_cat == "LC" && is.na(rv$manual_trend)) {
       final_cat <- "DD"
     }
@@ -221,8 +266,14 @@ server <- function(input, output, session) {
 
   output$verification_panel <- renderUI({
     req(assessment_display()); res <- assessment_display()$res; data_raw <- raw_data()
-    t_val <- suppressWarnings(as.numeric(get_val(data_raw$trend, "percent_change")))
-    auto_trend_txt <- if(!is.na(t_val)) paste0("Auto: ", round(t_val, 1), "%") else "Auto: NA"
+
+    t_spatial <- suppressWarnings(as.numeric(get_val(data_raw$trend, "percent_change")))
+    # Safe pop extraction for UI text
+    t_pop <- NA
+    if(!is.null(data_raw$pop) && "decline_rate" %in% names(data_raw$pop)) t_pop <- suppressWarnings(as.numeric(data_raw$pop$decline_rate))
+
+    txt_s <- if(!is.na(t_spatial)) paste0(round(t_spatial, 1), "% (Spatial)") else "NA (Spatial)"
+    txt_p <- if(!is.na(t_pop)) paste0(round(t_pop, 1), "% (Pop)") else "NA (Pop)"
 
     style_disabled <- "color: #999; text-decoration: line-through; cursor: not-allowed;"
     lbl_b_v <- if(input$use_pop) tooltip_span("v", "Mature Individuals") else tags$span("v (Pop Only)", style=style_disabled)
@@ -237,7 +288,7 @@ server <- function(input, output, session) {
           p(tags$small("Select to strictly enforce DD/RE/EW/EX regardless of calculated metrics."), style="color:#777;")),
       fluidRow(
         column(4, wellPanel(h4("A. Reduction"),
-                            p(tags$small(strong(auto_trend_txt), style="color:#337ab7; margin-right:5px;"), "(Calculated)"),
+                            p(tags$small(strong(txt_s), " | ", strong(txt_p), style="color:#337ab7;")),
                             checkboxGroupInput("check_a_type", "Type:", inline=T, choiceNames=list(tooltip_span("A1","Reversible"), tooltip_span("A2","Irreversible"), tooltip_span("A3","Projected"), tooltip_span("A4","Past+Future")), choiceValues=c("A1","A2","A3","A4"), selected=rv$a_type),
                             numericInput("manual_a_trend", "Manual Override %:", value=rv$manual_trend),
                             checkboxGroupInput("a_basis", "Basis:", inline=T, choiceNames=list(tooltip_span("a","Obs"),tooltip_span("b","Index"),tooltip_span("c","AOO/EOO"),tooltip_span("d","Exploit"),tooltip_span("e","Intro")), choiceValues=c("a","b","c","d","e"), selected=rv$a_basis))),
