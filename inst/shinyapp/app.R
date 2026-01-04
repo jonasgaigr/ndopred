@@ -50,11 +50,12 @@ server <- function(input, output, session) {
     withProgress(message = 'Accessing NDOP...', value = 0, {
       occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) NULL)
 
-      # Handle 0 records gracefully for DD (Returns empty structure)
+      # Handle 0 records gracefully for DD
       if (is.null(occ_raw) || nrow(occ_raw) == 0) {
         return(list(
           eoo=list(area_km2=NA), aoo=list(area_km2=NA), locs=NA,
-          trend=list(percent_change=NA), pop=list(),
+          trend=list(percent_change=NA),
+          pop=list(decline_rate=NA, fluct_ratio=NA, total_mature=NA, max_subpop=NA),
           occ_all=data.frame(ROK=numeric(0)),
           taxon_group="Unknown", species=input$species_name, window_used=input$window
         ))
@@ -64,7 +65,11 @@ server <- function(input, output, session) {
       if (!"ROK" %in% names(occ_all) && "DATUM_OD" %in% names(occ_all)) occ_all$ROK <- as.numeric(format(as.Date(occ_all$DATUM_OD), "%Y"))
       incProgress(0.3, message = "Calculating metrics...")
 
-      assess_window <- max(10, 3 * input$gen_length)
+      # --- COMPLIANCE FIX: Section 4.4 (100-year Cap) ---
+      # "10 years or 3 generations, whichever is longer, up to a maximum of 100 years"
+      calc_gen_window <- 3 * input$gen_length
+      assess_window <- min(100, max(10, calc_gen_window))
+
       cutoff <- as.numeric(format(Sys.Date(), "%Y")) - assess_window
 
       eoo_res <- ndopred::calculate_eoo(occ_all, year_start = cutoff)
@@ -72,6 +77,7 @@ server <- function(input, output, session) {
       locs_res <- ndopred::calculate_locations(occ_all, year_start = cutoff)
       trend_res <- ndopred::calculate_trend(occ_all, window_years = assess_window)
       pop_res <- ndopred::calculate_pop_metrics(occ_all, window_years = assess_window)
+
       list(eoo=eoo_res, aoo=aoo_res, locs=locs_res, trend=trend_res, pop=pop_res, occ_all=occ_all, taxon_group=if("KAT_TAX"%in%names(occ_all)) unique(occ_all$KAT_TAX)[1] else "Unknown", species=input$species_name, window_used=assess_window)
     })
   })
