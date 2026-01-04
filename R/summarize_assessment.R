@@ -1,6 +1,7 @@
 #' Summarize Assessment with Strict IUCN Cascade Logic
 #'
 #' Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
+#' Harmonized with IUCN Guidelines v16 (March 2024).
 #'
 #' @param species Character string. Species name.
 #' @param eoo List containing `area_km2`.
@@ -16,10 +17,23 @@
 summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics,
                                  evaluate_pop = TRUE, year_last = NA, n_records = NA) {
 
-  # --- 0. PRE-ASSESSMENT CHECKS (RE & DD) ---
+  # --- 1. SETUP VARIABLES (Moved to top to prevent scoping errors in Pre-Checks) ---
+  eoo_val <- eoo$area_km2
+  aoo_val <- aoo$area_km2
+  locs_val <- locations
+
+  # Safe numeric conversions for metrics
+  trend_val <- suppressWarnings(as.numeric(trend$percent_change))
+  pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
+  fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
+  total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
+  max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
+
+  # --- 2. PRE-ASSESSMENT CHECKS (RE & DD) ---
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
 
-  # Check Regionally Extinct (RE)
+  # Check Regionally Extinct (RE) - Guidelines Section 11.2
+  # Time-lag check: if last record > 50 years ago.
   if (!is.na(year_last) && (current_year - year_last) > 50) {
     return(list(
       result = data.frame(
@@ -34,7 +48,8 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ))
   }
 
-  # Trigger DD if essential spatial metrics are missing or n is too low
+  # Check Data Deficient (DD) - Guidelines Section 10.3
+  # Trigger DD if essential spatial metrics are missing (inadequate info) or n is too low.
   if (is.na(n_records) || n_records < 3 || is.na(aoo_val)) {
     return(list(
       result = data.frame(
@@ -43,21 +58,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         EOO_km2 = NA, AOO_km2 = NA, Locations = NA, Trend_Perc = NA,
         stringsAsFactors = FALSE
       ),
-      details = list(...) # (Rest of empty details list)
+      details = list(a_type=character(0), a_basis=character(0), b_indices=character(0),
+                     c_indices=character(0), loc_flag=FALSE, c1=FALSE, c2_ai=FALSE,
+                     c2_aii=FALSE, c2_b=FALSE, d1_flag=FALSE, d2_flag=FALSE)
     ))
   }
 
-  # --- SETUP VARIABLES ---
-  eoo_val <- eoo$area_km2
-  aoo_val <- aoo$area_km2
-  locs_val <- locations
-  trend_val <- suppressWarnings(as.numeric(trend$percent_change))
-  pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
-  fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
-  total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
-  max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
-
-  # --- DERIVED METRIC (Safer version) ---
+  # --- 3. DERIVED METRICS & FLAGS ---
   prop_largest <- 0
   if (length(max_subpop) > 0 && length(total_mature) > 0) {
     if (!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
@@ -65,11 +72,11 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # Define Helper Globally (Moved out of 'if' block)
+  # Global helper for ranking categories
   cats <- c("LC", "NT", "VU", "EN", "CR")
   get_rank <- function(x) match(x, cats)
 
-  # --- 1. DETECT FLAGS ---
+  # Detect Decline/Fluctuation Flags
   has_decline_any <- (!is.na(trend_val) && trend_val < 0)
   if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) has_decline_any <- TRUE
 
@@ -88,7 +95,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   # *** GLOBAL GATE: IS SPECIES EXTANT IN WINDOW? ***
   is_extant <- (!is.na(aoo_val) && aoo_val > 0)
 
-  # --- 2. EVALUATE B CRITERIA ---
+  # --- 4. EVALUATE B CRITERIA (Refined for NT) ---
   evaluate_b <- function(area_val, type) {
     if (!is_extant) return(list(cat="LC", code="")) # Skip B if absent
 
@@ -106,14 +113,20 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         cond_sum <- sum(met_a_specific, has_b_decline, has_fluct)
 
         if (cond_sum >= 2) {
-          # Standard Threatened logic
+          # Standard Threatened logic (Meets Area + 2 subconditions)
           cat <- curr_cat
-          # ... (existing code to build sub_str)
+          sub_str <- ""
+          if (met_a_specific) sub_str <- paste0(sub_str, "a")
+          if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
+          if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
+          code <- paste0(type, sub_str)
         } else if (cond_sum == 1) {
+          # NT (Close to threatened)
           cat <- "NT"
           code <- paste0(type, " (close)")
         } else if (cond_sum == 0 && (curr_cat == "CR" || curr_cat == "EN")) {
-          # NEW: Section 10.1 - Restricted area but no current threats
+          # NEW: Guidelines Section 10.1 - Restricted area but no current threats
+          # Specifically for CR/EN thresholds without decline/fragmentation
           cat <- "NT"
           code <- paste0(type, " (restricted)")
         }
@@ -125,7 +138,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b1_res <- evaluate_b(eoo_val, "B1")
   b2_res <- evaluate_b(aoo_val, "B2")
 
-  # --- 3. EVALUATE A CRITERIA ---
+  # --- 5. EVALUATE A CRITERIA ---
   get_a_cat <- function(val) {
     if (is.na(val)) return("LC")
     val <- abs(val)
@@ -151,7 +164,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # --- 4. EVALUATE C CRITERIA ---
+  # --- 6. EVALUATE C CRITERIA ---
   cat_C <- "LC"; code_C <- ""
   c1_flag <- FALSE; c2_ai_flag <- FALSE; c2_aii_flag <- FALSE; c2_b_flag <- FALSE
 
@@ -200,7 +213,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # --- 5. AGGREGATE RESULTS ---
+  # --- 7. AGGREGATE RESULTS ---
   final_cat <- "LC"; final_crit <- character(0)
 
   update_cat <- function(new_cat, new_code) {
@@ -217,21 +230,18 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat(cat_C, code_C)
 
   # D2 Check - REQUIRES EXTANT
+  # Consolidated Logic: Fixed duplication bug from previous versions
+  # Guidelines Section 8: D2 applies if "plausible future threat" exists.
   is_d2 <- (is_extant && (aoo_val < 20 || locs_val <= 5))
+  d2_active <- FALSE
+
   if (is_d2) {
-    # Add notation as per Section 8 guidelines
     d2_note <- "D2 (Restricted/Threat Plausible)"
     if (get_rank(final_cat) < get_rank("VU")) {
-      final_cat <- "VU"
-      final_crit <- c(d2_note)
+      final_cat <- "VU"; final_crit <- c(d2_note); d2_active <- TRUE
     } else if (final_cat == "VU") {
-      final_crit <- c(final_crit, d2_note)
+      final_crit <- c(final_crit, d2_note); d2_active <- TRUE
     }
-  }
-  d2_active <- FALSE
-  if (is_d2) {
-    if (get_rank(final_cat) < get_rank("VU")) { final_cat <- "VU"; final_crit <- c("D2"); d2_active <- TRUE }
-    else if (final_cat == "VU") { final_crit <- c(final_crit, "D2"); d2_active <- TRUE }
   }
 
   # D1 Check
