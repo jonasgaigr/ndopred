@@ -16,10 +16,29 @@
 summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics,
                                  evaluate_pop = TRUE, year_last = NA, n_records = NA) {
 
-  # --- 0. PRE-ASSESSMENT CHECKS (RE & DD) ---
+  # --- 1. SAFE NUMERIC HELPER (Prevents crashes on empty data) ---
+  safe_num <- function(x) {
+    if (is.null(x)) return(NA_real_)
+    val <- suppressWarnings(as.numeric(x))
+    if (length(val) == 0) return(NA_real_)
+    return(val)
+  }
+
+  # --- 2. SETUP VARIABLES (Moved to top to prevent scoping errors) ---
+  eoo_val <- eoo$area_km2
+  aoo_val <- aoo$area_km2
+  locs_val <- locations
+
+  trend_val <- safe_num(trend$percent_change)
+  pop_decline <- safe_num(pop_metrics$decline_rate)
+  fluct_ratio <- safe_num(pop_metrics$fluct_ratio)
+  total_mature <- safe_num(pop_metrics$total_mature)
+  max_subpop   <- safe_num(pop_metrics$max_subpop)
+
+  # --- 3. PRE-ASSESSMENT CHECKS (RE & DD) ---
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
 
-  # Check Regionally Extinct (RE)
+  # Check Regionally Extinct (RE) - Guidelines Section 11.2
   if (!is.na(year_last) && (current_year - year_last) > 50) {
     return(list(
       result = data.frame(
@@ -34,12 +53,12 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ))
   }
 
-  # Check Data Deficient (DD) - Global poverty
-  if (!is.na(n_records) && n_records < 3) {
+  # Check Data Deficient (DD) - Guidelines Section 10.3
+  if (is.na(n_records) || n_records < 3 || is.na(aoo_val)) {
     return(list(
       result = data.frame(
         Species = species, Category = "DD",
-        Criteria = paste0("Insufficient Data (n=", n_records, ")"),
+        Criteria = "Inadequate information to estimate distribution",
         EOO_km2 = NA, AOO_km2 = NA, Locations = NA, Trend_Perc = NA,
         stringsAsFactors = FALSE
       ),
@@ -49,29 +68,16 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     ))
   }
 
-  # --- SETUP VARIABLES ---
-  eoo_val <- eoo$area_km2
-  aoo_val <- aoo$area_km2
-  locs_val <- locations
-  trend_val <- suppressWarnings(as.numeric(trend$percent_change))
-  pop_decline <- suppressWarnings(as.numeric(pop_metrics$decline_rate))
-  fluct_ratio <- suppressWarnings(as.numeric(pop_metrics$fluct_ratio))
-  total_mature <- suppressWarnings(as.numeric(pop_metrics$total_mature))
-  max_subpop   <- suppressWarnings(as.numeric(pop_metrics$max_subpop))
-
-  # --- DERIVED METRIC (Safer version) ---
+  # --- 4. DERIVED METRICS ---
   prop_largest <- 0
-  if (length(max_subpop) > 0 && length(total_mature) > 0) {
-    if (!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
-      prop_largest <- max_subpop / total_mature
-    }
+  if (!is.na(max_subpop) && !is.na(total_mature) && total_mature > 0) {
+    prop_largest <- max_subpop / total_mature
   }
 
-  # *** FIX: Define Helper Globally (Moved out of 'if' block) ***
+  # Helpers & Flags
   cats <- c("LC", "NT", "VU", "EN", "CR")
   get_rank <- function(x) match(x, cats)
 
-  # --- 1. DETECT FLAGS ---
   has_decline_any <- (!is.na(trend_val) && trend_val < 0)
   if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) has_decline_any <- TRUE
 
@@ -86,13 +92,11 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   if (has_fluct) c_indices_b <- c(c_indices_b, "iv")
 
   loc_flag <- (locs_val <= 10)
-
-  # *** GLOBAL GATE: IS SPECIES EXTANT IN WINDOW? ***
   is_extant <- (!is.na(aoo_val) && aoo_val > 0)
 
-  # --- 2. EVALUATE B CRITERIA ---
+  # --- 5. EVALUATE B CRITERIA ---
   evaluate_b <- function(area_val, type) {
-    if (!is_extant) return(list(cat="LC", code="")) # Skip B if absent
+    if (!is_extant) return(list(cat="LC", code=""))
 
     t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
     cat <- "LC"; code <- ""
@@ -117,6 +121,10 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
         } else if (cond_sum == 1) {
           cat <- "NT"
           code <- paste0(type, " (close)")
+        } else if (cond_sum == 0 && (curr_cat == "CR" || curr_cat == "EN")) {
+          # Guideline Section 10.1: Restricted area but no current threats
+          cat <- "NT"
+          code <- paste0(type, " (restricted)")
         }
       }
     }
@@ -126,7 +134,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b1_res <- evaluate_b(eoo_val, "B1")
   b2_res <- evaluate_b(aoo_val, "B2")
 
-  # --- 3. EVALUATE A CRITERIA ---
+  # --- 6. EVALUATE A CRITERIA ---
   get_a_cat <- function(val) {
     if (is.na(val)) return("LC")
     val <- abs(val)
@@ -139,7 +147,6 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
 
-  # Only evaluate A if extant
   if (is_extant) {
     cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
     cat_a_pop <- "LC"
@@ -152,7 +159,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # --- 4. EVALUATE C CRITERIA ---
+  # --- 7. EVALUATE C CRITERIA ---
   cat_C <- "LC"; code_C <- ""
   c1_flag <- FALSE; c2_ai_flag <- FALSE; c2_aii_flag <- FALSE; c2_b_flag <- FALSE
 
@@ -201,7 +208,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     }
   }
 
-  # --- 5. AGGREGATE RESULTS ---
+  # --- 8. AGGREGATE RESULTS ---
   final_cat <- "LC"; final_crit <- character(0)
 
   update_cat <- function(new_cat, new_code) {
@@ -217,12 +224,16 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   update_cat(b2_res$cat, b2_res$code)
   update_cat(cat_C, code_C)
 
-  # D2 Check - REQUIRES EXTANT
+  # D2 Check - REQUIRES EXTANT (Consolidated Logic)
   is_d2 <- (is_extant && (aoo_val < 20 || locs_val <= 5))
   d2_active <- FALSE
   if (is_d2) {
-    if (get_rank(final_cat) < get_rank("VU")) { final_cat <- "VU"; final_crit <- c("D2"); d2_active <- TRUE }
-    else if (final_cat == "VU") { final_crit <- c(final_crit, "D2"); d2_active <- TRUE }
+    d2_note <- "D2 (Restricted/Threat Plausible)"
+    if (get_rank(final_cat) < get_rank("VU")) {
+      final_cat <- "VU"; final_crit <- c(d2_note); d2_active <- TRUE
+    } else if (final_cat == "VU") {
+      final_crit <- c(final_crit, d2_note); d2_active <- TRUE
+    }
   }
 
   # D1 Check
