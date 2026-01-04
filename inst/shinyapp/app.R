@@ -50,12 +50,11 @@ server <- function(input, output, session) {
     withProgress(message = 'Accessing NDOP...', value = 0, {
       occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) NULL)
 
-      # FIX 1: Provide explicit NA structure for pop logic to prevent 'numeric(0)' crashes
+      # Handle 0 records gracefully for DD (Returns empty structure)
       if (is.null(occ_raw) || nrow(occ_raw) == 0) {
         return(list(
           eoo=list(area_km2=NA), aoo=list(area_km2=NA), locs=NA,
-          trend=list(percent_change=NA),
-          pop=list(decline_rate=NA, fluct_ratio=NA, total_mature=NA, max_subpop=NA), # Fully populated NAs
+          trend=list(percent_change=NA), pop=list(),
           occ_all=data.frame(ROK=numeric(0)),
           taxon_group="Unknown", species=input$species_name, window_used=input$window
         ))
@@ -91,13 +90,18 @@ server <- function(input, output, session) {
     dets <- sum_obj$details
     rv$a_type <- dets$a_type
 
+    # --- FIX CRASH: Robust Trend Extraction ---
+    # Safely extract values, defaulting to NA if list is empty or field missing
     t_spatial <- suppressWarnings(as.numeric(get_val(data$trend, "percent_change")))
-    t_pop <- suppressWarnings(as.numeric(data$pop$decline_rate))
-
-    # FIX 2: Handle numeric(0) if data$pop was somehow empty (robustness)
-    if(length(t_pop) == 0) t_pop <- NA
     if(length(t_spatial) == 0) t_spatial <- NA
 
+    t_pop <- NA
+    if(!is.null(data$pop) && "decline_rate" %in% names(data$pop)) {
+      t_pop <- suppressWarnings(as.numeric(data$pop$decline_rate))
+    }
+    if(length(t_pop) == 0) t_pop <- NA
+
+    # Pick the most severe decline (lowest negative number)
     t_init <- NA
     if (!is.na(t_spatial) && !is.na(t_pop)) t_init <- min(t_spatial, t_pop)
     else if (!is.na(t_spatial)) t_init <- t_spatial
@@ -150,17 +154,20 @@ server <- function(input, output, session) {
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
+    # RE Pre-Check (Section 11.2)
     if (!is.na(y_last) && (current_year - y_last) > 50) return(list(category="RE", criteria=paste0("Last recorded: ", y_last)))
 
     eoo_v <- suppressWarnings(as.numeric(get_val(data$eoo, "area_km2")))
     aoo_v <- suppressWarnings(as.numeric(get_val(data$aoo, "area_km2")))
 
+    # DD Pre-Check (Section 10.3)
     if (n_rec < 3 || is.na(aoo_v)) return(list(category="DD", criteria="Inadequate information"))
 
     tr_val <- if(!is.na(rv$manual_trend)) rv$manual_trend else 0
     is_extant <- (!is.na(aoo_v) && aoo_v > 0) || (!is.na(tr_val) && tr_val != 0)
 
     cat_A <- "LC"; code_A <- ""
+    # Criterion A Harmonized: Use manual trend if negative (Decline)
     if (is_extant && !is.na(tr_val) && tr_val < 0 && length(rv$a_type) > 0) {
       red_val <- abs(tr_val)
       cat_A <- if("A1"%in%rv$a_type) dplyr::case_when(red_val>=90~"CR", red_val>=70~"EN", red_val>=50~"VU", red_val>=20~"NT", TRUE~"LC") else dplyr::case_when(red_val>=80~"CR", red_val>=50~"EN", red_val>=30~"VU", red_val>=20~"NT", TRUE~"LC")
@@ -182,6 +189,7 @@ server <- function(input, output, session) {
         if (curr!="LC") {
           thresh_loc <- if(curr=="CR") 1 else if(curr=="EN") 5 else 10
           met_a <- (rv$loc && !is.na(locs_numeric) && locs_numeric <= thresh_loc)
+
           cond_sum <- sum(met_a, has_b, has_c)
 
           if (cond_sum >= 2) {
@@ -190,6 +198,7 @@ server <- function(input, output, session) {
           } else if (cond_sum == 1) {
             return(list(cat="NT", code=""))
           } else if (cond_sum == 0 && (curr == "CR" || curr == "EN")) {
+            # Section 10.1: NT Restricted
             return(list(cat="NT", code=""))
           }
         }
@@ -253,11 +262,12 @@ server <- function(input, output, session) {
     req(assessment_display()); res <- assessment_display()$res; data_raw <- raw_data()
 
     t_spatial <- suppressWarnings(as.numeric(get_val(data_raw$trend, "percent_change")))
-    t_pop <- suppressWarnings(as.numeric(data_raw$pop$decline_rate))
+    # Safe pop extraction for UI text
+    t_pop <- NA
+    if(!is.null(data_raw$pop) && "decline_rate" %in% names(data_raw$pop)) t_pop <- suppressWarnings(as.numeric(data_raw$pop$decline_rate))
 
-    # FIX 3: Safe print for UI if NULL
-    txt_s <- if(!is.null(t_spatial) && !is.na(t_spatial)) paste0(round(t_spatial, 1), "% (Spatial)") else "NA (Spatial)"
-    txt_p <- if(!is.null(t_pop) && !is.na(t_pop)) paste0(round(t_pop, 1), "% (Pop)") else "NA (Pop)"
+    txt_s <- if(!is.na(t_spatial)) paste0(round(t_spatial, 1), "% (Spatial)") else "NA (Spatial)"
+    txt_p <- if(!is.na(t_pop)) paste0(round(t_pop, 1), "% (Pop)") else "NA (Pop)"
 
     style_disabled <- "color: #999; text-decoration: line-through; cursor: not-allowed;"
     lbl_b_v <- if(input$use_pop) tooltip_span("v", "Mature Individuals") else tags$span("v (Pop Only)", style=style_disabled)
