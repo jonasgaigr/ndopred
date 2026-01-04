@@ -1,6 +1,6 @@
 Package: ndopred
 Title: Automated IUCN Red List Assessment for NDOP Data
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: 
     person("Jonáš", "Gaigr", , "jonas.gaigr@aopk.gov.cz", role = c("aut", "cre"))
 Description: Automates the calculation of IUCN Red List metrics using occurrence 
