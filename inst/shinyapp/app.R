@@ -8,7 +8,7 @@ library(shinythemes)
 ui <- fluidPage(
   theme = shinythemes::shinytheme("flatly"),
   tags$head(tags$script(HTML("$(function () { $('body').tooltip({selector: '[data-toggle=\"tooltip\"]'}); });"))),
-  titlePanel("NDOP Red List Assessor v0.1"),
+  titlePanel("NDOP Red List Assessor v0.1.1"),
   sidebarLayout(
     sidebarPanel(
       width = 3,
