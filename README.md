@@ -89,7 +89,9 @@ tests/: Unit tests for IUCN logic integrity.
 
 ## Logo
 
-<img src="ndopred_hex.png" align="right" width="250" />
+<img src="ndopred_hex.png" align="right" width="120" />
+
+The `ndopred` logo showcases a silhouette of a [European stag beetle](https://portal.nature.cz/w/druh-6707#/) (_Lucanus cervus_) and [spring pasqueflower](https://portal.nature.cz/w/druh-39051#/) (_Pulsatilla vernalis_). 
 
 ## ⚠️ Status
 Version 0.1 (Experimental). Logic is compliant with IUCN Guidelines v15.1. Always validate automated results with expert opinion.
