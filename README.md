@@ -1,4 +1,4 @@
-# ndopred: NDOP Red List Assessor
+# ndopred: NDOP Red List Assessor <img src="ndopred_hex.png" align="right" width="200" />
 
 **ndopred** is an R package designed to streamline and automate IUCN Red List assessments for species data stored in the NDOP database (Nature Conservation Agency of the Czech Republic). 
 
