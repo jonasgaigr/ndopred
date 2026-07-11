@@ -13,7 +13,8 @@ summarize_assessment(
   pop_metrics,
   evaluate_pop = TRUE,
   year_last = NA,
-  n_records = NA
+  n_records = NA,
+  a_criteria = c("A2")
 )
 }
 \arguments{

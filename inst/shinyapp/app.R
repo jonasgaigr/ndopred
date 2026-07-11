@@ -184,26 +184,42 @@ server <- function(input, output, session) {
 
     eval_b <- function(area, type) {
       if (!is.na(area) && area > 0) {
-        t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
+        t_cr <- if(type=="B1") 100 else 10
+        t_en <- if(type=="B1") 5000 else 500
+        t_vu <- if(type=="B1") 20000 else 2000
 
-        if (area < t_cr) curr="CR" else if(area < t_en) curr="EN" else if(area < t_vu) curr="VU" else curr="LC"
+        check_tier <- function(tier_cat, thresh_area, thresh_loc) {
+          if (area < thresh_area) {
+            # Expert override for locations (must be explicitly checked AND meet the numeric threshold)
+            met_a <- (rv$loc && !is.na(locs_numeric) && locs_numeric <= thresh_loc)
 
-        if (curr!="LC") {
-          thresh_loc <- if(curr=="CR") 1 else if(curr=="EN") 5 else 10
-          met_a <- (rv$loc && !is.na(locs_numeric) && locs_numeric <= thresh_loc)
+            cond_sum <- sum(met_a, has_b, has_c)
 
-          cond_sum <- sum(met_a, has_b, has_c)
-
-          if (cond_sum >= 2) {
-            s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
-            return(list(cat=curr, code=paste0(type, s)))
-          } else if (cond_sum == 1) {
-            return(list(cat="NT", code=""))
-          } else if (cond_sum == 0 && (curr == "CR" || curr == "EN")) {
-            # Section 10.1: NT Restricted
-            return(list(cat="NT", code=""))
+            if (cond_sum >= 2) {
+              s <- paste0(if(met_a)"a"else"", if(has_b)paste0("b(",paste(sort(b_valid),collapse=","),")")else"", if(has_c)paste0("c(",paste(sort(c_valid),collapse=","),")")else"")
+              return(list(met = TRUE, cat = tier_cat, code = paste0(type, s)))
+            } else if (cond_sum == 1) {
+              return(list(met = FALSE, near = TRUE, cat = "NT", code = ""))
+            } else if (cond_sum == 0 && (tier_cat == "CR" || tier_cat == "EN")) {
+              return(list(met = FALSE, near = TRUE, cat = "NT", code = ""))
+            }
           }
+          return(list(met = FALSE, near = FALSE))
         }
+
+        # Cascade through tiers
+        res_cr <- check_tier("CR", t_cr, 1)
+        if (res_cr$met) return(list(cat = res_cr$cat, code = res_cr$code))
+
+        res_en <- check_tier("EN", t_en, 5)
+        if (res_en$met) return(list(cat = res_en$cat, code = res_en$code))
+
+        res_vu <- check_tier("VU", t_vu, 10)
+        if (res_vu$met) return(list(cat = res_vu$cat, code = res_vu$code))
+
+        if (res_vu$near) return(list(cat = "NT", code = ""))
+        if (res_en$near) return(list(cat = "NT", code = ""))
+        if (res_cr$near) return(list(cat = "NT", code = ""))
       }
       return(list(cat="LC", code=""))
     }

@@ -93,35 +93,51 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
 
   # --- 2. EVALUATE B CRITERIA ---
   evaluate_b <- function(area_val, type) {
-    if (!is_extant) return(list(cat="LC", code="")) # Skip B if absent
+    if (!is_extant || is.na(area_val)) return(list(cat="LC", code=""))
 
-    t_cr <- if(type=="B1") 100 else 10; t_en <- if(type=="B1") 5000 else 500; t_vu <- if(type=="B1") 20000 else 2000
-    cat <- "LC"; code <- ""
+    t_cr <- if(type=="B1") 100 else 10
+    t_en <- if(type=="B1") 5000 else 500
+    t_vu <- if(type=="B1") 20000 else 2000
 
-    if (!is.na(area_val)) {
-      if (area_val < t_cr)      { curr_cat <- "CR"; thresh_loc <- 1 }
-      else if (area_val < t_en) { curr_cat <- "EN"; thresh_loc <- 5 }
-      else if (area_val < t_vu) { curr_cat <- "VU"; thresh_loc <- 10 }
-      else                      { curr_cat <- "LC"; thresh_loc <- 0 }
-
-      if (curr_cat != "LC") {
-        met_a_specific <- (locs_val <= thresh_loc)
-        cond_sum <- sum(met_a_specific, has_b_decline, has_fluct)
+    # Helper function to check a specific tier
+    check_tier <- function(tier_cat, thresh_area, thresh_loc) {
+      if (area_val < thresh_area) {
+        met_a <- (locs_val <= thresh_loc)
+        cond_sum <- sum(met_a, has_b_decline, has_fluct)
 
         if (cond_sum >= 2) {
-          cat <- curr_cat
           sub_str <- ""
-          if (met_a_specific) sub_str <- paste0(sub_str, "a")
+          if (met_a) sub_str <- paste0(sub_str, "a")
           if (has_b_decline) sub_str <- paste0(sub_str, "b(", paste(sort(unique(b_indices)), collapse=","), ")")
           if (has_fluct) sub_str <- paste0(sub_str, "c(", paste(sort(unique(c_indices_b)), collapse=","), ")")
-          code <- paste0(type, sub_str)
+          return(list(met = TRUE, cat = tier_cat, code = paste0(type, sub_str)))
         } else if (cond_sum == 1) {
-          cat <- "NT"
-          code <- paste0(type, " (close)")
+          return(list(met = FALSE, near = TRUE, cat = "NT", code = paste0(type, " (close)")))
+        } else if (cond_sum == 0 && (tier_cat == "CR" || tier_cat == "EN")) {
+          return(list(met = FALSE, near = TRUE, cat = "NT", code = paste0(type, " (restricted)")))
         }
       }
+      return(list(met = FALSE, near = FALSE))
     }
-    return(list(cat=cat, code=code))
+
+    # 1. Check CR Tier
+    res_cr <- check_tier("CR", t_cr, 1)
+    if (res_cr$met) return(list(cat = res_cr$cat, code = res_cr$code))
+
+    # 2. Check EN Tier (Cascades here if it failed CR subconditions)
+    res_en <- check_tier("EN", t_en, 5)
+    if (res_en$met) return(list(cat = res_en$cat, code = res_en$code))
+
+    # 3. Check VU Tier
+    res_vu <- check_tier("VU", t_vu, 10)
+    if (res_vu$met) return(list(cat = res_vu$cat, code = res_vu$code))
+
+    # 4. If no threat tier is fully met, check if it triggered NT at any level
+    if (res_vu$near) return(list(cat = res_vu$cat, code = res_vu$code))
+    if (res_en$near) return(list(cat = res_en$cat, code = res_en$code))
+    if (res_cr$near) return(list(cat = res_cr$cat, code = res_cr$code))
+
+    return(list(cat="LC", code=""))
   }
 
   b1_res <- evaluate_b(eoo_val, "B1")
