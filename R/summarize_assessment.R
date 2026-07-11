@@ -14,7 +14,8 @@
 #' @return A list containing `result` (display dataframe) and `details` (boolean flags).
 #' @export
 summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics,
-                                 evaluate_pop = TRUE, year_last = NA, n_records = NA) {
+                                 evaluate_pop = TRUE, year_last = NA, n_records = NA,
+                                 a_criteria = c("A2")) {
 
   # --- 0. PRE-ASSESSMENT CHECKS (RE & DD) ---
   current_year <- as.numeric(format(Sys.Date(), "%Y"))
@@ -127,28 +128,41 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   b2_res <- evaluate_b(aoo_val, "B2")
 
   # --- 3. EVALUATE A CRITERIA ---
-  get_a_cat <- function(val) {
+  get_a_cat <- function(val, type_flags) {
     if (is.na(val)) return("LC")
     val <- abs(val)
-    if (val >= 80) return("CR")
-    if (val >= 50) return("EN")
-    if (val >= 30) return("VU")
-    if (val >= 20) return("NT")
-    return("LC")
+
+    # Check if A1 is present in the selected criteria
+    if (any(grepl("A1", type_flags))) {
+      if (val >= 90) return("CR")
+      if (val >= 70) return("EN")
+      if (val >= 50) return("VU")
+      if (val >= 20) return("NT")
+      return("LC")
+    } else {
+      # Apply standard A2/A3/A4 thresholds
+      if (val >= 80) return("CR")
+      if (val >= 50) return("EN")
+      if (val >= 30) return("VU")
+      if (val >= 20) return("NT")
+      return("LC")
+    }
   }
 
   cat_A <- "LC"; code_A <- ""; a_type <- character(0); a_basis <- character(0)
 
-  # Only evaluate A if extant
   if (is_extant) {
-    cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val) else "LC"
+    cat_a_spatial <- if(!is.na(trend_val) && trend_val < 0) get_a_cat(trend_val, a_criteria) else "LC"
     cat_a_pop <- "LC"
-    if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline)
+    if (evaluate_pop && !is.na(pop_decline) && pop_decline < 0) cat_a_pop <- get_a_cat(pop_decline, a_criteria)
+
+    # Determine which A prefix to use for the output code (defaulting to A2 if empty)
+    active_a_type <- if (length(a_criteria) > 0) a_criteria[1] else "A2"
 
     if (get_rank(cat_a_pop) >= get_rank(cat_a_spatial) && cat_a_pop != "LC") {
-      cat_A <- cat_a_pop; a_type <- "A2"; a_basis <- "b"; code_A <- "A2b"
+      cat_A <- cat_a_pop; a_type <- active_a_type; a_basis <- "b"; code_A <- paste0(active_a_type, "b")
     } else if (cat_a_spatial != "LC") {
-      cat_A <- cat_a_spatial; a_type <- "A2"; a_basis <- "c"; code_A <- "A2c"
+      cat_A <- cat_a_spatial; a_type <- active_a_type; a_basis <- "c"; code_A <- paste0(active_a_type, "c")
     }
   }
 

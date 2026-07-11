@@ -85,7 +85,7 @@ server <- function(input, output, session) {
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
 
-    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec)
+    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=is_pop, year_last=y_last, n_records=n_rec, a_criteria=c("A2"))
 
     dets <- sum_obj$details
     rv$a_type <- dets$a_type
@@ -140,7 +140,9 @@ server <- function(input, output, session) {
     locs_numeric <- suppressWarnings(as.numeric(get_val(data$locs, "n_locations")))
     y_last <- if(!is.null(data$occ_all$ROK) && length(data$occ_all$ROK) > 0) max(data$occ_all$ROK, na.rm=T) else NA
     n_rec  <- nrow(data$occ_all)
-    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop, year_last=y_last, n_records=n_rec)
+    # Dynamically pull the currently selected A-types from the UI, fallback to A2
+    current_a_type <- if (length(rv$a_type) > 0) rv$a_type else c("A2")
+    sum_obj <- ndopred::summarize_assessment(species=data$species, eoo=data$eoo, aoo=data$aoo, trend=data$trend, locations=locs_numeric, pop_metrics=data$pop, evaluate_pop=input$use_pop, year_last=y_last, n_records=n_rec, a_criteria=current_a_type)
     return(list(res=sum_obj$result, dets=sum_obj$details, data=data))
   })
 
