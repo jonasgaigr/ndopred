@@ -11,10 +11,12 @@
 #' @param evaluate_pop Logical. If FALSE, ignores Criteria C, D1, and pop-dependent subcriteria.
 #' @param year_last Numeric. The most recent year observed in the dataset.
 #' @param n_records Numeric. Total number of records in the dataset.
+#' @param a_criteria Character vector of A criteria to apply (e.g., c("A2")). Default is NULL.
 #' @return A list containing `result` (display dataframe) and `details` (boolean flags).
 #' @export
 summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metrics,
-                                 evaluate_pop = TRUE, year_last = NA, n_records = NA) {
+                                 evaluate_pop = TRUE, year_last = NA, n_records = NA,
+                                 a_criteria = NULL) {
 
   # --- 1. SAFE NUMERIC HELPER (Prevents crashes on empty data) ---
   safe_num <- function(x) {
