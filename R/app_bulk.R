@@ -46,7 +46,6 @@ server <- function(input, output, session) {
   observeEvent(input$run_bulk, {
     req(input$file1)
 
-    # Try reading as comma-separated first, fallback to semicolon if it fails
     df_input <- tryCatch({
       temp <- read.csv(input$file1$datapath, stringsAsFactors = FALSE)
       if(ncol(temp) == 1 && grepl(";", temp[1,1])) {
@@ -90,7 +89,6 @@ server <- function(input, output, session) {
 
         occ_raw <- tryCatch(ndopred::get_assessment_data(sp), error = function(e) NULL)
 
-        # Initialise empty row
         res_row <- data.frame(
           `Taxonomická skupina` = NA_character_,
           `Čeleď` = NA_character_,
@@ -111,18 +109,38 @@ server <- function(input, output, session) {
 
         if (!is.null(occ_raw) && nrow(occ_raw) > 0) {
 
-          # Generalised Date Fallback
-          if (!"ROK" %in% names(occ_raw) && "DATUM_OD" %in% names(occ_raw)) {
-            occ_raw$ROK <- as.numeric(format(as.Date(occ_raw$DATUM_OD), "%Y"))
+          # 1. The Ultimate Date Extractor (Legacy DB Patch)
+          # Locate columns ignoring case to prevent API variance crashes
+          col_rok <- grep("^ROK$", names(occ_raw), ignore.case = TRUE, value = TRUE)
+          col_datum <- grep("^DATUM_OD$", names(occ_raw), ignore.case = TRUE, value = TRUE)
+
+          # Initialise ROK if completely missing, otherwise force coercion to numeric
+          if (length(col_rok) == 0) {
+            occ_raw$ROK <- NA_real_
+            col_rok <- "ROK"
+          } else {
+            occ_raw[[col_rok[1]]] <- suppressWarnings(as.numeric(as.character(occ_raw[[col_rok[1]]])))
           }
+
+          # Aggressively extract historic years and patch the NAs
+          if (length(col_datum) > 0) {
+            # Bypasses complex date formats to grab any 4 consecutive digits (18xx, 19xx, 20xx)
+            regex_years <- suppressWarnings(as.numeric(gsub("^.*\\b((?:18|19|20)[0-9]{2})\\b.*$", "\\1", as.character(occ_raw[[col_datum[1]]]))))
+
+            nas_in_rok <- is.na(occ_raw[[col_rok[1]]])
+            occ_raw[[col_rok[1]]][nas_in_rok] <- regex_years[nas_in_rok]
+          }
+
+          # Standardise the final column name to exactly "ROK" for downstream logic
+          names(occ_raw)[names(occ_raw) == col_rok[1]] <- "ROK"
 
           if ("KAT_TAX" %in% names(occ_raw)) res_row$`Taxonomická skupina` <- occ_raw$KAT_TAX[1]
           if ("CELED" %in% names(occ_raw)) res_row$`Čeleď` <- occ_raw$CELED[1]
 
+          # The subsets will now successfully inherit the patched historic records
           occ_old <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK < recent_cutoff, ]
           occ_new <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK >= recent_cutoff, ]
 
-          # Highly robust metric extractor with support for passed arguments (...)
           safe_metric <- function(calc_func, data, ...) {
             if (nrow(data) == 0) return(0)
             res <- tryCatch(calc_func(data, ...), error = function(e) NA)
@@ -137,7 +155,6 @@ server <- function(input, output, session) {
             return(NA)
           }
 
-          # Grid size passed from UI (km converted to metres)
           grid_size_m <- input$cell_size * 1000
 
           res_row$`AOO starý (km2)` <- safe_metric(ndopred::calculate_aoo, occ_old, grid_size = grid_size_m)
@@ -147,10 +164,8 @@ server <- function(input, output, session) {
           res_row$`Počet lokalit starý` <- safe_metric(ndopred::calculate_locations, occ_old)
           res_row$`Počet lokalit nový` <- safe_metric(ndopred::calculate_locations, occ_new)
 
-          # ENFORCE IUCN GEOMETRY RULES: EOO >= AOO
           enforce_iucn_logic <- function(eoo, aoo) {
             if (is.na(aoo) || aoo == 0) return(eoo)
-            # If EOO failed (e.g. <3 points) or is smaller than AOO, it defaults to AOO
             if (is.na(eoo) || eoo < aoo) return(aoo)
             return(eoo)
           }
@@ -163,7 +178,6 @@ server <- function(input, output, session) {
             res_row$`2x2 grid nový (počet)` <- res_row$`AOO nový (km2)` / grid_area
           }
 
-          # Fixed: Calculate trend mapped dynamically from the 'window' variable to prevent UI crash
           trend_res <- tryCatch(
             ndopred::calculate_trend(
               occ_raw,
@@ -183,10 +197,7 @@ server <- function(input, output, session) {
           y_last <- suppressWarnings(max(occ_raw$ROK, na.rm = TRUE))
           if (is.infinite(y_last)) y_last <- NA
 
-          # Protect against NA crash and capture error messages in the UI log
           sum_obj <- tryCatch({
-
-            # Defensive location variable to prevent package crash if metric completely failed
             safe_locs <- if(is.na(res_row$`Počet lokalit nový`)) 0 else res_row$`Počet lokalit nový`
 
             ndopred::summarize_assessment(
@@ -198,8 +209,7 @@ server <- function(input, output, session) {
               pop_metrics = list(decline_rate = NA, fluct_ratio = NA, total_mature = NA, max_subpop = NA),
               evaluate_pop = FALSE,
               year_last = y_last,
-              n_records = nrow(occ_raw),
-              a_criteria = c("A2")
+              n_records = nrow(occ_raw)
             )
           }, error = function(e) {
             log_msg(paste("ERROR in automated category for", sp, ":", e$message))
@@ -210,14 +220,13 @@ server <- function(input, output, session) {
             res_row$`Kategorie (automatická)` <- sum_obj$result$Category
           }
 
-          # Generate Map
           map_file <- file.path(map_dir, paste0(gsub("[^A-Za-z0-9]", "_", sp), "_map.png"))
           tryCatch({
             png(map_file, width = 1000, height = 800, res = 150)
-            ndopred::plot_iucn(sp, occ_data = occ_raw, window = input$window)
+            ndopred::plot_iucn(sp, occ_raw, window = input$window)
             dev.off()
           }, error = function(e) {
-            log_msg(paste("Map generation failed for:", sp))
+            log_msg(paste("Map generation failed for", sp, ":", e$message))
             if(file.exists(map_file)) unlink(map_file)
           })
 
