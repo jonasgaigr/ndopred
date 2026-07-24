@@ -147,8 +147,16 @@ server <- function(input, output, session) {
             res_row$`2x2 grid nový (počet)` <- res_row$`AOO nový (km2)` / grid_area
           }
 
-          trend_res <- tryCatch(ndopred::calculate_trend(occ_raw, window_years = input$window), error = function(e) list())
-
+          trend_res <- tryCatch(
+            ndopred::calculate_trend(
+              occ_raw,
+              recent_start = input$recent_start,
+              recent_end = input$recent_end,
+              comp_start = input$comp_start,
+              comp_end = input$comp_end
+            ),
+            error = function(e) list()
+          )
           t_val <- NA
           if ("percent_change" %in% names(trend_res)) t_val <- trend_res$percent_change
           if ("aoo_change" %in% names(trend_res)) res_row$`Pokles AOO (%)` <- trend_res$aoo_change else res_row$`Pokles AOO (%)` <- t_val
