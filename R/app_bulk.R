@@ -110,6 +110,8 @@ server <- function(input, output, session) {
         )
 
         if (!is.null(occ_raw) && nrow(occ_raw) > 0) {
+
+          # Generalised Date Fallback
           if (!"ROK" %in% names(occ_raw) && "DATUM_OD" %in% names(occ_raw)) {
             occ_raw$ROK <- as.numeric(format(as.Date(occ_raw$DATUM_OD), "%Y"))
           }
@@ -120,10 +122,10 @@ server <- function(input, output, session) {
           occ_old <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK < recent_cutoff, ]
           occ_new <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK >= recent_cutoff, ]
 
-          # Highly robust metric extractor
-          safe_metric <- function(calc_func, data) {
+          # Highly robust metric extractor with support for passed arguments (...)
+          safe_metric <- function(calc_func, data, ...) {
             if (nrow(data) == 0) return(0)
-            res <- tryCatch(calc_func(data), error = function(e) NA)
+            res <- tryCatch(calc_func(data, ...), error = function(e) NA)
 
             if (is.list(res)) {
               if ("area_km2" %in% names(res)) return(as.numeric(res$area_km2))
@@ -135,28 +137,44 @@ server <- function(input, output, session) {
             return(NA)
           }
 
-          res_row$`AOO starý (km2)` <- safe_metric(ndopred::calculate_aoo, occ_old)
-          res_row$`AOO nový (km2)` <- safe_metric(ndopred::calculate_aoo, occ_new)
+          # Grid size passed from UI (km converted to metres)
+          grid_size_m <- input$cell_size * 1000
+
+          res_row$`AOO starý (km2)` <- safe_metric(ndopred::calculate_aoo, occ_old, grid_size = grid_size_m)
+          res_row$`AOO nový (km2)` <- safe_metric(ndopred::calculate_aoo, occ_new, grid_size = grid_size_m)
           res_row$`EOO starý (km2)` <- safe_metric(ndopred::calculate_eoo, occ_old)
           res_row$`EOO nový (km2)` <- safe_metric(ndopred::calculate_eoo, occ_new)
           res_row$`Počet lokalit starý` <- safe_metric(ndopred::calculate_locations, occ_old)
           res_row$`Počet lokalit nový` <- safe_metric(ndopred::calculate_locations, occ_new)
+
+          # ENFORCE IUCN GEOMETRY RULES: EOO >= AOO
+          enforce_iucn_logic <- function(eoo, aoo) {
+            if (is.na(aoo) || aoo == 0) return(eoo)
+            # If EOO failed (e.g. <3 points) or is smaller than AOO, it defaults to AOO
+            if (is.na(eoo) || eoo < aoo) return(aoo)
+            return(eoo)
+          }
+
+          res_row$`EOO starý (km2)` <- enforce_iucn_logic(res_row$`EOO starý (km2)`, res_row$`AOO starý (km2)`)
+          res_row$`EOO nový (km2)` <- enforce_iucn_logic(res_row$`EOO nový (km2)`, res_row$`AOO nový (km2)`)
 
           grid_area <- input$cell_size^2
           if (!is.na(res_row$`AOO nový (km2)`)) {
             res_row$`2x2 grid nový (počet)` <- res_row$`AOO nový (km2)` / grid_area
           }
 
+          # Fixed: Calculate trend mapped dynamically from the 'window' variable to prevent UI crash
           trend_res <- tryCatch(
             ndopred::calculate_trend(
               occ_raw,
-              recent_start = input$recent_start,
-              recent_end = input$recent_end,
-              comp_start = input$comp_start,
-              comp_end = input$comp_end
+              recent_start = recent_cutoff,
+              recent_end = current_year,
+              comp_start = recent_cutoff - input$window,
+              comp_end = recent_cutoff - 1
             ),
             error = function(e) list()
           )
+
           t_val <- NA
           if ("percent_change" %in% names(trend_res)) t_val <- trend_res$percent_change
           if ("aoo_change" %in% names(trend_res)) res_row$`Pokles AOO (%)` <- trend_res$aoo_change else res_row$`Pokles AOO (%)` <- t_val
