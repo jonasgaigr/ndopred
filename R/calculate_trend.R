@@ -1,40 +1,40 @@
-#' Calculate Trend (Comparing Recent vs Previous Window)
+#' Calculate Trend (Comparing Recent vs Comparison Window)
 #'
 #' @param occurrence_data Data frame (must contain DATUM_OD or 'year' col)
-#' @param window_years Numeric (default 10)
+#' @param recent_start Numeric. Start year for recent data.
+#' @param recent_end Numeric. End year for recent data.
+#' @param comp_start Numeric. Start year for comparison data.
+#' @param comp_end Numeric. End year for comparison data.
 #' @export
-calculate_trend <- function(occurrence_data, window_years = 10) {
+calculate_trend <- function(occurrence_data,
+                            recent_start = 2010, recent_end = 2026,
+                            comp_start = 2000, comp_end = 2016) {
 
   # Ensure dates are cleaned
   if (!"year" %in% names(occurrence_data)) {
-    occurrence_data <- clean_dates(occurrence_data)
+    occurrence_data <- ndopred::clean_dates(occurrence_data)
   }
 
-  current_year <- as.numeric(format(Sys.Date(), "%Y"))
+  # Filter data for both periods
+  p1_data <- occurrence_data %>% dplyr::filter(year >= comp_start & year <= comp_end)
+  p2_data <- occurrence_data %>% dplyr::filter(year >= recent_start & year <= recent_end)
 
-  # Define Periods
-  # P2 = Recent (e.g., 2015-2025)
-  # P1 = Previous (e.g., 2005-2015)
-  p2_start <- current_year - window_years
-  p1_start <- p2_start - window_years
+  # Calculate AOO for both periods to derive trend
+  # (Passing year_start = NULL because we pre-filtered the data above)
+  aoo_p1 <- ndopred::calculate_aoo(p1_data, year_start = NULL)$area_km2
+  aoo_p2 <- ndopred::calculate_aoo(p2_data, year_start = NULL)$area_km2
 
-  p1_data <- occurrence_data %>% dplyr::filter(year >= p1_start & year < p2_start)
-  p2_data <- occurrence_data %>% dplyr::filter(year >= p2_start)
-
-  # Calculate AOO for both periods
-  aoo_p1 <- calculate_aoo(p1_data)$area_km2
-  aoo_p2 <- calculate_aoo(p2_data)$area_km2
-
-  perc_change <- if(aoo_p1 > 0) {
+  # Calculate percentage change
+  perc_change <- if(!is.na(aoo_p1) && aoo_p1 > 0) {
     ((aoo_p2 - aoo_p1) / aoo_p1) * 100
   } else {
     NA
   }
 
   return(list(
-    range = paste(p1_start, "-", current_year),
-    period_1_range = paste(p1_start, "-", p2_start - 1),
-    period_2_range = paste(p2_start, "-", current_year),
+    range = paste(comp_start, "-", recent_end),
+    period_1_range = paste(comp_start, "-", comp_end),
+    period_2_range = paste(recent_start, "-", recent_end),
     period_1_aoo = aoo_p1,
     period_2_aoo = aoo_p2,
     percent_change = perc_change
