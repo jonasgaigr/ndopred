@@ -32,3 +32,48 @@ assess_criterion_d2 <- function(aoo_km2, locations) {
     return("LC")
   }
 }
+
+#' Run Full IUCN Assessment for a Single Species (Harmonised Pipeline)
+#'
+#' @param sp Character. Species scientific name.
+#' @param recent_start Numeric. Start year for recent data.
+#' @param recent_end Numeric. End year for recent data.
+#' @param comp_start Numeric. Start year for comparison data.
+#' @param comp_end Numeric. End year for comparison data.
+#' @export
+assess_species <- function(sp, recent_start, recent_end, comp_start, comp_end) {
+
+  # 1. Get & Clean Data
+  raw_occ <- get_assessment_data(sp)
+  occ_all <- clean_dates(raw_occ)
+
+  # 2. Filter for Current Status (Criterion B)
+  occ_recent <- occ_all %>%
+    dplyr::filter(year >= recent_start & year <= recent_end)
+
+  if (nrow(occ_recent) == 0) {
+    # Original exact fallback structure preserved
+    return(data.frame(
+      Species = sp, EOO_km2 = 0, AOO_km2 = 0, Locations = 0,
+      Trend_Perc = NA, Category = "EX?", Note = "No recent data",
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  # 3. Compute Metrics
+  # Spatial (Recent Only)
+  eoo <- calculate_eoo(occ_recent)
+  aoo <- calculate_aoo(occ_recent)
+  locs <- calculate_locations(occ_recent, year_start = NULL, year_end = NULL)
+
+  # Trend (Full Context)
+  trend <- calculate_trend(
+    occ_all,
+    recent_start = recent_start, recent_end = recent_end,
+    comp_start = comp_start, comp_end = comp_end
+  )
+
+  # 4. Summarise
+  # Keeping the exact argument structure from the original batch_assess.R
+  return(summarize_assessment(sp, eoo, aoo, trend, locs))
+}
