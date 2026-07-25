@@ -224,6 +224,10 @@ server <- function(input, output, session) {
           if (!is.null(sum_obj)) {
             res_row$`Kategorie (automatická)` <- sum_obj$result$Category
             res_row$`Kriteria (automatická)` <- sum_obj$result$Criteria
+            # Omit iii specifically for bulk assessment results
+            clean_crit <- gsub(",?iii,?", "", sum_obj$result$Criteria)
+            clean_crit <- gsub("\\(\\s*,+\\s*", "(", clean_crit) # cleanup leftover commas
+            clean_crit <- gsub(",+\\s*\\)", ")", clean_crit)
           } else {
             res_row$`Kategorie (automatická)` <- "DD"
             res_row$`Kriteria (automatická)` <- "Inadequate information"
