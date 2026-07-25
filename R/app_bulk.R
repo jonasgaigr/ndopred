@@ -122,17 +122,14 @@ server <- function(input, output, session) {
             occ_raw[[col_rok[1]]] <- suppressWarnings(as.numeric(as.character(occ_raw[[col_rok[1]]])))
           }
 
-          # Aggressively extract historic years and patch the NAs
+          # Extract historic years from DATUM_OD using the first 4 characters
           if (length(col_datum) > 0) {
-            # Uses non-greedy matching (perl = TRUE) without word boundaries to safely
-            # extract years from continuous integer dates like YYYYMMDD.
-            date_strings <- as.character(occ_raw[[col_datum[1]]])
-            regex_years <- suppressWarnings(
-              as.numeric(sub("^.*?((?:18|19|20)[0-9]{2}).*$", "\\1", date_strings, perl = TRUE))
+            extracted_years <- suppressWarnings(
+              as.numeric(substr(as.character(occ_raw[[col_datum[1]]]), 1, 4))
             )
 
             nas_in_rok <- is.na(occ_raw[[col_rok[1]]])
-            occ_raw[[col_rok[1]]][nas_in_rok] <- regex_years[nas_in_rok]
+            occ_raw[[col_rok[1]]][nas_in_rok] <- extracted_years[nas_in_rok]
           }
 
           # Standardise the final column name to exactly "ROK" for downstream logic
