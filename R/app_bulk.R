@@ -240,7 +240,7 @@ server <- function(input, output, session) {
             res_row$`Kriteria (automatická)` <- sum_obj$result$Criteria
             # Omit iii specifically for bulk assessment results
             clean_crit <- gsub(",?iii,?", "", sum_obj$result$Criteria)
-            clean_crit <- gsub("\\(\\s*,+\\s*", "(", clean_crit) # cleanup leftover commas
+            clean_crit <- gsub("\\(\\s*,+\\s*", "(", clean_crit)
             clean_crit <- gsub(",+\\s*\\)", ")", clean_crit)
             res_row$`Kriteria (automatická)` <- clean_crit
           } else {
@@ -248,14 +248,30 @@ server <- function(input, output, session) {
             res_row$`Kriteria (automatická)` <- "Inadequate information"
           }
 
+          # --- MAP GENERATION ---
           map_file <- file.path(map_dir, paste0(gsub("[^A-Za-z0-9]", "_", sp), "_map.png"))
           tryCatch({
-            png(map_file, width = 1000, height = 800, res = 150)
-            ndopred::plot_iucn(sp, occ_raw, window = input$window)
-            dev.off()
+            p <- ndopred::plot_iucn(
+              species_name = sp,
+              occ_data = occ_raw,
+              recent_start = recent_cutoff,
+              recent_end = current_year,
+              comp_start = recent_cutoff - input$window,
+              comp_end = recent_cutoff - 1
+            )
+
+            if (!is.null(p)) {
+              ggplot2::ggsave(
+                filename = map_file,
+                plot = p,
+                width = 8,
+                height = 6,
+                dpi = 150,
+                bg = "white"
+              )
+            }
           }, error = function(e) {
             log_msg(paste("Map generation failed for", sp, ":", e$message))
-            if(file.exists(map_file)) unlink(map_file)
           })
 
         } else {
