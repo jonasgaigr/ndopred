@@ -5,6 +5,8 @@ library(zip)
 library(ggplot2)
 # library(ndopred) # Ensure your package is loaded
 
+options(shiny.maxRequestSize = 100 * 1024^2) # Sets the limit to 100 MB
+
 ui <- fluidPage(
   theme = shinythemes::shinytheme("flatly"),
   titlePanel("NDOP Bulk Assessor: Automated IUCN Metrics"),
@@ -13,7 +15,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("file1", "Upload CSV",
                 accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv")),
-      p(tags$small("The CSV must contain columns for Species/Taxon and Family (Čeleď).")),
+      p(tags$small("The CSV must contain columns for Species/Taxon, Family (Čeleď), and ID_TAXON.")),
 
       numericInput("window", "Recent Time Window (Years):", value = 10, min = 1),
       numericInput("cell_size", "AOO Grid Size (km):", value = 2, min = 1),
@@ -60,13 +62,11 @@ server <- function(input, output, session) {
 
     req(df_input)
 
-    # Identify species column
+    # Identify columns
     sp_col <- "TAXON"
-
-    # Identify family column if present
     celed_col <- "CELED"
-
     group_col <- "SKUPINA"
+    id_taxon_col <- "ID_TAXON"
 
     species_list <- unique(trimws(df_input[[sp_col]]))
     species_list <- species_list[species_list != "" & !is.na(species_list)]
@@ -91,7 +91,7 @@ server <- function(input, output, session) {
 
         # Extract pre-defined family from input file if column exists
         input_celed <- NA_character_
-        if (!is.na(celed_col)) {
+        if (!is.na(celed_col) && celed_col %in% names(df_input)) {
           match_row <- df_input[trimws(df_input[[sp_col]]) == sp, ]
           if (nrow(match_row) > 0 && !is.na(match_row[[celed_col]][1])) {
             input_celed <- as.character(match_row[[celed_col]][1])
@@ -100,11 +100,26 @@ server <- function(input, output, session) {
 
         # Extract pre-defined group from input file if column exists
         input_group <- NA_character_
-        if (!is.na(group_col)) {
+        if (!is.na(group_col) && group_col %in% names(df_input)) {
           match_row <- df_input[trimws(df_input[[sp_col]]) == sp, ]
           if (nrow(match_row) > 0 && !is.na(match_row[[group_col]][1])) {
             input_group <- as.character(match_row[[group_col]][1])
           }
+        }
+
+        # Extract ID_TAXON and compose Karta druhu URL
+        input_id_taxon <- NA_character_
+        if (!is.na(id_taxon_col) && id_taxon_col %in% names(df_input)) {
+          match_row <- df_input[trimws(df_input[[sp_col]]) == sp, ]
+          if (nrow(match_row) > 0 && !is.na(match_row[[id_taxon_col]][1])) {
+            input_id_taxon <- as.character(match_row[[id_taxon_col]][1])
+          }
+        }
+
+        karta_druhu_val <- if (!is.na(input_id_taxon) && input_id_taxon != "") {
+          paste0("https://portal.nature.cz/w/druh-", input_id_taxon)
+        } else {
+          NA_character_
         }
 
         occ_raw <- tryCatch(ndopred::get_assessment_data(sp), error = function(e) NULL)
@@ -124,6 +139,7 @@ server <- function(input, output, session) {
           `2x2 grid nový (počet)` = NA_integer_,
           `Změna AOO (%)` = NA_real_,
           `Změna EOO (%)` = NA_real_,
+          `Karta druhu` = karta_druhu_val,
           stringsAsFactors = FALSE,
           check.names = FALSE
         )
@@ -254,10 +270,7 @@ server <- function(input, output, session) {
             p <- ndopred::plot_iucn(
               species_name = sp,
               occ_data = occ_raw,
-              recent_start = recent_cutoff,
-              recent_end = current_year,
-              comp_start = recent_cutoff - input$window,
-              comp_end = recent_cutoff - 1
+              window = input$window
             )
 
             if (!is.null(p)) {
