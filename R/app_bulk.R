@@ -124,8 +124,12 @@ server <- function(input, output, session) {
 
           # Aggressively extract historic years and patch the NAs
           if (length(col_datum) > 0) {
-            # Bypasses complex date formats to grab any 4 consecutive digits (18xx, 19xx, 20xx)
-            regex_years <- suppressWarnings(as.numeric(gsub("^.*\\b((?:18|19|20)[0-9]{2})\\b.*$", "\\1", as.character(occ_raw[[col_datum[1]]]))))
+            # Uses non-greedy matching (perl = TRUE) without word boundaries to safely
+            # extract years from continuous integer dates like YYYYMMDD.
+            date_strings <- as.character(occ_raw[[col_datum[1]]])
+            regex_years <- suppressWarnings(
+              as.numeric(sub("^.*?((?:18|19|20)[0-9]{2}).*$", "\\1", date_strings, perl = TRUE))
+            )
 
             nas_in_rok <- is.na(occ_raw[[col_rok[1]]])
             occ_raw[[col_rok[1]]][nas_in_rok] <- regex_years[nas_in_rok]
