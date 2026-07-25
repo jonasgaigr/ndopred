@@ -66,6 +66,8 @@ server <- function(input, output, session) {
     # Identify family column if present
     celed_col <- "CELED"
 
+    group_col <- "SKUPINA"
+
     species_list <- unique(trimws(df_input[[sp_col]]))
     species_list <- species_list[species_list != "" & !is.na(species_list)]
 
@@ -96,10 +98,19 @@ server <- function(input, output, session) {
           }
         }
 
+        # Extract pre-defined group from input file if column exists
+        input_group <- NA_character_
+        if (!is.na(group_col)) {
+          match_row <- df_input[trimws(df_input[[sp_col]]) == sp, ]
+          if (nrow(match_row) > 0 && !is.na(match_row[[group_col]][1])) {
+            input_group <- as.character(match_row[[group_col]][1])
+          }
+        }
+
         occ_raw <- tryCatch(ndopred::get_assessment_data(sp), error = function(e) NULL)
 
         res_row <- data.frame(
-          `Taxonomická skupina` = NA_character_,
+          `Taxonomická skupina` = input_group,
           `Čeleď` = input_celed,
           Druh = sp,
           `Kategorie (automatická)` = NA_character_,
@@ -140,7 +151,10 @@ server <- function(input, output, session) {
 
           names(occ_raw)[names(occ_raw) == col_rok[1]] <- "ROK"
 
-          if ("KAT_TAX" %in% names(occ_raw)) res_row$`Taxonomická skupina` <- occ_raw$KAT_TAX[1]
+          # Fallback to API group if input file didn't specify it
+          if (is.na(res_row$`Taxonomická skupina`) && "KAT_TAX" %in% names(occ_raw)) {
+            res_row$`Taxonomická skupina` <- occ_raw$KAT_TAX[1]
+          }
           # Fallback to API family if input file didn't specify it
           if (is.na(res_row$`Čeleď`) && "CELED" %in% names(occ_raw)) {
             res_row$`Čeleď` <- occ_raw$CELED[1]
@@ -228,6 +242,7 @@ server <- function(input, output, session) {
             clean_crit <- gsub(",?iii,?", "", sum_obj$result$Criteria)
             clean_crit <- gsub("\\(\\s*,+\\s*", "(", clean_crit) # cleanup leftover commas
             clean_crit <- gsub(",+\\s*\\)", ")", clean_crit)
+            res_row$`Kriteria (automatická)` <- clean_crit
           } else {
             res_row$`Kategorie (automatická)` <- "DD"
             res_row$`Kriteria (automatická)` <- "Inadequate information"
