@@ -13,7 +13,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("file1", "Upload CSV",
                 accept = c("text/csv", "text/comma-separated-values,text/plain", ".csv")),
-      p(tags$small("The CSV must contain a column named 'Species' or 'Druh'.")),
+      p(tags$small("The CSV must contain columns for Species/Taxon and Family (Čeleď).")),
 
       numericInput("window", "Recent Time Window (Years):", value = 10, min = 1),
       numericInput("cell_size", "AOO Grid Size (km):", value = 2, min = 1),
@@ -48,7 +48,6 @@ server <- function(input, output, session) {
     req(input$file1)
 
     df_input <- tryCatch({
-      # First try reading with Windows-1250 encoding (standard for Czech data exports)
       temp <- tryCatch(
         read.csv2(input$file1$datapath, stringsAsFactors = FALSE, fileEncoding = "CP1250"),
         error = function(e) read.csv(input$file1$datapath, stringsAsFactors = FALSE, fileEncoding = "CP1250")
@@ -61,7 +60,11 @@ server <- function(input, output, session) {
 
     req(df_input)
 
+    # Identify species column
     sp_col <- "TAXON"
+
+    # Identify family column if present
+    celed_col <- "CELED"
 
     species_list <- unique(trimws(df_input[[sp_col]]))
     species_list <- species_list[species_list != "" & !is.na(species_list)]
@@ -84,14 +87,23 @@ server <- function(input, output, session) {
         incProgress(1/length(species_list), detail = paste("Processing", sp))
         log_msg(paste("Fetching data for:", sp))
 
+        # Extract pre-defined family from input file if column exists
+        input_celed <- NA_character_
+        if (!is.na(celed_col)) {
+          match_row <- df_input[trimws(df_input[[sp_col]]) == sp, ]
+          if (nrow(match_row) > 0 && !is.na(match_row[[celed_col]][1])) {
+            input_celed <- as.character(match_row[[celed_col]][1])
+          }
+        }
+
         occ_raw <- tryCatch(ndopred::get_assessment_data(sp), error = function(e) NULL)
 
         res_row <- data.frame(
           `Taxonomická skupina` = NA_character_,
-          `Čeleď` = NA_character_,
+          `Čeleď` = input_celed,
           Druh = sp,
           `Kategorie (automatická)` = NA_character_,
-          `Kriteria (automatická)` = NA_character_, # <--- Added column for detailed criteria
+          `Kriteria (automatická)` = NA_character_,
           `AOO starý (km2)` = NA_real_,
           `AOO nový (km2)` = NA_real_,
           `EOO starý (km2)` = NA_real_,
@@ -107,12 +119,10 @@ server <- function(input, output, session) {
 
         if (!is.null(occ_raw) && nrow(occ_raw) > 0) {
 
-          # 1. The Ultimate Date Extractor (Legacy DB Patch)
-          # Locate columns ignoring case to prevent API variance crashes
+          # Date Extractor & Patching
           col_rok <- grep("^ROK$", names(occ_raw), ignore.case = TRUE, value = TRUE)
           col_datum <- grep("^DATUM_OD$", names(occ_raw), ignore.case = TRUE, value = TRUE)
 
-          # Initialise ROK if completely missing, otherwise force coercion to numeric
           if (length(col_rok) == 0) {
             occ_raw$ROK <- NA_real_
             col_rok <- "ROK"
@@ -120,23 +130,22 @@ server <- function(input, output, session) {
             occ_raw[[col_rok[1]]] <- suppressWarnings(as.numeric(as.character(occ_raw[[col_rok[1]]])))
           }
 
-          # Extract historic years from DATUM_OD using the first 4 characters
           if (length(col_datum) > 0) {
             extracted_years <- suppressWarnings(
               as.numeric(substr(as.character(occ_raw[[col_datum[1]]]), 1, 4))
             )
-
             nas_in_rok <- is.na(occ_raw[[col_rok[1]]])
             occ_raw[[col_rok[1]]][nas_in_rok] <- extracted_years[nas_in_rok]
           }
 
-          # Standardise the final column name to exactly "ROK" for downstream logic
           names(occ_raw)[names(occ_raw) == col_rok[1]] <- "ROK"
 
           if ("KAT_TAX" %in% names(occ_raw)) res_row$`Taxonomická skupina` <- occ_raw$KAT_TAX[1]
-          if ("CELED" %in% names(occ_raw)) res_row$`Čeleď` <- occ_raw$CELED[1]
+          # Fallback to API family if input file didn't specify it
+          if (is.na(res_row$`Čeleď`) && "CELED" %in% names(occ_raw)) {
+            res_row$`Čeleď` <- occ_raw$CELED[1]
+          }
 
-          # The subsets will now successfully inherit the patched historic records
           occ_old <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK < recent_cutoff, ]
           occ_new <- occ_raw[!is.na(occ_raw$ROK) & occ_raw$ROK >= recent_cutoff, ]
 
@@ -177,7 +186,7 @@ server <- function(input, output, session) {
             res_row$`2x2 grid nový (počet)` <- res_row$`AOO nový (km2)` / grid_area
           }
 
-          # Calculate percentage changes directly from the already computed spatial metrics
+          # Direct percentage change calculations
           t_val <- NA
           if (!is.na(res_row$`AOO starý (km2)`) && res_row$`AOO starý (km2)` > 0) {
             t_val <- ((res_row$`AOO nový (km2)` - res_row$`AOO starý (km2)`) / res_row$`AOO starý (km2)`) * 100
@@ -214,7 +223,7 @@ server <- function(input, output, session) {
 
           if (!is.null(sum_obj)) {
             res_row$`Kategorie (automatická)` <- sum_obj$result$Category
-            res_row$`Kriteria (automatická)` <- sum_obj$result$Criteria # <--- Captures detailed breakdown like A2c; B1ab(iii)
+            res_row$`Kriteria (automatická)` <- sum_obj$result$Criteria
           } else {
             res_row$`Kategorie (automatická)` <- "DD"
             res_row$`Kriteria (automatická)` <- "Inadequate information"
@@ -233,6 +242,7 @@ server <- function(input, output, session) {
         } else {
           log_msg(paste("No records found for:", sp))
           res_row$`Kategorie (automatická)` <- "DD"
+          res_row$`Kriteria (automatická)` <- "No records found"
         }
 
         results_list[[i]] <- res_row
