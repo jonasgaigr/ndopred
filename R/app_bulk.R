@@ -2,6 +2,7 @@ library(shiny)
 library(shinythemes)
 library(dplyr)
 library(zip)
+library(ggplot2)
 # library(ndopred) # Ensure your package is loaded
 
 ui <- fluidPage(
@@ -47,24 +48,20 @@ server <- function(input, output, session) {
     req(input$file1)
 
     df_input <- tryCatch({
-      temp <- read.csv(input$file1$datapath, stringsAsFactors = FALSE)
-      if(ncol(temp) == 1 && grepl(";", temp[1,1])) {
-        read.csv2(input$file1$datapath, stringsAsFactors = FALSE)
-      } else {
-        temp
-      }
+      # First try reading with Windows-1250 encoding (standard for Czech data exports)
+      temp <- tryCatch(
+        read.csv2(input$file1$datapath, stringsAsFactors = FALSE, fileEncoding = "CP1250"),
+        error = function(e) read.csv(input$file1$datapath, stringsAsFactors = FALSE, fileEncoding = "CP1250")
+      )
+      temp
     }, error = function(e) {
-      log_msg("Error reading CSV.")
+      log_msg(paste("Error reading CSV:", e$message))
       return(NULL)
     })
 
     req(df_input)
 
-    sp_col <- grep("species|druh|taxon", names(df_input), ignore.case = TRUE, value = TRUE)[1]
-    if (is.na(sp_col)) {
-      log_msg("Could not find a column named 'Species' or 'Druh' in the CSV.")
-      return()
-    }
+    sp_col <- "TAXON"
 
     species_list <- unique(trimws(df_input[[sp_col]]))
     species_list <- species_list[species_list != "" & !is.na(species_list)]
@@ -94,6 +91,7 @@ server <- function(input, output, session) {
           `Čeleď` = NA_character_,
           Druh = sp,
           `Kategorie (automatická)` = NA_character_,
+          `Kriteria (automatická)` = NA_character_, # <--- Added column for detailed criteria
           `AOO starý (km2)` = NA_real_,
           `AOO nový (km2)` = NA_real_,
           `EOO starý (km2)` = NA_real_,
@@ -101,8 +99,8 @@ server <- function(input, output, session) {
           `Počet lokalit starý` = NA_integer_,
           `Počet lokalit nový` = NA_integer_,
           `2x2 grid nový (počet)` = NA_integer_,
-          `Pokles AOO (%)` = NA_real_,
-          `Pokles EOO (%)` = NA_real_,
+          `Změna AOO (%)` = NA_real_,
+          `Změna EOO (%)` = NA_real_,
           stringsAsFactors = FALSE,
           check.names = FALSE
         )
@@ -179,21 +177,18 @@ server <- function(input, output, session) {
             res_row$`2x2 grid nový (počet)` <- res_row$`AOO nový (km2)` / grid_area
           }
 
-          trend_res <- tryCatch(
-            ndopred::calculate_trend(
-              occ_raw,
-              recent_start = recent_cutoff,
-              recent_end = current_year,
-              comp_start = recent_cutoff - input$window,
-              comp_end = recent_cutoff - 1
-            ),
-            error = function(e) list()
-          )
-
+          # Calculate percentage changes directly from the already computed spatial metrics
           t_val <- NA
-          if ("percent_change" %in% names(trend_res)) t_val <- trend_res$percent_change
-          if ("aoo_change" %in% names(trend_res)) res_row$`Pokles AOO (%)` <- trend_res$aoo_change else res_row$`Pokles AOO (%)` <- t_val
-          if ("eoo_change" %in% names(trend_res)) res_row$`Pokles EOO (%)` <- trend_res$eoo_change
+          if (!is.na(res_row$`AOO starý (km2)`) && res_row$`AOO starý (km2)` > 0) {
+            t_val <- ((res_row$`AOO nový (km2)` - res_row$`AOO starý (km2)`) / res_row$`AOO starý (km2)`) * 100
+          }
+          res_row$`Změna AOO (%)` <- t_val
+
+          if (!is.na(res_row$`EOO starý (km2)`) && res_row$`EOO starý (km2)` > 0) {
+            res_row$`Změna EOO (%)` <- ((res_row$`EOO nový (km2)` - res_row$`EOO starý (km2)`) / res_row$`EOO starý (km2)`) * 100
+          } else {
+            res_row$`Změna EOO (%)` <- NA
+          }
 
           y_last <- suppressWarnings(max(occ_raw$ROK, na.rm = TRUE))
           if (is.infinite(y_last)) y_last <- NA
@@ -205,7 +200,7 @@ server <- function(input, output, session) {
               species = sp,
               eoo = list(area_km2 = res_row$`EOO nový (km2)`),
               aoo = list(area_km2 = res_row$`AOO nový (km2)`),
-              trend = list(percent_change = t_val),
+              trend = list(percent_change = res_row$`Změna AOO (%)`),
               locations = safe_locs,
               pop_metrics = list(decline_rate = NA, fluct_ratio = NA, total_mature = NA, max_subpop = NA),
               evaluate_pop = FALSE,
@@ -219,6 +214,10 @@ server <- function(input, output, session) {
 
           if (!is.null(sum_obj)) {
             res_row$`Kategorie (automatická)` <- sum_obj$result$Category
+            res_row$`Kriteria (automatická)` <- sum_obj$result$Criteria # <--- Captures detailed breakdown like A2c; B1ab(iii)
+          } else {
+            res_row$`Kategorie (automatická)` <- "DD"
+            res_row$`Kriteria (automatická)` <- "Inadequate information"
           }
 
           map_file <- file.path(map_dir, paste0(gsub("[^A-Za-z0-9]", "_", sp), "_map.png"))
