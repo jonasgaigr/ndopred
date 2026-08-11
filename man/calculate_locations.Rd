@@ -4,14 +4,21 @@
 \alias{calculate_locations}
 \title{Calculate Number of Locations (IUCN Criterion B)}
 \usage{
-calculate_locations(occurrence_data, threshold_dist = 5000, year_start = NULL)
+calculate_locations(
+  occurrence_data,
+  threshold_dist = 5000,
+  year_start = NULL,
+  year_end = NULL
+)
 }
 \arguments{
 \item{occurrence_data}{An sf object of occurrences.}
 
-\item{threshold_dist}{Numeric. Distance in meters to group points (default 5000).}
+\item{threshold_dist}{Numeric. Distance in metres to group points (default 5000).}
 
 \item{year_start}{Numeric. Optional filter for starting year.}
+
+\item{year_end}{Numeric. Optional filter for ending year.}
 }
 \value{
 Numeric count of clusters (locations).

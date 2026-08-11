@@ -4,14 +4,27 @@
 \alias{plot_iucn}
 \title{Plot IUCN Assessment Map}
 \usage{
-plot_iucn(species_name, occ_data = NULL, window = 10)
+plot_iucn(
+  species_name,
+  occ_data = NULL,
+  recent_start = 2010,
+  recent_end = 2026,
+  comp_start = 2000,
+  comp_end = 2016
+)
 }
 \arguments{
 \item{species_name}{Character.}
 
 \item{occ_data}{An existing sf object (optional). If NULL, it will download.}
 
-\item{window}{Numeric.}
+\item{recent_start}{Numeric. Start year for recent data (default 2010).}
+
+\item{recent_end}{Numeric. End year for recent data (default 2026).}
+
+\item{comp_start}{Numeric. Start year for comparison data (default 2000).}
+
+\item{comp_end}{Numeric. End year for comparison data (default 2016).}
 }
 \description{
 Plot IUCN Assessment Map

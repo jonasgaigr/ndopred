@@ -2,15 +2,27 @@
 % Please edit documentation in R/batch_assess.R
 \name{batch_assess}
 \alias{batch_assess}
-\title{Batch IUCN Assessment (Harmonized Temporal Scale)}
+\title{Batch IUCN Assessment (Harmonised Temporal Scale)}
 \usage{
-batch_assess(species_list, recent_years = 10)
+batch_assess(
+  species_list,
+  recent_start = 2010,
+  recent_end = 2026,
+  comp_start = 2000,
+  comp_end = 2016
+)
 }
 \arguments{
 \item{species_list}{Vector of scientific names.}
 
-\item{recent_years}{Numeric. Window for current status (default 10).}
+\item{recent_start}{Numeric. Start year for recent data.}
+
+\item{recent_end}{Numeric. End year for recent data.}
+
+\item{comp_start}{Numeric. Start year for comparison data.}
+
+\item{comp_end}{Numeric. End year for comparison data.}
 }
 \description{
-Batch IUCN Assessment (Harmonized Temporal Scale)
+Batch IUCN Assessment (Harmonised Temporal Scale)
 }

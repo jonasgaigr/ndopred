@@ -202,14 +202,12 @@ server <- function(input, output, session) {
           res_row$`Počet lokalit starý` <- safe_metric(ndopred::calculate_locations, occ_old)
           res_row$`Počet lokalit nový` <- safe_metric(ndopred::calculate_locations, occ_new)
 
-          enforce_iucn_logic <- function(eoo, aoo) {
-            if (is.na(aoo) || aoo == 0) return(eoo)
-            if (is.na(eoo) || eoo < aoo) return(aoo)
-            return(eoo)
-          }
-
-          res_row$`EOO starý (km2)` <- enforce_iucn_logic(res_row$`EOO starý (km2)`, res_row$`AOO starý (km2)`)
-          res_row$`EOO nový (km2)` <- enforce_iucn_logic(res_row$`EOO nový (km2)`, res_row$`AOO nový (km2)`)
+          # IUCN Guidelines 4.9 (EOO >= AOO): shared with summarize_assessment()
+          # below so the displayed columns and the automated category always
+          # agree, and with assess_species()/batch_assess() for a consistent
+          # non-Shiny batch pipeline.
+          res_row$`EOO starý (km2)` <- ndopred::reconcile_eoo_aoo(res_row$`EOO starý (km2)`, res_row$`AOO starý (km2)`)
+          res_row$`EOO nový (km2)` <- ndopred::reconcile_eoo_aoo(res_row$`EOO nový (km2)`, res_row$`AOO nový (km2)`)
 
           grid_area <- input$cell_size^2
           if (!is.na(res_row$`AOO nový (km2)`)) {
@@ -288,7 +286,19 @@ server <- function(input, output, session) {
           })
 
         } else {
-          log_msg(paste("No records found for:", sp))
+          fc <- if (!is.null(occ_raw)) attr(occ_raw, "filter_counts") else NULL
+          if (!is.null(fc) && fc$raw > 0) {
+            log_msg(paste0(
+              "No usable records for: ", sp,
+              " (raw=", fc$raw,
+              ", with coords=", fc$coords,
+              ", non-negative=", fc$non_negative,
+              ", with katastr=", fc$has_katastr,
+              ", verified=", fc$verified, ")"
+            ))
+          } else {
+            log_msg(paste("No records found for:", sp))
+          }
           res_row$`Kategorie (automatická)` <- "DD"
           res_row$`Kriteria (automatická)` <- "No records found"
         }

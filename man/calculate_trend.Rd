@@ -2,15 +2,27 @@
 % Please edit documentation in R/calculate_trend.R
 \name{calculate_trend}
 \alias{calculate_trend}
-\title{Calculate Trend (Comparing Recent vs Previous Window)}
+\title{Calculate Trend (Comparing Recent vs Comparison Window)}
 \usage{
-calculate_trend(occurrence_data, window_years = 10)
+calculate_trend(
+  occurrence_data,
+  recent_start = 2010,
+  recent_end = 2026,
+  comp_start = 2000,
+  comp_end = 2016
+)
 }
 \arguments{
 \item{occurrence_data}{Data frame (must contain DATUM_OD or 'year' col)}
 
-\item{window_years}{Numeric (default 10)}
+\item{recent_start}{Numeric. Start year for recent data.}
+
+\item{recent_end}{Numeric. End year for recent data.}
+
+\item{comp_start}{Numeric. Start year for comparison data.}
+
+\item{comp_end}{Numeric. End year for comparison data.}
 }
 \description{
-Calculate Trend (Comparing Recent vs Previous Window)
+Calculate Trend (Comparing Recent vs Comparison Window)
 }

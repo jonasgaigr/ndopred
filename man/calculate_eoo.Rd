@@ -4,12 +4,14 @@
 \alias{calculate_eoo}
 \title{Calculate EOO with Temporal Filter}
 \usage{
-calculate_eoo(occurrence_data, year_start = NULL)
+calculate_eoo(occurrence_data, year_start = NULL, date_col = "DATUM_OD")
 }
 \arguments{
 \item{occurrence_data}{sf object}
 
 \item{year_start}{Numeric. Only records from this year onwards.}
+
+\item{date_col}{Character. The name of the date column (default is "DATUM_OD").}
 }
 \description{
 Calculate EOO with Temporal Filter

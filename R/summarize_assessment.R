@@ -31,6 +31,13 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   aoo_val <- aoo$area_km2
   locs_val <- locations
 
+  # IUCN Guidelines Section 4.9: EOO must never be smaller than AOO, and
+  # falls back to AOO when it cannot be computed directly (e.g. fewer than
+  # 3 occurrence points for a convex hull). Centralised here so every caller
+  # of summarize_assessment() (the Shiny bulk app and the batch_assess()
+  # pipeline alike) gets a consistent, guideline-compliant value.
+  eoo_val <- reconcile_eoo_aoo(eoo_val, aoo_val)
+
   trend_val <- safe_num(trend$percent_change)
   pop_decline <- safe_num(pop_metrics$decline_rate)
   fluct_ratio <- safe_num(pop_metrics$fluct_ratio)

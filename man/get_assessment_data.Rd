@@ -6,6 +6,20 @@
 \usage{
 get_assessment_data(species_name, year_start = NULL)
 }
+\arguments{
+\item{species_name}{Character. Scientific name to query.}
+
+\item{year_start}{Numeric. Optional filter for starting year.}
+}
+\value{
+An sf object of cleaned occurrences. It always carries a
+\code{filter_counts} attribute - a named list (\code{raw}, \code{coords},
+\code{non_negative}, \code{has_katastr}, \code{verified}) recording how
+many records survived each quality-control step, so a species that ends
+up with zero usable records can be traced back to its cause (e.g. no NDOP
+records at all, vs. records excluded for missing coordinates or low
+verification status) instead of a single opaque "no records" outcome.
+}
 \description{
 Get and Clean NDOP Data
 }

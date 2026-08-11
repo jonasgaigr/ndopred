@@ -13,7 +13,8 @@ summarize_assessment(
   pop_metrics,
   evaluate_pop = TRUE,
   year_last = NA,
-  n_records = NA
+  n_records = NA,
+  a_criteria = NULL
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ summarize_assessment(
 \item{year_last}{Numeric. The most recent year observed in the dataset.}
 
 \item{n_records}{Numeric. Total number of records in the dataset.}
+
+\item{a_criteria}{Character vector of A criteria to apply (e.g., c("A2")). Default is NULL.}
 }
 \value{
 A list containing \code{result} (display dataframe) and \code{details} (boolean flags).

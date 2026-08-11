@@ -4,7 +4,13 @@
 \alias{calculate_aoo}
 \title{Calculate AOO with Temporal Filter}
 \usage{
-calculate_aoo(occurrence_data, grid_size = 2000, year_start = NULL)
+calculate_aoo(
+  occurrence_data,
+  grid_size = 2000,
+  year_start = NULL,
+  date_col = "DATUM_OD",
+  n_shifts = 4
+)
 }
 \arguments{
 \item{occurrence_data}{sf object}
@@ -12,6 +18,14 @@ calculate_aoo(occurrence_data, grid_size = 2000, year_start = NULL)
 \item{grid_size}{Numeric (default 2000 for IUCN)}
 
 \item{year_start}{Numeric. Only records from this year onwards.}
+
+\item{date_col}{Character. The name of the date column (default is "DATUM_OD").}
+
+\item{n_shifts}{Integer. Number of grid-origin offsets tested per axis. IUCN
+Guidelines section 4.10.2: "If different grid locations (starting points
+of the grid) result in different AOO estimates, the minimum estimate
+should be used." Default 4 tests a 4x4 = 16 origin grid; use 1 to keep a
+single, unshifted origin (faster, but not guideline-compliant).}
 }
 \description{
 Calculate AOO with Temporal Filter

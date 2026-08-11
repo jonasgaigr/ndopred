@@ -72,7 +72,7 @@ test_that("Data Deficient (DD) triggers on low record count", {
     n_records = 2 # < 3 records
   )
   expect_equal(res$result$Category, "DD")
-  expect_match(res$result$Criteria, "Insufficient Data")
+  expect_match(res$result$Criteria, "Inadequate information")
 })
 
 test_that("Regionally Extinct (RE) triggers on time lag", {
