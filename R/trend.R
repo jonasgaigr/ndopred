@@ -219,6 +219,16 @@ ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir
   have <- if (is.null(done)) integer(0) else attr(done, "years_done")
   if (is.null(download)) download <- .download_chunk
   parts <- if (is.null(done)) list() else list(as.data.frame(done)[, setdiff(names(done), "visit"), drop = FALSE])
+  # A small group comes in one request for the whole span.
+  if (!length(have) && identical(download, .download_chunk)) {
+    whole <- .download_chunk(lat, sprintf("1.1.%d", years[1]), sprintf("31.12.%d", years[2]), max_n = 20000)
+    if (!is.null(whole)) {
+      if (nrow(whole)) parts[[1]] <- .effort_rows(whole)
+      have <- seq(years[1], years[2])
+      out <- .as_effort(parts, lat, g$group, years, have)
+      saveRDS(out, path)
+    }
+  }
   for (y in setdiff(seq(years[1], years[2]), have)) {
     chunk <- download(lat, sprintf("1.1.%d", y), sprintf("31.12.%d", y))
     complete <- !is.null(chunk)
@@ -271,19 +281,55 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
 }
 
 # One chunk from NDOP (rndop): NULL when the query fails or is too large.
-.download_chunk <- function(lat, from, to) {
-  p <- rndop::set_search_payload(rfKategorie = paste0("^", lat, "$"), rfDatumOd = from, rfDatumDo = to)
+# NULL when the request fails or holds more than `max_n` records.
+.download_chunk <- function(lat, from, to, max_n = Inf) {
+  p <- utils::capture.output(
+    payload <- rndop::set_search_payload(rfKategorie = paste0("^", lat, "$"), rfDatumOd = from, rfDatumDo = to)
+  )
   # Two attempts: the NDOP server drops a request now and then.
   for (attempt in 1:2) {
-    n <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p, num_rec_only = TRUE)),
-                  error = function(e) NA)
-    if (!is.na(n) && n == 0) return(data.frame())
-    if (!is.na(n)) {
-      tab <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p)), error = function(e) NULL)
-      if (is.data.frame(tab) && nrow(tab) > 0) return(tab)
-    }
+    n <- .ndop_count(payload)
+    if (is.na(n)) next
+    if (n == 0) return(data.frame())
+    if (n > max_n) return(NULL)
+    tab <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = payload)), error = function(e) NULL)
+    if (is.data.frame(tab) && nrow(tab) > 0) return(tab)
   }
   NULL
+}
+
+# The number of records a search finds. rndop reads it from the text
+# "zaznam ze N" and gives NA both for no records and for a failed request;
+# here an empty result (the results table without a count) is 0, an
+# invalid session (another login with the same account) logs in again, and
+# anything else is NA.
+.ndop_count <- function(payload) {
+  url <- "https://portal23.nature.cz/nd/find.php?akce=seznam&opener=&vztazne_id=0"
+  ua <- get("USER_AGENT", envir = asNamespace("rndop"))
+  for (attempt in 1:2) {
+    if (!exists("isop_loginhash", envir = globalenv()) ||
+        is.na(get("isop_loginhash", envir = globalenv()))) {
+      try(suppressMessages(rndop::isop_login()), silent = TRUE)
+    }
+    hash <- get0("isop_loginhash", envir = globalenv(), ifnotfound = NA)
+    page <- tryCatch({
+      for (i in 1:2) {   # as rndop: the second response carries the results
+        res <- httr::POST(url, body = payload, config = httr::set_cookies(isop_loginhash = hash),
+                          httr::user_agent(ua))
+      }
+      httr::content(res, as = "text", encoding = "UTF-8")
+    }, error = function(e) NA_character_)
+    if (is.na(page)) return(NA_real_)
+    if (grepl("ISOP autentizace", page, fixed = TRUE)) {
+      assign("isop_loginhash", NA, envir = globalenv())
+      next
+    }
+    m <- regmatches(page, regexpr("z\u00e1znam ze [0-9]+", page))
+    if (length(m)) return(as.numeric(sub("^.* ", "", m)))
+    if (grepl("Hromadn\u00e1 validace", page, fixed = TRUE)) return(0)
+    return(NA_real_)
+  }
+  NA_real_
 }
 
 # Keep only what effort needs; observers become part of an anonymous visit
