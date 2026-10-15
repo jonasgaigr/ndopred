@@ -15,7 +15,7 @@
 #'   `ID_LOKAL` (see [calculate_aoo()]).
 #' @section Bounds:
 #' `area_km2_min` leaves out records less precise than 2 km and retained
-#' less-credible records (`flag_less_credible`); `area_km2_max` is the hull of
+#' flagged less-credible records (`flag_less_credible`, AOPK D8); `area_km2_max` is the hull of
 #' every record's precision disc and polygon (Guidelines §3.2, §4.9). Both are
 #' `NA` where fewer than three positions remain.
 #' @return A list with \code{area_km2} (\code{NA} when fewer than 3 points are

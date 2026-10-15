@@ -21,7 +21,7 @@ ui <- fluidPage(
                    value = as.numeric(format(Sys.Date(), "%Y")), min = 1900, step = 1),
       numericInput("window", "Current-distribution window (years):", value = 17, min = 1),
       p(tags$small("Criterion B (EOO, AOO, locations) uses this window: IUCN Guidelines 4.9 requires the *current* distribution. AOPK default: 17 years (2010-2026 for 2026).")),
-      numericInput("gen_length", "Generation Length (Years):", value = 1, min = 0.1),
+      numericInput("gen_length", "Generation length (years; empty = NDOP group table):", value = NA, min = 0.1),
       uiOutput("window_note"),
 
       actionButton("run_calc", "Run Assessment", class = "btn-primary", style = "width: 100%"),
@@ -63,17 +63,29 @@ server <- function(input, output, session) {
   # IUCN Guidelines 4.4 / 5.2: criterion A is measured over 10 years or three
   # generations, whichever is longer. (The 100-year cap applies to projected
   # reductions only; removing it for past reductions is Phase 5 work.)
-  reduction_window <- reactive({
-    gl <- if (is.null(input$gen_length) || is.na(input$gen_length)) 1 else input$gen_length
-    min(100, max(10, 3 * gl))
-  })
+  reduction_window_for <- function(gl) min(100, max(10, 3 * gl))
+
+  # The generation length typed in, else the value for the taxon's NDOP
+  # group (generation_lengths(); AOPK placeholder of 1 year until refined).
+  generation_length_used <- function(occ) {
+    gl_in <- num_or_na(input$gen_length)
+    if (!is.na(gl_in) && gl_in > 0) return(list(years = gl_in, source = "entered by the assessor"))
+    group <- if (!is.null(occ) && "KAT_TAX" %in% names(occ) && nrow(occ) > 0) {
+      names(sort(table(as.character(occ$KAT_TAX)), decreasing = TRUE))[1]
+    } else NA_character_
+    tryCatch(ndopred::generation_length_for(group),
+             error = function(e) list(years = 1, source = paste("default 1 year:", conditionMessage(e))))
+  }
 
   output$window_note <- renderUI({
-    tags$small(style = "color:#337ab7;", paste0(
-      "Criterion A reduction window: ", reduction_window(),
-      " years (max of 10 years and 3 generations, capped at 100). The trend compares the",
-      " current window with the same window moved back by this many years."
-    ))
+    d <- tryCatch(raw_data(), error = function(e) NULL)
+    txt <- if (is.null(d)) {
+      "Criterion A reduction window: 10 years or 3 generations, whichever is longer (capped at 100)."
+    } else paste0("Generation length ", d$config$generation_length, " years (",
+                  d$config$generation_length_source, "); criterion A reduction window ",
+                  d$a_window, " years.")
+    tags$small(style = "color:#337ab7;", paste(txt, "The trend compares the current window",
+                                               "with the same window moved back by that period."))
   })
 
   rv <- reactiveValues(d2_candidate = FALSE)
@@ -86,15 +98,15 @@ server <- function(input, output, session) {
   raw_data <- eventReactive(input$run_calc, {
     req(input$species_name)
     withProgress(message = 'Accessing NDOP...', value = 0, {
-      gl <- if (is.null(input$gen_length) || is.na(input$gen_length)) 1 else input$gen_length
       b_window <- max(1, input$window %||% 17)
-      a_window <- reduction_window()
+      occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) e)
+      gl <- generation_length_used(if (inherits(occ_raw, "error")) NULL else occ_raw)
+      a_window <- reduction_window_for(gl$years)
       # AOPK, D5: the comparison window is the current one moved back by the
       # criterion A period (10 years unless three generations are longer).
       config <- ndopred::ndopred_config(reference_year = reference_year(), window = b_window,
-                                        trend_shift = a_window, generation_length = gl)
-
-      occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) e)
+                                        trend_shift = a_window, generation_length = gl$years,
+                                        generation_length_source = gl$source)
       incProgress(0.3, message = "Calculating metrics...")
       if (inherits(occ_raw, "error")) {
         metrics <- ndopred::taxon_metrics(NULL, config)

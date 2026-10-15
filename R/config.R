@@ -17,18 +17,22 @@
 #'   locations for criterion B, and the recent side of the trend. Guidelines
 #'   v16 §4.9: EOO and AOO describe the *current* distribution. The default
 #'   of 17 gives 2010-2026 for reference year 2026.
-#' @param trend_shift Numeric. *Convention (AOPK, decision D5).* The
-#'   comparison window for the trend is the current window moved this many
-#'   years back: 2000-2016 against 2010-2026 by default. The windows overlap
-#'   when `trend_shift < window`; their midpoints are `trend_shift` years
-#'   apart, matching the 10-year period of criterion A (Criteria v3.1 A2).
+#' @param trend_shift Numeric or `NULL`. The comparison window for the trend
+#'   is the current window moved this many years back. `NULL` (default) uses
+#'   the period of criterion A, 10 years or three generations, whichever is
+#'   longer (Criteria v3.1 A2): 2000-2016 against 2010-2026 for a generation
+#'   length up to 3.3 years (AOPK, decision D5). The windows overlap when the
+#'   shift is shorter than `window`, and their midpoints are the shift apart.
 #'   The shared years damp the measured change (see the vignette).
 #' @param recent_start,recent_end,comp_start,comp_end Numeric or `NULL`.
 #'   Explicit window bounds; override the windows derived from
 #'   `reference_year`, `window` and `trend_shift`. The trend always compares
 #'   the comparison window with the current window.
 #' @param generation_length Numeric. Generation length in years (Criteria
-#'   v3.1 III.4; Guidelines §4.4). Scales the C1 periods.
+#'   v3.1 III.4; Guidelines §4.4). Sets the criterion A period and scales the
+#'   C1 periods. [generation_lengths()] holds the per-group values.
+#' @param generation_length_source Character or `NULL`. Where the generation
+#'   length comes from, reported with the result (e.g. the group-table row).
 #' @param decline_tolerance Numeric, per cent. *Convention.* A measured
 #'   change smaller than this is not read as an indication of continuing
 #'   decline, because a trend resampled from opportunistic records carries
@@ -62,10 +66,11 @@
 #' @export
 ndopred_config <- function(reference_year,
                            window = 17,
-                           trend_shift = 10,
+                           trend_shift = NULL,
                            recent_start = NULL, recent_end = NULL,
                            comp_start = NULL, comp_end = NULL,
                            generation_length = 1,
+                           generation_length_source = NULL,
                            decline_tolerance = 5,
                            nt_margin_a = 20,
                            nt_margin_c = 2000,
@@ -79,9 +84,15 @@ ndopred_config <- function(reference_year,
   }
   reference_year <- as.numeric(reference_year)
   window <- max(1, as.numeric(window))
-  trend_shift <- max(1, as.numeric(trend_shift))
   gl <- suppressWarnings(as.numeric(generation_length))
   if (length(gl) != 1 || is.na(gl) || gl <= 0) gl <- 1
+  if (is.null(generation_length_source)) {
+    generation_length_source <- if (missing(generation_length)) "default 1 year" else "given"
+  }
+  # Criteria v3.1 A2: "over the last 10 years or three generations,
+  # whichever is the longer" (AOPK, D5: 10 years, 2000-2016 vs 2010-2026).
+  if (is.null(trend_shift)) trend_shift <- max(10, 3 * gl)
+  trend_shift <- max(1, as.numeric(trend_shift))
 
   if (is.null(recent_end)) recent_end <- reference_year
   if (is.null(recent_start)) recent_start <- recent_end - window + 1
@@ -104,6 +115,7 @@ ndopred_config <- function(reference_year,
         comp_start = comp_start, comp_end = comp_end
       ),
       generation_length = gl,
+      generation_length_source = generation_length_source,
       # AOPK, decision D7: the proposal is the best estimate, the whole
       # plausible range is reported (dispute tolerance 0, Guidelines §3.2.3)
       # and a range on both sides of the threatened threshold is flagged.
@@ -137,7 +149,7 @@ print.ndopred_config <- function(x, ...) {
   cat("<ndopred_config> reference year", x$reference_year, "\n")
   cat("  current window (B):", w$recent_start, "-", w$recent_end, "\n")
   cat("  trend:", w$comp_start, "-", w$comp_end, "vs", w$trend_start, "-", w$trend_end, "\n")
-  cat("  generation length:", x$generation_length, "years\n")
+  cat("  generation length:", x$generation_length, "years (", x$generation_length_source, ")\n")
   cat("  proposal:", x$attitude$proposal, "- flagged uncertain when the", x$attitude$uncertain_when, "\n")
   cat("  conventions:", paste(names(x$conventions), unlist(x$conventions), sep = " = ", collapse = ", "), "\n")
   invisible(x)

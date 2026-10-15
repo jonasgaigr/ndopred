@@ -19,11 +19,13 @@ bulk_ui <- function() fluidPage(
       numericInput("reference_year", "Reference year:",
                    value = as.numeric(format(Sys.Date(), "%Y")), min = 1900, step = 1),
       numericInput("window", "Current window (years):", value = 17, min = 1),
-      numericInput("trend_shift", "Comparison window shifted back by (years):", value = 10, min = 1),
+      numericInput("trend_shift", "Comparison window shifted back by at least (years):", value = 10, min = 1),
       p(tags$small(paste(
         "The current window is the last N years up to the reference year",
         "(AOPK default: 17, i.e. 2010-2026 for 2026). The trend compares it with",
-        "the same window moved back (default 10 years: 2000-2016)."
+        "the same window moved back (default 10 years: 2000-2016), or by three",
+        "generations where longer, from the generation length of the taxon's",
+        "NDOP group (generation_lengths())."
       ))),
       checkboxInput("save_snapshots", "Store NDOP snapshots (RDS)", value = TRUE),
       textInput("snapshot_dir", "Snapshot folder:", value = default_snapshot_dir()),
@@ -91,7 +93,9 @@ bulk_ui <- function() fluidPage(
   n_excluded = "Z\u00e1znam\u016f vy\u0159azeno",
   exclusions = "D\u016fvody vy\u0159azen\u00ed",
   snapshot = "Snapshot NDOP",
-  uncertain = "Nejist\u00fd n\u00e1vrh"
+  uncertain = "Nejist\u00fd n\u00e1vrh",
+  gen_length = "Genera\u010dn\u00ed doba (roky)",
+  gen_source = "Zdroj genera\u010dn\u00ed doby"
 )
 
 .SUPPORT_CS <- c(
@@ -132,7 +136,9 @@ bulk_ui <- function() fluidPage(
       paste(names(m$exclusions), m$exclusions, sep = ": ", collapse = "; ")
     } else "",
     snapshot = m$snapshot,
-    uncertain = if (is.na(r$Uncertain)) NA_character_ else if (r$Uncertain) "ano" else "ne"
+    uncertain = if (is.na(r$Uncertain)) NA_character_ else if (r$Uncertain) "ano" else "ne",
+    gen_length = r$Generation_Length,
+    gen_source = r$Generation_Length_Source
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -213,6 +219,20 @@ bulk_server <- function(input, output, session) {
     if (length(shift) == 0 || is.na(shift)) shift <- 10
     config <- ndopred_config(reference_year = ref_year, window = win, trend_shift = shift)
     rv$config <- config
+    gl_table <- tryCatch(generation_lengths(), error = function(e) {
+      log_msg(paste("Generation-length table not read:", conditionMessage(e), "- 1 year used."))
+      NULL
+    })
+    # Each taxon's own config: the generation length of its NDOP group sets
+    # the criterion A period, and so how far back the comparison window lies.
+    taxon_config <- function(occ, group_hint) {
+      gl <- if (is.null(gl_table)) {
+        list(years = 1, source = "default 1 year: table not read")
+      } else .taxon_generation_length(occ, group_hint, gl_table)
+      ndopred_config(reference_year = ref_year, window = win,
+                     trend_shift = max(shift, 3 * gl$years),
+                     generation_length = gl$years, generation_length_source = gl$source)
+    }
     w <- config$windows
 
     cell_km <- as.numeric(input$cell_size)
@@ -282,6 +302,7 @@ bulk_server <- function(input, output, session) {
                      ", verified=", fc$verified, ")")
             } else paste("No records found for:", sp))
           }
+          cfg_sp <- taxon_config(occ_raw, meta$group)
           if (is.na(meta$group) && "KAT_TAX" %in% names(occ_raw) && nrow(occ_raw) > 0) {
             meta$group <- as.character(occ_raw$KAT_TAX[1])
           }
@@ -289,14 +310,14 @@ bulk_server <- function(input, output, session) {
             meta$family <- as.character(occ_raw$CELED[1])
           }
           taxon <- tryCatch(
-            ndopred::assess_taxon(occ_raw, sp, config, evaluate_pop = FALSE,
+            ndopred::assess_taxon(occ_raw, sp, cfg_sp, evaluate_pop = FALSE,
                                   display_grid_size = grid_size_m),
             error = function(e) {
               log_msg(paste("ERROR in automated category for", sp, ":", conditionMessage(e)))
-              metrics <- ndopred::taxon_metrics(NULL, config)
+              metrics <- ndopred::taxon_metrics(NULL, cfg_sp)
               metrics$issues$records <- paste0("assessment error: ", conditionMessage(e))
               metrics$failed <- paste0("assessment error: ", conditionMessage(e))
-              ndopred::assess_taxon(species = sp, config = config, metrics = metrics)
+              ndopred::assess_taxon(species = sp, config = cfg_sp, metrics = metrics)
             }
           )
         }
@@ -306,6 +327,7 @@ bulk_server <- function(input, output, session) {
         if (!is.null(occ_raw) && nrow(occ_raw) > 0) {
           map_file <- file.path(map_dir, paste0(gsub("[^A-Za-z0-9]", "_", sp), "_map.png"))
           tryCatch({
+            w <- taxon$config$windows
             p <- ndopred::plot_iucn(
               species_name = sp, occ_data = occ_raw,
               recent_start = w$recent_start, recent_end = w$recent_end,

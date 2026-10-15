@@ -77,5 +77,6 @@ test_that("batch_assess defaults to the AOPK windows (D5)", {
     data.frame(Species = sp)
   })
   suppressMessages(batch_assess("Any sp", reference_year = 2026))
-  expect_equal(seen, c(2010, 2026, 2000, 2016))
+  # The comparison window is left to the taxon config (generation length).
+  expect_equal(seen, c(2010, 2026))
 })

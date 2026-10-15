@@ -8,11 +8,12 @@ assess_species(
   sp,
   recent_start,
   recent_end,
-  comp_start,
-  comp_end,
+  comp_start = NULL,
+  comp_end = NULL,
   evaluate_pop = FALSE,
   snapshot_dir = NULL,
   snapshot = NULL,
+  group = NA_character_,
   ...
 )
 }
@@ -23,7 +24,10 @@ assess_species(
 \code{recent_end} is also the reference year unless \code{reference_year} is
 passed in \code{...}.}
 
-\item{comp_start, comp_end}{Numeric. The comparison window for the trend.}
+\item{comp_start, comp_end}{Numeric or \code{NULL}. The comparison window for
+the trend. \code{NULL} moves the current window back by the criterion A
+period: 10 years, or three generations when longer (see
+\code{\link[=ndopred_config]{ndopred_config()}}).}
 
 \item{evaluate_pop}{Logical. Use NDOP counts as indications for A(b),
 B(b)(v), B(c)(iv), C and D.}
@@ -34,11 +38,15 @@ B(b)(v), B(c)(iv), C and D.}
 \item{snapshot}{Optional stored snapshot (object or path) to assess
 instead of downloading.}
 
+\item{group}{Optional taxonomic group, used for the generation length
+when the records carry no \code{KAT_TAX}.}
+
 \item{...}{Expert evidence (\code{d2_threat}, \code{threat_locations},
 \code{severely_fragmented}, \code{habitat_decline}, \code{a_criteria}, \code{evidence}) and
 configuration (\code{generation_length}, \code{decline_tolerance},
 \code{re_threshold_years}, \code{reference_year}); see \code{\link[=summarize_assessment]{summarize_assessment()}}
-and \code{\link[=ndopred_config]{ndopred_config()}}.}
+and \code{\link[=ndopred_config]{ndopred_config()}}. Without \code{generation_length}, the value for the
+taxon's NDOP group comes from \code{\link[=generation_lengths]{generation_lengths()}}.}
 }
 \value{
 A one-row data frame: the columns of \code{\link[=summarize_assessment]{summarize_assessment()}}'s
@@ -52,10 +60,9 @@ metrics, and the rule engine.
 }
 \examples{
 \dontrun{
-# Last ten years against the ten before them.
-assess_species("Lucanus cervus",
-               recent_start = 2016, recent_end = 2025,
-               comp_start = 2006, comp_end = 2015)
+# AOPK windows: 2010-2026 against 2000-2016 (generation length from the
+# group table; three generations over 10 years move the comparison back).
+assess_species("Lucanus cervus", recent_start = 2010, recent_end = 2026)
 
 # With the assessor's evidence on the threat and locations.
 assess_species("Bombina bombina",

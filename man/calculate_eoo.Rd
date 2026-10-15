@@ -43,7 +43,7 @@ is why no outlier trimming is applied here.
 \section{Bounds}{
 
 \code{area_km2_min} leaves out records less precise than 2 km and retained
-less-credible records (\code{flag_less_credible}); \code{area_km2_max} is the hull of
+flagged less-credible records (\code{flag_less_credible}, AOPK D8); \code{area_km2_max} is the hull of
 every record's precision disc and polygon (Guidelines §3.2, §4.9). Both are
 \code{NA} where fewer than three positions remain.
 }

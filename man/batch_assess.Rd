@@ -9,8 +9,8 @@ batch_assess(
   reference_year,
   recent_end = reference_year,
   recent_start = recent_end - 16,
-  comp_start = recent_start - 10,
-  comp_end = recent_end - 10,
+  comp_start = NULL,
+  comp_end = NULL,
   snapshot_dir = NULL,
   ...
 )
@@ -23,7 +23,8 @@ not read the system clock).}
 
 \item{recent_end, recent_start}{Numeric. The current window.}
 
-\item{comp_end, comp_start}{Numeric. The comparison window.}
+\item{comp_end, comp_start}{Numeric or \code{NULL}. The comparison window;
+\code{NULL} derives it per taxon from the generation length.}
 
 \item{snapshot_dir}{Optional folder in which every download is stored as
 an RDS snapshot, so the run can be repeated exactly; see
@@ -43,7 +44,10 @@ column says why, so no taxon silently drops out of the table.
 \details{
 Windows default to the AOPK convention (decision D5): the current window
 is the 17 years ending in \code{reference_year} (2010-2026 for 2026), compared
-with the same window ten years earlier (2000-2016). See \code{\link[=ndopred_config]{ndopred_config()}}.
+with the same window ten years earlier (2000-2016), or three generations
+earlier where that is longer. Each taxon's generation length comes from
+its NDOP group in \code{\link[=generation_lengths]{generation_lengths()}} unless \code{generation_length} is
+passed. See \code{\link[=ndopred_config]{ndopred_config()}}.
 }
 \examples{
 \dontrun{

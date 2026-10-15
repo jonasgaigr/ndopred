@@ -14,11 +14,10 @@
 #'     matched exactly.}
 #'   \item{Credibility (`VEROH`)}{0 = not yet validated (used; a proposed
 #'     validation mark in `VALIDACE` is only flagged, the process being
-#'     unfinished); 1 = credible (used); 3 = less credible; 6 = erroneous,
-#'     to be deleted; 9 = erroneous, to be corrected (both excluded).
-#'     Records with 3 are excluded unless more than
-#'     `less_credible_share` of the taxon's records carry 3, in which case
-#'     they are kept and flagged (a convention).}
+#'     unfinished); 1 = credible (used); 3 = less credible (always used);
+#'     6 = erroneous, to be deleted; 9 = erroneous, to be corrected (both
+#'     excluded). Records with 3 are flagged only when more than
+#'     `less_credible_share` of the taxon's records carry 3 (AOPK, D8).}
 #'   \item{Negative findings}{`NEGATIV = 1` is excluded from presence
 #'     metrics and kept as a non-detection.}
 #'   \item{Position}{No coordinates (hidden or missing), no cadastral unit
@@ -34,11 +33,11 @@
 #' @param raw Data frame from `rndop::ndop_download()`.
 #' @param species Character. The queried taxon name, or `NULL` to skip the
 #'   taxon check.
-#' @param less_credible_share Numeric. *Convention*: the share of `VEROH = 3`
-#'   records above which they are kept (flagged) rather than excluded.
+#' @param less_credible_share Numeric. *Convention (AOPK, D8)*: the share of
+#'   the taxon's records with `VEROH = 3` above which those records are
+#'   flagged. They are never excluded.
 #' @return `raw` with the added columns. Attributes `less_credible_share`
-#'   (the taxon's observed share of `VEROH = 3`) and
-#'   `less_credible_retained`.
+#'   (the taxon's observed share of `VEROH = 3`) and `less_credible_flagged`.
 #' @seealso [get_assessment_data()]
 #' @examples
 #' raw <- data.frame(
@@ -80,7 +79,7 @@ flag_records <- function(raw, species = NULL, less_credible_share = 0.10) {
       nzchar(druh) & druh != trimws(species)
     } else rep(FALSE, n),
     flag_erroneous = !is.na(veroh) & veroh %in% c(6, 9),
-    flag_less_credible = !is.na(veroh) & veroh == 3,
+    flag_less_credible = rep(FALSE, n),   # set below, from the taxon's share
     flag_validation_proposed = nzchar(validace) & (is.na(veroh) | veroh == 0),
     flag_negative = !is.na(negativ) & negativ == 1,
     flag_no_coords = is.na(x) | is.na(y),
@@ -102,15 +101,17 @@ flag_records <- function(raw, species = NULL, less_credible_share = 0.10) {
   key <- paste(druh, col("DATUM_OD"), round(x, -1), round(y, -1))
   flags$flag_duplicate <- !flags$flag_no_coords & duplicated(key)
 
+  # VEROH 3 (less credible) is always used; it is flagged only when more
+  # than `less_credible_share` of the taxon's own records carry it (AOPK, D8).
+  less_credible <- !is.na(veroh) & veroh == 3
   own <- !flags$flag_taxon_mismatch
-  share <- if (any(own)) mean(flags$flag_less_credible[own]) else 0
-  retain_lc <- share > less_credible_share
+  share <- if (any(own)) mean(less_credible[own]) else 0
+  flag_lc <- share > less_credible_share
+  flags$flag_less_credible <- less_credible & flag_lc
 
   reasons <- cbind(
     ifelse(flags$flag_taxon_mismatch, paste0("different taxon (DRUH: ", druh, ")"), NA),
     ifelse(flags$flag_erroneous, paste0("VEROH ", veroh, ": erroneous record"), NA),
-    ifelse(flags$flag_less_credible & !retain_lc,
-           sprintf("VEROH 3: less credible (%.1f%% of the taxon's records)", 100 * share), NA),
     ifelse(flags$flag_negative, "negative finding (kept as a non-detection)", NA),
     ifelse(flags$flag_no_coords, "no coordinates (hidden or missing)", NA),
     ifelse(flags$flag_no_cadastre, "no cadastral unit (probably outside Czechia)", NA),
@@ -128,6 +129,6 @@ flag_records <- function(raw, species = NULL, less_credible_share = 0.10) {
   out$exclusion_reason <- unname(first)
   out$include <- is.na(out$exclusion_reason)
   attr(out, "less_credible_share") <- share
-  attr(out, "less_credible_retained") <- retain_lc
+  attr(out, "less_credible_flagged") <- flag_lc
   out
 }

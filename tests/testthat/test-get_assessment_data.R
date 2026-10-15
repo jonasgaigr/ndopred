@@ -27,7 +27,7 @@ test_that("filter_counts traces records through each QC step, and nothing is del
   expect_equal(fc$coords, 4)        # the NA-coordinate row
   expect_equal(fc$non_negative, 3)  # the NEGATIV == 1 row
   expect_equal(fc$has_katastr, 2)   # the blank-KATASTR row
-  # VEROH 3 is one record in five (20 % > 10 %): kept and flagged (D8).
+  # VEROH 3 is one record in five (20 % > 10 %): used and flagged (D8).
   expect_equal(fc$verified, 2)
   expect_equal(fc$included, 2)
   # Every record keeps its row; exclusions are flags with a reason.
@@ -38,7 +38,7 @@ test_that("filter_counts traces records through each QC step, and nothing is del
   expect_match(res$exclusion_reason[res$ID_NALEZ == 2], "negative finding")
 })
 
-test_that("VEROH 3 is excluded when it is at most 10 % of the taxon's records", {
+test_that("VEROH 3 is used, unflagged, when it is at most 10 % of the taxon's records", {
   raw <- rbind(make_raw(), make_raw(), make_raw())
   raw$ID_NALEZ <- seq_len(nrow(raw))
   raw$VEROH <- 1
@@ -46,8 +46,9 @@ test_that("VEROH 3 is excluded when it is at most 10 % of the taxon's records", 
   raw$X[1] <- -704000
   testthat::local_mocked_bindings(ndop_download = function(...) raw, .package = "rndop")
   res <- get_assessment_data("Test species")
-  expect_false(res$include[1])
-  expect_match(res$exclusion_reason[1], "VEROH 3")
+  expect_true(res$include[1])           # D8: never excluded
+  expect_false(res$flag_less_credible[1])
+  expect_false(attr(flag_records(raw, species = "Test species"), "less_credible_flagged"))
 })
 
 test_that("blank/NA NEGATIV is treated as non-negative, not dropped", {

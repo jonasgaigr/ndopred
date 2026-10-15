@@ -37,15 +37,24 @@ test_that("VEROH codes follow the AOPK code list (D2)", {
   expect_match(by_id(5)$exclusion_reason, "VEROH 9")
 })
 
-test_that("VEROH 3 is kept and flagged only above 10 % of the taxon's records (D8)", {
-  # One VEROH 3 in seven own records = 14 %: kept, flagged.
+test_that("VEROH 3 is always used, and flagged only above 10 % of the taxon's records (D8)", {
+  # One VEROH 3 in seven own records = 14 %: used, flagged.
   f <- flag_records(raw_records(), species = "Bombina bombina")
   expect_true(f$include[f$ID_NALEZ == 3])
   expect_true(f$flag_less_credible[f$ID_NALEZ == 3])
-  expect_true(attr(f, "less_credible_retained"))
-  # At a 20 % threshold the same record is excluded.
+  expect_true(attr(f, "less_credible_flagged"))
+  # At a 20 % threshold the same record is used and not flagged.
   g <- flag_records(raw_records(), species = "Bombina bombina", less_credible_share = 0.20)
-  expect_false(g$include[g$ID_NALEZ == 3])
+  expect_true(g$include[g$ID_NALEZ == 3])
+  expect_false(g$flag_less_credible[g$ID_NALEZ == 3])
+  # Exactly 10 %: no flag ("no flag if under or at 10 %").
+  ten <- data.frame(ID_NALEZ = 1:10, DRUH = "A b", X = -700000 - 1000 * (1:10), Y = -1080000,
+                    DATUM_OD = 20200601, DATUM_DO = 20200601, NEGATIV = 0, KATASTR = "KU",
+                    VEROH = c(3, rep(1, 9)))
+  h <- flag_records(ten, species = "A b")
+  expect_equal(attr(h, "less_credible_share"), 0.1)
+  expect_false(any(h$flag_less_credible))
+  expect_true(all(h$include))
 })
 
 test_that("Records of another taxon are excluded: names match exactly (D13)", {

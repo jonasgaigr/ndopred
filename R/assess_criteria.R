@@ -89,7 +89,12 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #' @param recent_start,recent_end Numeric. The current window (criterion B).
 #'   `recent_end` is also the reference year unless `reference_year` is
 #'   passed in `...`.
-#' @param comp_start,comp_end Numeric. The comparison window for the trend.
+#' @param comp_start,comp_end Numeric or `NULL`. The comparison window for
+#'   the trend. `NULL` moves the current window back by the criterion A
+#'   period: 10 years, or three generations when longer (see
+#'   [ndopred_config()]).
+#' @param group Optional taxonomic group, used for the generation length
+#'   when the records carry no `KAT_TAX`.
 #' @param evaluate_pop Logical. Use NDOP counts as indications for A(b),
 #'   B(b)(v), B(c)(iv), C and D.
 #' @param snapshot_dir Optional folder to store the NDOP download in (see
@@ -100,17 +105,17 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #'   `severely_fragmented`, `habitat_decline`, `a_criteria`, `evidence`) and
 #'   configuration (`generation_length`, `decline_tolerance`,
 #'   `re_threshold_years`, `reference_year`); see [summarize_assessment()]
-#'   and [ndopred_config()].
+#'   and [ndopred_config()]. Without `generation_length`, the value for the
+#'   taxon's NDOP group comes from [generation_lengths()].
 #' @return A one-row data frame: the columns of [summarize_assessment()]'s
 #'   `result`, plus `Reference_Year` and `issue_*` reason codes.
 #' @seealso [batch_assess()] for many taxa, [run_app()] for the interactive
 #'   expert workflow, [assess_taxon()] for the pipeline.
 #' @examples
 #' \dontrun{
-#' # Last ten years against the ten before them.
-#' assess_species("Lucanus cervus",
-#'                recent_start = 2016, recent_end = 2025,
-#'                comp_start = 2006, comp_end = 2015)
+#' # AOPK windows: 2010-2026 against 2000-2016 (generation length from the
+#' # group table; three generations over 10 years move the comparison back).
+#' assess_species("Lucanus cervus", recent_start = 2010, recent_end = 2026)
 #'
 #' # With the assessor's evidence on the threat and locations.
 #' assess_species("Bombina bombina",
@@ -119,16 +124,22 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #'                d2_threat = "drainage of breeding ponds", threat_locations = 8)
 #' }
 #' @export
-assess_species <- function(sp, recent_start, recent_end, comp_start, comp_end,
-                           evaluate_pop = FALSE, snapshot_dir = NULL, snapshot = NULL, ...) {
+assess_species <- function(sp, recent_start, recent_end, comp_start = NULL, comp_end = NULL,
+                           evaluate_pop = FALSE, snapshot_dir = NULL, snapshot = NULL,
+                           group = NA_character_, ...) {
   args <- list(...)
+  occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
+  if (is.null(args$generation_length)) {
+    gl <- .taxon_generation_length(occ, group)
+    args$generation_length <- gl$years
+    args$generation_length_source <- gl$source
+  }
   config <- .config_from_args(
     args,
     reference_year = if (is.null(args$reference_year)) recent_end else args$reference_year,
     recent_start = recent_start, recent_end = recent_end,
     comp_start = comp_start, comp_end = comp_end
   )
-  occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
   assess_taxon(occ, sp, config, evaluate_pop = evaluate_pop,
                evidence = .evidence_from_args(args))$result
 }

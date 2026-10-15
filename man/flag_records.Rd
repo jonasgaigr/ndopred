@@ -12,13 +12,13 @@ flag_records(raw, species = NULL, less_credible_share = 0.1)
 \item{species}{Character. The queried taxon name, or \code{NULL} to skip the
 taxon check.}
 
-\item{less_credible_share}{Numeric. \emph{Convention}: the share of \code{VEROH = 3}
-records above which they are kept (flagged) rather than excluded.}
+\item{less_credible_share}{Numeric. \emph{Convention (AOPK, D8)}: the share of
+the taxon's records with \code{VEROH = 3} above which those records are
+flagged. They are never excluded.}
 }
 \value{
 \code{raw} with the added columns. Attributes \code{less_credible_share}
-(the taxon's observed share of \code{VEROH = 3}) and
-\code{less_credible_retained}.
+(the taxon's observed share of \code{VEROH = 3}) and \code{less_credible_flagged}.
 }
 \description{
 Adds one logical \verb{flag_*} column per test, the first \code{exclusion_reason}
@@ -36,11 +36,10 @@ another taxon (hybrid, \emph{s. l.}, subspecies) and is excluded. Names are
 matched exactly.}
 \item{Credibility (\code{VEROH})}{0 = not yet validated (used; a proposed
 validation mark in \code{VALIDACE} is only flagged, the process being
-unfinished); 1 = credible (used); 3 = less credible; 6 = erroneous,
-to be deleted; 9 = erroneous, to be corrected (both excluded).
-Records with 3 are excluded unless more than
-\code{less_credible_share} of the taxon's records carry 3, in which case
-they are kept and flagged (a convention).}
+unfinished); 1 = credible (used); 3 = less credible (always used);
+6 = erroneous, to be deleted; 9 = erroneous, to be corrected (both
+excluded). Records with 3 are flagged only when more than
+\code{less_credible_share} of the taxon's records carry 3 (AOPK, D8).}
 \item{Negative findings}{\code{NEGATIV = 1} is excluded from presence
 metrics and kept as a non-detection.}
 \item{Position}{No coordinates (hidden or missing), no cadastral unit

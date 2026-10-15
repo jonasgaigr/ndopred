@@ -91,7 +91,7 @@ get_assessment_data <- function(species_name, year_start = NULL, snapshot = NULL
   flagged <- flag_records(raw_data, species = species_name,
                           less_credible_share = less_credible_share)
   f <- flagged
-  verified_out <- f$flag_erroneous | (f$flag_less_credible & !attr(f, "less_credible_retained"))
+  verified_out <- f$flag_erroneous   # VEROH 3 is always used (AOPK, D8)
   coords_ok <- !f$flag_no_coords
   filter_counts <- list(
     raw = nrow(f),

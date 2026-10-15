@@ -6,13 +6,17 @@
 #'
 #' Windows default to the AOPK convention (decision D5): the current window
 #' is the 17 years ending in `reference_year` (2010-2026 for 2026), compared
-#' with the same window ten years earlier (2000-2016). See [ndopred_config()].
+#' with the same window ten years earlier (2000-2016), or three generations
+#' earlier where that is longer. Each taxon's generation length comes from
+#' its NDOP group in [generation_lengths()] unless `generation_length` is
+#' passed. See [ndopred_config()].
 #'
 #' @param species_list Vector of scientific names.
 #' @param reference_year Numeric. The assessment year (required; ndopred does
 #'   not read the system clock).
 #' @param recent_end,recent_start Numeric. The current window.
-#' @param comp_end,comp_start Numeric. The comparison window.
+#' @param comp_end,comp_start Numeric or `NULL`. The comparison window;
+#'   `NULL` derives it per taxon from the generation length.
 #' @param snapshot_dir Optional folder in which every download is stored as
 #'   an RDS snapshot, so the run can be repeated exactly; see
 #'   [default_snapshot_dir()]. The file name is in the `Snapshot` column.
@@ -38,8 +42,8 @@ batch_assess <- function(species_list,
                          reference_year,
                          recent_end = reference_year,
                          recent_start = recent_end - 16,
-                         comp_start = recent_start - 10,
-                         comp_end = recent_end - 10,
+                         comp_start = NULL,
+                         comp_end = NULL,
                          snapshot_dir = NULL,
                          ...) {
   if (missing(reference_year)) {

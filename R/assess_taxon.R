@@ -221,6 +221,9 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
                      eoo_range = c(min = metrics$eoo_new_min, max = metrics$eoo_new_max),
                      aoo_range = c(min = metrics$aoo_new_min, max = metrics$aoo_new_max))
   row$Reference_Year <- config$reference_year
+  row$Generation_Length <- config$generation_length
+  row$Generation_Length_Source <- if (is.null(config$generation_length_source)) NA_character_ else
+    config$generation_length_source
   row$Records_Excluded <- if (is.null(metrics$n_excluded)) 0L else metrics$n_excluded
   row$Snapshot <- if (is.null(metrics$snapshot)) NA_character_ else metrics$snapshot
   row <- cbind(row, .issue_columns(metrics$issues))
@@ -261,7 +264,8 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
 }
 
 .config_from_args <- function(args, ...) {
-  keep <- intersect(names(args), c("generation_length", "decline_tolerance", "nt_margin_a",
+  keep <- intersect(names(args), c("generation_length", "generation_length_source", "trend_shift",
+                                   "decline_tolerance", "nt_margin_a",
                                    "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations"))
   cfg <- args[keep]
   if (!is.null(args$re_threshold_years)) cfg$re_candidate_years <- args$re_threshold_years

@@ -7,12 +7,13 @@
 ndopred_config(
   reference_year,
   window = 17,
-  trend_shift = 10,
+  trend_shift = NULL,
   recent_start = NULL,
   recent_end = NULL,
   comp_start = NULL,
   comp_end = NULL,
   generation_length = 1,
+  generation_length_source = NULL,
   decline_tolerance = 5,
   nt_margin_a = 20,
   nt_margin_c = 2000,
@@ -31,11 +32,12 @@ locations for criterion B, and the recent side of the trend. Guidelines
 v16 §4.9: EOO and AOO describe the \emph{current} distribution. The default
 of 17 gives 2010-2026 for reference year 2026.}
 
-\item{trend_shift}{Numeric. \emph{Convention (AOPK, decision D5).} The
-comparison window for the trend is the current window moved this many
-years back: 2000-2016 against 2010-2026 by default. The windows overlap
-when \code{trend_shift < window}; their midpoints are \code{trend_shift} years
-apart, matching the 10-year period of criterion A (Criteria v3.1 A2).
+\item{trend_shift}{Numeric or \code{NULL}. The comparison window for the trend
+is the current window moved this many years back. \code{NULL} (default) uses
+the period of criterion A, 10 years or three generations, whichever is
+longer (Criteria v3.1 A2): 2000-2016 against 2010-2026 for a generation
+length up to 3.3 years (AOPK, decision D5). The windows overlap when the
+shift is shorter than \code{window}, and their midpoints are the shift apart.
 The shared years damp the measured change (see the vignette).}
 
 \item{recent_start, recent_end, comp_start, comp_end}{Numeric or \code{NULL}.
@@ -44,7 +46,11 @@ Explicit window bounds; override the windows derived from
 the comparison window with the current window.}
 
 \item{generation_length}{Numeric. Generation length in years (Criteria
-v3.1 III.4; Guidelines §4.4). Scales the C1 periods.}
+v3.1 III.4; Guidelines §4.4). Sets the criterion A period and scales the
+C1 periods. \code{\link[=generation_lengths]{generation_lengths()}} holds the per-group values.}
+
+\item{generation_length_source}{Character or \code{NULL}. Where the generation
+length comes from, reported with the result (e.g. the group-table row).}
 
 \item{decline_tolerance}{Numeric, per cent. \emph{Convention.} A measured
 change smaller than this is not read as an indication of continuing
