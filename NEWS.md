@@ -1,3 +1,39 @@
+# ndopred 0.6.0
+
+AOPK decisions of 2026-10-15 on D8 (revised), D9 and generation lengths.
+
+## VEROH 3 is always used (D8, revised)
+
+* Records with `VEROH = 3` (less credible) are never excluded. They are
+  flagged (`flag_less_credible`) only when more than 10 % of the taxon's
+  records carry 3; at or under 10 % there is no flag. The attribute
+  `less_credible_retained` is replaced by `less_credible_flagged`. Taxa with
+  a few such records gain them back in AOO, EOO and the counts.
+
+## Generation lengths per taxonomic group
+
+* New `generation_lengths()` and `generation_length_for()`: a table
+  (`inst/extdata/generation_lengths.csv`) with one row per NDOP taxonomic
+  group, keyed by the group's NDOP code, Latin name and Czech `KAT_TAX`. Every
+  group is 1 year for now (`status = "placeholder"`), to be refined. Point
+  `NDOPRED_GENERATION_LENGTHS` at another CSV to use other values.
+* `assess_species()`, `batch_assess()` and both apps take each taxon's
+  generation length from its records' group unless one is given. Result rows
+  report `Generation_Length` and `Generation_Length_Source`; the bulk export
+  adds `Generační doba (roky)` and `Zdroj generační doby`.
+* `ndopred_config(trend_shift = NULL)` now derives the shift from the
+  criterion A period, 10 years or three generations, whichever is longer. With
+  every group at 1 year the windows stay 2010-2026 against 2000-2016.
+  `batch_assess()` leaves `comp_start`/`comp_end` to that rule by default. In
+  the bulk app the shift field is a minimum.
+* The single-taxon app's generation-length field is empty by default, meaning
+  "use the group table".
+
+## Approval (D9)
+
+* Recorded for Phase 3: final categories are approved by group experts,
+  conservationists and taxonomists trained in Red List assessment.
+
 # ndopred 0.5.0
 
 AOPK decisions D4-D7 of 2026-10-15 (`methodology/gap_analysis.md`, section 9).

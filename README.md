@@ -193,6 +193,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | Function | Purpose |
 |---|---|
 | `ndopred_config()` | Everything a run depends on: reference year, windows, generation length, labelled conventions, versions |
+| `generation_lengths()`, `generation_length_for()` | Generation length per NDOP taxonomic group (`KAT_TAX`), with status and source |
 | `assessment_inputs()` | Data, indications and evidence for one taxon |
 | `assess_criteria()` | The single rule engine: criteria A-E in two scenarios, plus a tidy evidence table |
 | `categorise()` | The proposal: category, criteria (both formats), support, needs, range, flags |
@@ -245,6 +246,7 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Záznamů vyřazeno`, `Důvody vyřazení` | How many records were excluded, and why |
 | `Snapshot NDOP` | The snapshot file the row was computed from (when snapshots are stored) |
 | `Nejistý návrh` | `ano` when the plausible range holds both a non-threatened and a threatened category (AOPK, D7) |
+| `Generační doba (roky)`, `Zdroj generační doby` | The generation length used and where it came from (the group table, by default) |
 | `issue_download` … `issue_population` | The reason for every empty value |
 
 The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it.
@@ -271,12 +273,13 @@ The **Expert view** updates live and equals the automated proposal until somethi
 
 - **No record is deleted.** `flag_records()` adds a flag per test and the first exclusion reason. The rules agreed with AOPK:
   - `VEROH` 6 and 9 (erroneous) are excluded; 0 (not yet validated) and 1 (credible) are used.
-  - `VEROH` 3 (less credible) is excluded, unless more than 10 % of the taxon's records carry it; then those records are kept and flagged.
+  - `VEROH` 3 (less credible) is always used. It is flagged only when more than 10 % of the taxon's records carry it.
   - A proposed validation mark (`VALIDACE`) on an unguaranteed record is only flagged.
   - Negative findings are kept as non-detections.
   - Records of another taxon (names match exactly, so the query's hybrids and aggregates are excluded), records without coordinates, and records outside Czechia are excluded.
   - Literature sources and suspected duplicates are flagged only.
-- **Windows (AOPK, D5).** The current window is the 17 years up to the reference year (2010–2026); the trend compares it with 2000–2016. The two windows' midpoints are 10 years apart, the period of criterion A. They share 2010–2016, which damps the measured change: a site lost after 2010 still counts as current if it was recorded before the loss. For the same reason the criterion B window can hold sites lost since 2010, which §4.9 asks to leave out.
+- **Windows (AOPK, D5).** The current window is the 17 years up to the reference year (2010–2026); the trend compares it with 2000–2016. The two windows' midpoints are 10 years apart, the period of criterion A; where three generations are longer, the comparison window moves back by three generations. They share 2010–2016, which damps the measured change: a site lost after 2010 still counts as current if it was recorded before the loss. For the same reason the criterion B window can hold sites lost since 2010, which §4.9 asks to leave out.
+- **Generation lengths per group.** `generation_lengths()` holds one row per NDOP taxonomic group (`KAT_TAX`: Obojživelníci, Savci, Motýli, …). Every group is 1 year for now, a placeholder AOPK will refine; up to 3.3 years it changes no period. A value given for a taxon wins. Point `NDOPRED_GENERATION_LENGTHS` at an edited copy of the CSV to use other values.
 - **Date ranges count only where they fit.** A record dated 1995–2012 belongs to neither 2000–2016 nor 2010–2026.
 - **AOO and EOO have ranges.** `CXPRESNOST` 0 means an exact position. A record whose precision disc, or NDOP polygon, reaches into other 2 x 2 km cells widens AOO to a minimum and a maximum around the best estimate. These bound the *observed* AOO; for an under-recorded taxon the true AOO can be larger (§4.10.8).
 - **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is proposed as LC, flagged uncertain, with a range reaching CR and the missing conditions listed; the same taxon with the conditions evidenced absent is LC without the flag (Guidelines §10.1).

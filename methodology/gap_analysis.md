@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0); Phases 3–6 open (§8); D9 open |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phases 3–6 open (§8) |
 
 ## 1. Summary
 
@@ -320,6 +320,12 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 - **D4, D6** need no code now; their consequences are in the Phase 3 and Phase 5 plans.
 - Checked on real data (reference year 2026): *O. medius* stays NT (B1 and B2 nearly met), now flagged uncertain (LC–EN). *P. cuprea* and *B. bombina* stay LC. The longer window raises *B. bombina* AOO from 5,704 to 8,020 km² and turns its AOO change from −3.4 % to +10.9 %.
 
+### Decisions D8 (revised), D9 and generation lengths (done, version 0.6.0)
+
+- **D8.** `VEROH` 3 is always used, flagged only above 10 % of the taxon's records. Taxa with a few such records gain them back in AOO, EOO and the counts.
+- **Generation lengths.** `inst/extdata/generation_lengths.csv` has one row per NDOP taxonomic group (58, from `rndop::ndop_list("group")`), keyed by NDOP code, Latin name and the Czech `KAT_TAX` the records carry; every value is a 1-year placeholder. `assess_species()`, `batch_assess()` and both apps take the taxon's value from its records' group; result rows report the value and its source. The comparison window moves back by three generations where that exceeds 10 years, so refining a group changes its windows without code changes.
+- **D9** is recorded; the approval record is built in Phase 3.
+
 ### Phase 3: evidence layer, templates, expert UI, species card
 
 - **Evidence schema and storage**
@@ -377,7 +383,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 
 ## 9. Decisions needed from AOPK
 
-**Decided:** D1–D8 and D10–D13 (all 2026-10-15). **Open:** D9, needed for Phase 3; the source of generation lengths (part of D5).
+**Decided:** D1–D13 (all 2026-10-15). **Open:** the generation-length values themselves (a placeholder of 1 year per group until refined).
 
 One question the prompt already settles is not listed: taxa with no usable records become NE with a reason code, not DD (Guidelines §10.4).
 
@@ -387,11 +393,11 @@ One question the prompt already settles is not listed: taxa with no usable recor
 | D2 | What do `VEROH` 0/1/3 mean, and how do `VEROH`, `GARANCE` and `VALIDACE` combine? Which states exclude a record by default? | **Decided 2026-10-15.** 0 not yet validated, 1 credible, 3 less credible, 6 erroneous (to delete), 9 erroneous (to correct). After the guarantee only 1 or 3 remain; while it is open `VEROH` is 0 even with a proposed mark. Implemented: 6 and 9 excluded; 0 and 1 used; a proposed `VALIDACE` mark flagged only; 3 per D8 |
 | D3 | Does `CXPRESNOST = 0` mean "exact" or "unknown"? | **Decided 2026-10-15: exact.** |
 | D4 | Can records be linked to visits (`IDX_ND_AKCE`) and complete lists? Which export route may ndopred depend on: rndop only, or the AOPK export? | **Decided 2026-10-15: rndop only**; the records come from a range of sources. No `IDX_ND_AKCE`, so Phase 5 rebuilds visits from date, site (`ID_LOKAL`) and observer (`AUTOR`), and uses `ZDROJ`/`DAT_SADA`/`PROJEKT` to tell monitoring from opportunistic records |
-| D5 | The definition of "current" occurrence per taxon group, the default comparison windows, and the source of generation lengths | **Decided 2026-10-15:** current window 1.1.2010–31.12.2026, trend reference window 1.1.2000–31.12.2016, nationally. Implemented as `ndopred_config(window = 17, trend_shift = 10)`, relative to the reference year. Generation lengths not settled; until AOPK names a source they are expert input (single-taxon app; Phase 3 evidence layer) and the bulk default stays 1 year |
+| D5 | The definition of "current" occurrence per taxon group, the default comparison windows, and the source of generation lengths | **Decided 2026-10-15:** current window 1.1.2010–31.12.2026, trend reference window 1.1.2000–31.12.2016, nationally. Implemented as `ndopred_config(window = 17)` with the comparison window moved back by the criterion A period (10 years, or three generations where longer). Generation lengths: a table per NDOP taxonomic group (`generation_lengths()`), 1 year for every group for now, to be refined by a dedicated task; a value given for a taxon wins |
 | D6 | Is there, or will there be, a maintained threat layer for locations? | **Decided 2026-10-15: no layer.** Threats, if any, are filled in by the experts: threat-defined locations and the D2 threat are expert input only (Phase 3) |
 | D7 | Default dispute and risk tolerance for the national list | **Decided 2026-10-15:** "Propose the category and the criteria behind it, but flag as uncertain when uncertainty criteria are clearly met." Implemented: the proposal is the best estimate, the whole plausible range is reported (dispute tolerance 0), and a range holding both a non-threatened and a threatened category is flagged uncertain (the §10.1/§10.4 case) instead of moving the proposal to NT |
-| D8 | Are `VEROH` 3/9 and literature or collection records excluded by default, or only flagged? | **Decided 2026-10-15:** "only flagged if more than 10 % of species records carry 3". Read as: `VEROH` 3 is excluded unless more than 10 % of the taxon's records carry it, in which case they are kept and flagged (`flag_records(less_credible_share = 0.10)`, a labelled convention). Literature/collection records are flagged only. *Confirm this reading* |
-| D9 | Who approves eligibility, regional adjustment and final categories, and how is approval recorded? | An approval record in the evidence file (author, role, date, version); the engine refuses a final category without one |
+| D8 | Are `VEROH` 3/9 and literature or collection records excluded by default, or only flagged? | **Decided 2026-10-15 (revised the same day):** `VEROH` 3 is never excluded; it is flagged only when more than 10 % of the taxon's records carry it (no flag at or under 10 %; `flag_records(less_credible_share = 0.10)`). Literature/collection records are flagged only |
+| D9 | Who approves eligibility, regional adjustment and final categories, and how is approval recorded? | **Decided 2026-10-15:** group experts, conservationists and taxonomists trained in Red List assessment, approve. How approval is recorded is not specified; Phase 3 implements the recommendation: an approval record in the evidence file (approvers, expert group, role, date, version, justification), and the engine refuses a final category without one |
 | D10 | May `Kategorie (automatická)` and `Kriteria (automatická)` change meaning (no final LC/NT/DD/RE from the engine; Annex 2 notation)? | **Decided 2026-10-15: no.** Both columns keep a proposed category and the criteria behind it, and `Kriteria (automatická)` keeps today's format. Annex 2 notation goes in a new `Kritéria (IUCN zápis)` column. Further new columns: `Opora návrhu`, `Nutno doložit`, `Rozsah kategorií`, `issue_*` |
 | D11 | Should raw window-to-window change and cluster counts stop driving bulk categories until Phase 5 provides effort-corrected trends? | **Decided 2026-10-15: no.** Bulk mode must propose a category. Indications from the records may support the proposal; they are labelled as indications, and "needs further evidence" comes alongside the proposal, not instead of it |
 | D12 | Where are snapshots stored? They contain exact and hidden coordinates and personal names | **Decided 2026-10-15:** RDS files in a new folder in Documents: `default_snapshot_dir()` = `Documents/ndop_snapshots` (override with `NDOPRED_SNAPSHOT_DIR`) |

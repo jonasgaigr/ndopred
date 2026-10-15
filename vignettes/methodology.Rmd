@@ -85,9 +85,9 @@ snapshot lets any assessment be rerun on exactly the same records.
 
 * `VEROH` (credibility after the guarantor's review): 0 not yet validated and 1
   credible are used; 6 and 9 (erroneous) are excluded; 3 (less credible) is
-  excluded unless more than 10 % of the taxon's records carry it, in which case
-  those records are kept and flagged. A validation mark proposed while the
-  guarantee is open (`VALIDACE`) is only flagged.
+  always used, and flagged only when more than 10 % of the taxon's records
+  carry it. A validation mark proposed while the guarantee is open
+  (`VALIDACE`) is only flagged.
 * Records of another taxon are excluded; names match exactly, because the NDOP
   query also returns hybrids and aggregates.
 * Negative findings are kept as non-detections, out of the presence metrics.
@@ -117,7 +117,7 @@ The range bounds the *observed* AOO. Observed AOO is itself a plausible
 bound from habitat maps is not implemented.
 
 The EOO range comes from the same sources. The minimum leaves out records less
-precise than 2 km and retained less-credible records; the maximum is the hull of
+precise than 2 km and flagged less-credible records; the maximum is the hull of
 every precision disc and polygon. The proposal uses the best estimates. The low
 end of the plausible range uses the largest areas, and the high end the
 smallest.
@@ -139,8 +139,18 @@ locations will not be met" (§4.11), and the indication is ignored.
 
 The windows are an AOPK convention (D5): the current window is the 17 years up
 to the reference year (**2010–2026** for 2026), and the trend compares it with
-**2000–2016**, the same window ten years earlier (`ndopred_config(window = 17,
-trend_shift = 10)`).
+**2000–2016**, the same window ten years earlier. Ten years is the period of
+criterion A unless three generations are longer; then the comparison window
+moves back by three generations (`ndopred_config(window = 17)`, with
+`trend_shift` derived from the generation length).
+
+**Generation length** comes from `generation_lengths()`, a table with one row
+per NDOP taxonomic group (`KAT_TAX`), unless the assessor gives one for the
+taxon. Every group is set to **1 year** for now, a placeholder AOPK will refine.
+Up to 3.3 years a generation length changes nothing: criterion A uses 10 years
+until three generations exceed it, and C1 uses 3, 5 and 10 years until one, two
+and three generations exceed them. Each result row reports the value used and
+its source.
 
 * **Criterion B** describes the **current** distribution: §4.9 states that EOO
   and AOO "should not include areas where the species no longer exists". EOO,
@@ -151,8 +161,7 @@ trend_shift = 10)`).
   midpoints are 10 years apart, the period of criterion A2. They share
   2010–2016, and records from those years count in both, which damps the
   measured change: a site lost after 2010 still counts as current if it was
-  recorded before the loss. In the single-taxon app the comparison window moves
-  back by three generations when that is longer than 10 years.
+  recorded before the loss.
 * **The reference year** is always explicit (`ndopred_config(reference_year)`);
   nothing reads the system clock.
 
@@ -235,10 +244,11 @@ needing evidence (§11.2 prefers A2 for recent disappearances).
   them come in Phase 5. The redlistr cross-check of the spatial metrics is planned
   for Phase 6.
 * Effort-corrected trends and data tiers are planned (Phase 5). Until then the
-  bulk trend compares windows 10 years apart whatever the generation length,
-  the overlap of the AOPK windows damps the change, and the single-taxon app
-  caps the reduction window at 100 years, which §5.2 applies only to projected
+  overlap of the AOPK windows damps the change, and the single-taxon app caps
+  the reduction window at 100 years, which §5.2 applies only to projected
   reductions.
+* Generation lengths are a 1-year placeholder for every group until AOPK
+  refines the table.
 * NDOP data come only through rndop (AOPK, D4), which exports no visit
   identifier. Phase 5 has to rebuild visits from date, site and observer.
 * Threats, and so threat-defined locations and the D2 threat, come only from
