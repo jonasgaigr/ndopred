@@ -4,7 +4,15 @@
 \alias{assess_species}
 \title{Run Full IUCN Assessment for a Single Species (Harmonised Pipeline)}
 \usage{
-assess_species(sp, recent_start, recent_end, comp_start, comp_end)
+assess_species(
+  sp,
+  recent_start,
+  recent_end,
+  comp_start,
+  comp_end,
+  evaluate_pop = FALSE,
+  ...
+)
 }
 \arguments{
 \item{sp}{Character. Species scientific name.}
@@ -16,7 +24,41 @@ assess_species(sp, recent_start, recent_end, comp_start, comp_end)
 \item{comp_start}{Numeric. Start year for comparison data.}
 
 \item{comp_end}{Numeric. End year for comparison data.}
+
+\item{evaluate_pop}{Logical. Apply criteria C and D1 (vertebrates, plants).}
+
+\item{...}{Further arguments passed to \code{\link[=summarize_assessment]{summarize_assessment()}}, e.g.
+\code{d2_threat} or \code{severely_fragmented}.}
+}
+\value{
+A one-row data frame: \code{Species}, \code{Category}, \code{Criteria}, \code{EOO_km2},
+\code{AOO_km2}, \code{Locations}, \code{Trend_Perc}.
 }
 \description{
-Run Full IUCN Assessment for a Single Species (Harmonised Pipeline)
+Downloads NDOP records for one taxon and runs the whole chain: quality
+control, spatial metrics for the recent window, trend against the
+comparison window, optional abundance metrics, and the criteria cascade.
+}
+\details{
+Criterion B metrics describe the \strong{current} distribution and so use only
+\code{recent_start}–\code{recent_end}; the trend compares that window against
+\code{comp_start}–\code{comp_end} (see \code{\link[=calculate_trend]{calculate_trend()}}).
+}
+\examples{
+\dontrun{
+# Last ten years against the ten before them.
+assess_species("Lucanus cervus",
+               recent_start = 2016, recent_end = 2025,
+               comp_start = 2006, comp_end = 2015)
+
+# A taxon with usable counts, with criteria C and D1 enabled.
+assess_species("Bombina bombina",
+               recent_start = 2016, recent_end = 2025,
+               comp_start = 2006, comp_end = 2015,
+               evaluate_pop = TRUE)
+}
+}
+\seealso{
+\code{\link[=batch_assess]{batch_assess()}} for many taxa, \code{\link[=run_app]{run_app()}} for the interactive
+expert workflow, \code{\link[=summarize_assessment]{summarize_assessment()}} for the cascade itself.
 }

@@ -9,13 +9,18 @@ calculate_aoo(
   grid_size = 2000,
   year_start = NULL,
   date_col = "DATUM_OD",
-  n_shifts = 4
+  n_shifts = 4,
+  year_end = NULL,
+  origin = NULL
 )
 }
 \arguments{
 \item{occurrence_data}{sf object}
 
-\item{grid_size}{Numeric (default 2000 for IUCN)}
+\item{grid_size}{Numeric. Cell size in map units (default 2000 m). IUCN
+Guidelines section 4.10.3: 4 km2 (2 x 2 km) cells are the \emph{reference
+scale} for criteria B2 and D2, and estimates at other scales should be
+avoided. A warning is emitted if a different size is requested.}
 
 \item{year_start}{Numeric. Only records from this year onwards.}
 
@@ -26,7 +31,51 @@ Guidelines section 4.10.2: "If different grid locations (starting points
 of the grid) result in different AOO estimates, the minimum estimate
 should be used." Default 4 tests a 4x4 = 16 origin grid; use 1 to keep a
 single, unshifted origin (faster, but not guideline-compliant).}
+
+\item{year_end}{Numeric. Only records up to and including this year.}
+
+\item{origin}{Numeric vector of length 2 (\code{c(x, y)}) or NULL. When
+supplied, the origin search is skipped and this grid origin is used
+verbatim. Required when comparing AOO between two time periods: the
+minimising origin generally differs between periods, so independently
+minimised estimates are not comparable and would manufacture spurious
+trends (see IUCN Guidelines section 4.9 on comparing temporal estimates).}
+}
+\value{
+A list with \code{area_km2}, \code{n_cells}, \code{origin} (the grid
+origin actually used, for reuse in a paired period) and \code{geom} (an
+\code{sf} polygon layer of the occupied cells, for mapping).
 }
 \description{
-Calculate AOO with Temporal Filter
+Counts occupied cells of a uniform grid, per IUCN Guidelines (v16, 2024)
+section 4.10.2, equation 4.1: \code{AOO = no. occupied cells x area of an
+individual cell}.
+}
+\examples{
+pts <- sf::st_as_sf(
+  data.frame(
+    x = c(4600000, 4610000, 4620000, 4630000, 4640000),
+    y = c(2900000, 2900300, 2899700, 2900500, 2899300),
+    DATUM_OD = c("20200615", "20210615", "20220615", "20120615", "20130615")
+  ),
+  coords = c("x", "y"), crs = 3035
+)
+
+# Five well-separated points -> five occupied 2x2 km cells -> 20 km2
+calculate_aoo(pts)$area_km2
+
+# Restrict to a window
+calculate_aoo(pts, year_start = 2020)$area_km2
+
+# Pin the origin so two periods stay comparable
+shared <- calculate_aoo(pts)$origin
+calculate_aoo(pts, year_start = 2020, origin = shared)$n_cells
+}
+\references{
+IUCN Standards and Petitions Committee (2024), sections 4.10.2
+(grid method and minimum over origins) and 4.10.3 (2 x 2 km reference
+scale).
+}
+\seealso{
+\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=reconcile_eoo_aoo]{reconcile_eoo_aoo()}}, \code{\link[=calculate_trend]{calculate_trend()}}
 }

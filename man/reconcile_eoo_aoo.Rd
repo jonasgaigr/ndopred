@@ -21,3 +21,15 @@ This also resolves cases where EOO cannot be computed directly (e.g. fewer
 than 3 occurrence points for a convex hull, where \code{calculate_eoo()}
 returns \code{NA}) by falling back to AOO, consistent with the same rule.
 }
+\examples{
+reconcile_eoo_aoo(50000, 400)   # EOO already larger: unchanged
+reconcile_eoo_aoo(12, 40)       # EOO below AOO: raised to AOO
+reconcile_eoo_aoo(NA, 40)       # EOO not computable: AOO stands in
+reconcile_eoo_aoo(NA, 0)        # nothing to reconcile against
+}
+\references{
+IUCN Standards and Petitions Committee (2024), section 4.9.
+}
+\seealso{
+\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=calculate_aoo]{calculate_aoo()}}
+}

@@ -1,35 +1,119 @@
-#' Calculate Trend (Comparing Recent vs Comparison Window)
+#' Calculate Spatial Trend (Recent Window vs. Preceding Window)
 #'
-#' @param occurrence_data Data frame (must contain DATUM_OD or 'year' col)
-#' @param recent_start Numeric. Start year for recent data.
-#' @param recent_end Numeric. End year for recent data.
-#' @param comp_start Numeric. Start year for comparison data.
-#' @param comp_end Numeric. End year for comparison data.
+#' Compares AOO and EOO between a recent window and an earlier comparison
+#' window. The resulting change is what criterion A2(c) calls "a decline in
+#' area of occupancy, extent of occurrence and/or quality of habitat", and
+#' what criteria B1b(i)/B2b(ii) call a continuing decline in EOO/AOO.
+#'
+#' @section Window handling:
+#' By default the two windows are contiguous and non-overlapping: the recent
+#' window is the last \code{window_years} years, and the comparison window is
+#' the \code{window_years} years immediately before it. The previous defaults
+#' (recent 2010-2026 vs. comparison 2000-2016) overlapped by seven years,
+#' which damped every measured change towards zero. Explicit
+#' \code{recent_start}/\code{recent_end}/\code{comp_start}/\code{comp_end}
+#' still override the derived windows.
+#'
+#' @section Comparable grid origins:
+#' AOO for both periods is computed on a single shared grid origin. IUCN
+#' Guidelines section 4.10.2 asks for the *minimum* estimate over grid
+#' origins, but the minimising origin generally differs between periods; using
+#' each period's own minimum would compare two different grids and manufacture
+#' spurious change. The origin that minimises AOO over the pooled data of both
+#' periods is chosen and then applied to each period.
+#'
+#' @param occurrence_data Data frame or sf object (must contain DATUM_OD, ROK
+#'   or a 'year' column).
+#' @param window_years Numeric. Length in years of each window (default 10).
+#' @param year_now Numeric. Final year of the recent window (defaults to the
+#'   current calendar year).
+#' @param recent_start,recent_end,comp_start,comp_end Numeric or NULL.
+#'   Explicit window bounds; override the derived windows when supplied.
+#' @param grid_size Numeric. AOO cell size in metres (default 2000).
+#' @return A list with the window definitions, AOO and EOO for both periods,
+#'   \code{percent_change} (AOO, retained for backward compatibility),
+#'   \code{aoo_percent_change}, \code{eoo_percent_change} and the record
+#'   counts underlying each period. A change is \code{NA} when the earlier
+#'   period has no records to compare against.
+#' @seealso [calculate_aoo()], [summarize_assessment()], [calculate_pop_metrics()]
+#'   for the abundance-based counterpart.
+#' @references IUCN Standards and Petitions Committee (2024), sections 4.6
+#'   (continuing decline), 4.9 (comparing temporal EOO estimates) and 4.10.2.
+#' @examples
+#' pts <- sf::st_as_sf(
+#'   data.frame(
+#'     x = c(4600000, 4700000, 4650000, 4600000, 4610000, 4605000),
+#'     y = c(2900000, 2900000, 2990000, 2900000, 2900000, 2909000),
+#'     # three records in the comparison window, three in the recent one
+#'     DATUM_OD = c("20100615", "20110615", "20120615",
+#'                  "20200615", "20210615", "20220615")
+#'   ),
+#'   coords = c("x", "y"), crs = 3035
+#' )
+#'
+#' tr <- calculate_trend(pts, window_years = 10, year_now = 2025)
+#' tr$period_1_range   # "2006 - 2015"
+#' tr$period_2_range   # "2016 - 2025"
+#' tr$aoo_percent_change
+#' tr$eoo_percent_change
 #' @export
 calculate_trend <- function(occurrence_data,
-                            recent_start = 2010, recent_end = 2026,
-                            comp_start = 2000, comp_end = 2016) {
+                            window_years = 10,
+                            year_now = as.numeric(format(Sys.Date(), "%Y")),
+                            recent_start = NULL, recent_end = NULL,
+                            comp_start = NULL, comp_end = NULL,
+                            grid_size = 2000) {
 
-  # Ensure dates are cleaned
-  if (!"year" %in% names(occurrence_data)) {
-    occurrence_data <- ndopred::clean_dates(occurrence_data)
+  # Derive contiguous, non-overlapping windows unless told otherwise.
+  if (is.null(recent_end))   recent_end   <- year_now
+  if (is.null(recent_start)) recent_start <- recent_end - window_years + 1
+  if (is.null(comp_end))     comp_end     <- recent_start - 1
+  if (is.null(comp_start))   comp_start   <- comp_end - window_years + 1
+
+  if (recent_start <= comp_end) {
+    warning("Recent and comparison windows overlap; the measured change will ",
+            "be damped towards zero.", call. = FALSE)
   }
 
-  # Filter data for both periods
-  p1_data <- occurrence_data %>% dplyr::filter(year >= comp_start & year <= comp_end)
-  p2_data <- occurrence_data %>% dplyr::filter(year >= recent_start & year <= recent_end)
+  occurrence_data <- add_year_column(occurrence_data)
 
-  # Calculate AOO for both periods to derive trend
-  # (Passing year_start = NULL because we pre-filtered the data above)
-  aoo_p1 <- ndopred::calculate_aoo(p1_data, year_start = NULL)$area_km2
-  aoo_p2 <- ndopred::calculate_aoo(p2_data, year_start = NULL)$area_km2
+  p1_data <- occurrence_data[!is.na(occurrence_data$year) &
+                               occurrence_data$year >= comp_start &
+                               occurrence_data$year <= comp_end, , drop = FALSE]
+  p2_data <- occurrence_data[!is.na(occurrence_data$year) &
+                               occurrence_data$year >= recent_start &
+                               occurrence_data$year <= recent_end, , drop = FALSE]
 
-  # Calculate percentage change
-  perc_change <- if(!is.na(aoo_p1) && aoo_p1 > 0) {
-    ((aoo_p2 - aoo_p1) / aoo_p1) * 100
-  } else {
-    NA
+  # Shared grid origin, minimised over the pooled points of both windows.
+  # Pooling two possibly-empty sf subsets recomputes a bounding box over zero
+  # points, which emits benign min/max warnings; an empty window is normal.
+  pooled <- suppressWarnings(rbind(p1_data, p2_data))
+  shared_origin <- NULL
+  if (nrow(pooled) > 0) {
+    shared_origin <- suppressWarnings(
+      calculate_aoo(pooled, grid_size = grid_size)$origin
+    )
   }
+
+  aoo_p1 <- suppressWarnings(
+    calculate_aoo(p1_data, grid_size = grid_size, origin = shared_origin)$area_km2)
+  aoo_p2 <- suppressWarnings(
+    calculate_aoo(p2_data, grid_size = grid_size, origin = shared_origin)$area_km2)
+
+  eoo_p1 <- calculate_eoo(p1_data)$area_km2
+  eoo_p2 <- calculate_eoo(p2_data)$area_km2
+
+  # IUCN 4.9: EOO is never smaller than AOO.
+  eoo_p1 <- reconcile_eoo_aoo(eoo_p1, aoo_p1)
+  eoo_p2 <- reconcile_eoo_aoo(eoo_p2, aoo_p2)
+
+  pct_change <- function(before, after) {
+    if (is.na(before) || is.na(after) || before <= 0) return(NA_real_)
+    ((after - before) / before) * 100
+  }
+
+  aoo_change <- pct_change(aoo_p1, aoo_p2)
+  eoo_change <- pct_change(eoo_p1, eoo_p2)
 
   return(list(
     range = paste(comp_start, "-", recent_end),
@@ -37,6 +121,13 @@ calculate_trend <- function(occurrence_data,
     period_2_range = paste(recent_start, "-", recent_end),
     period_1_aoo = aoo_p1,
     period_2_aoo = aoo_p2,
-    percent_change = perc_change
+    period_1_eoo = eoo_p1,
+    period_2_eoo = eoo_p2,
+    period_1_n = nrow(p1_data),
+    period_2_n = nrow(p2_data),
+    window_years = window_years,
+    percent_change = aoo_change,
+    aoo_percent_change = aoo_change,
+    eoo_percent_change = eoo_change
   ))
 }

@@ -2,27 +2,90 @@
 % Please edit documentation in R/calculate_trend.R
 \name{calculate_trend}
 \alias{calculate_trend}
-\title{Calculate Trend (Comparing Recent vs Comparison Window)}
+\title{Calculate Spatial Trend (Recent Window vs. Preceding Window)}
 \usage{
 calculate_trend(
   occurrence_data,
-  recent_start = 2010,
-  recent_end = 2026,
-  comp_start = 2000,
-  comp_end = 2016
+  window_years = 10,
+  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  recent_start = NULL,
+  recent_end = NULL,
+  comp_start = NULL,
+  comp_end = NULL,
+  grid_size = 2000
 )
 }
 \arguments{
-\item{occurrence_data}{Data frame (must contain DATUM_OD or 'year' col)}
+\item{occurrence_data}{Data frame or sf object (must contain DATUM_OD, ROK
+or a 'year' column).}
 
-\item{recent_start}{Numeric. Start year for recent data.}
+\item{window_years}{Numeric. Length in years of each window (default 10).}
 
-\item{recent_end}{Numeric. End year for recent data.}
+\item{year_now}{Numeric. Final year of the recent window (defaults to the
+current calendar year).}
 
-\item{comp_start}{Numeric. Start year for comparison data.}
+\item{recent_start, recent_end, comp_start, comp_end}{Numeric or NULL.
+Explicit window bounds; override the derived windows when supplied.}
 
-\item{comp_end}{Numeric. End year for comparison data.}
+\item{grid_size}{Numeric. AOO cell size in metres (default 2000).}
+}
+\value{
+A list with the window definitions, AOO and EOO for both periods,
+\code{percent_change} (AOO, retained for backward compatibility),
+\code{aoo_percent_change}, \code{eoo_percent_change} and the record
+counts underlying each period. A change is \code{NA} when the earlier
+period has no records to compare against.
 }
 \description{
-Calculate Trend (Comparing Recent vs Comparison Window)
+Compares AOO and EOO between a recent window and an earlier comparison
+window. The resulting change is what criterion A2(c) calls "a decline in
+area of occupancy, extent of occurrence and/or quality of habitat", and
+what criteria B1b(i)/B2b(ii) call a continuing decline in EOO/AOO.
+}
+\section{Window handling}{
+
+By default the two windows are contiguous and non-overlapping: the recent
+window is the last \code{window_years} years, and the comparison window is
+the \code{window_years} years immediately before it. The previous defaults
+(recent 2010-2026 vs. comparison 2000-2016) overlapped by seven years,
+which damped every measured change towards zero. Explicit
+\code{recent_start}/\code{recent_end}/\code{comp_start}/\code{comp_end}
+still override the derived windows.
+}
+
+\section{Comparable grid origins}{
+
+AOO for both periods is computed on a single shared grid origin. IUCN
+Guidelines section 4.10.2 asks for the \emph{minimum} estimate over grid
+origins, but the minimising origin generally differs between periods; using
+each period's own minimum would compare two different grids and manufacture
+spurious change. The origin that minimises AOO over the pooled data of both
+periods is chosen and then applied to each period.
+}
+
+\examples{
+pts <- sf::st_as_sf(
+  data.frame(
+    x = c(4600000, 4700000, 4650000, 4600000, 4610000, 4605000),
+    y = c(2900000, 2900000, 2990000, 2900000, 2900000, 2909000),
+    # three records in the comparison window, three in the recent one
+    DATUM_OD = c("20100615", "20110615", "20120615",
+                 "20200615", "20210615", "20220615")
+  ),
+  coords = c("x", "y"), crs = 3035
+)
+
+tr <- calculate_trend(pts, window_years = 10, year_now = 2025)
+tr$period_1_range   # "2006 - 2015"
+tr$period_2_range   # "2016 - 2025"
+tr$aoo_percent_change
+tr$eoo_percent_change
+}
+\references{
+IUCN Standards and Petitions Committee (2024), sections 4.6
+(continuing decline), 4.9 (comparing temporal EOO estimates) and 4.10.2.
+}
+\seealso{
+\code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=summarize_assessment]{summarize_assessment()}}, \code{\link[=calculate_pop_metrics]{calculate_pop_metrics()}}
+for the abundance-based counterpart.
 }

@@ -7,11 +7,21 @@
 clean_dates(df)
 }
 \arguments{
-\item{df}{Data frame with DATUM_OD column}
+\item{df}{Data frame with a \code{DATUM_OD} column.}
 }
 \value{
-Data frame with added 'year' column
+The input with a numeric \code{year} column added, minus unparseable
+rows.
 }
 \description{
-Clean and Parse NDOP Dates
+Adds a numeric \code{year} column parsed from \code{DATUM_OD} and drops rows whose
+date could not be parsed.
+}
+\examples{
+df <- data.frame(DATUM_OD = c("20200101", "01.01.1999", "junk"))
+clean_dates(df)
+}
+\seealso{
+\code{\link[=extract_year]{extract_year()}} for the parser, \code{\link[=filter_years]{filter_years()}} to subset a
+window without dropping the rest.
 }

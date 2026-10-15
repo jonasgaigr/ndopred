@@ -23,3 +23,36 @@ verification status) instead of a single opaque "no records" outcome.
 \description{
 Get and Clean NDOP Data
 }
+\section{Quality control}{
+
+Records are dropped when they have no coordinates, are flagged as a
+negative finding (\code{NEGATIV == 1}), carry an empty cadastral unit, or have a
+verification status of 3 (dubious) or 9. A \strong{missing} value in any of
+those fields means the field was never populated, not that the record
+failed the check, so \code{NA}s are kept throughout.
+
+Coordinates are read as S-JTSK / Krovak East North (EPSG:5514), NDOP's
+native CRS, and transformed to ETRS89-LAEA (EPSG:3035) so that areas come
+out in equal-area metres.
+}
+
+\section{Credentials}{
+
+NDOP requires a login. Set \code{NDOP_USER} and \code{NDOP_PWD} in \verb{~/.Renviron}, or
+call \code{rndop::isop_login()} once. Without them the download fails and an
+empty result is returned with \code{filter_counts$raw == 0}.
+}
+
+\examples{
+\dontrun{
+occ <- get_assessment_data("Lucanus cervus")
+nrow(occ)
+attr(occ, "filter_counts")   # how many records survived each QC step
+
+# Only the last ten years
+recent <- get_assessment_data("Lucanus cervus", year_start = 2016)
+}
+}
+\seealso{
+\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=assess_species]{assess_species()}}
+}

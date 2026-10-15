@@ -4,14 +4,32 @@
 \alias{assess_criterion_a}
 \title{Evaluate Criterion A (Population Reduction)}
 \usage{
-assess_criterion_a(trend_res)
+assess_criterion_a(trend_res, a_criteria = "A2")
 }
 \arguments{
-\item{trend_res}{Result from calculate_trend()}
+\item{trend_res}{Result from \code{\link[=calculate_trend]{calculate_trend()}}.}
+
+\item{a_criteria}{Character. \code{"A1"} uses the 90/70/50 thresholds (causes
+reversible, understood and ceased); anything else uses the A2/A3/A4
+thresholds of 80/50/30.}
 }
 \value{
-Suggested category (character)
+Suggested category (character).
 }
 \description{
 Evaluate Criterion A (Population Reduction)
+}
+\examples{
+assess_criterion_a(list(percent_change = -85))          # "CR" under A2
+assess_criterion_a(list(percent_change = -85), "A1")     # "EN" under A1
+assess_criterion_a(list(percent_change = -22))          # "NT": 20-29\%
+assess_criterion_a(list(percent_change = 15))           # increase -> LC
+assess_criterion_a(list(percent_change = NA))           # "DD"
+}
+\references{
+IUCN (2012), criterion A; Guidelines v16 section 5.
+}
+\seealso{
+\code{\link[=summarize_assessment]{summarize_assessment()}}, which applies criterion A inside the
+full cascade alongside B, C and D.
 }

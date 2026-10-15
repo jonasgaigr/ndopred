@@ -2,19 +2,99 @@
 % Please edit documentation in R/calculate_pop_metrics.R
 \name{calculate_pop_metrics}
 \alias{calculate_pop_metrics}
-\title{Calculate Population Metrics for IUCN Criterion C/D}
+\title{Calculate Population Metrics for IUCN Criteria C and D}
 \usage{
-calculate_pop_metrics(occ_data, window_years = 10)
+calculate_pop_metrics(
+  occ_data,
+  window_years = 10,
+  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  mature_terms = get_mature_terms()
+)
 }
 \arguments{
 \item{occ_data}{Dataframe or sf object of occurrences.}
 
 \item{window_years}{Number of recent years to consider.}
+
+\item{year_now}{Numeric. Final year of the window (defaults to the current
+calendar year).}
+
+\item{mature_terms}{Character vector of \code{POCITANO} values to treat as
+mature individuals. Defaults to \code{\link[=get_mature_terms]{get_mature_terms()}}.}
 }
 \value{
-A list with total_mature, decline_rate, max_subpop, and fluct_ratio.
+A list with \code{total_mature}, \code{decline_rate}, \code{max_subpop},
+\code{fluct_ratio}, \code{fluct_reversals}, \code{extreme_fluctuation},
+\code{decline_period_years}, \code{n_years}, \code{n_localities}, \code{n_records_counted},
+\code{n_records_used} and \code{ignored_terms}. Always check \code{n_records_used}
+against \code{n_records_counted} before trusting \code{total_mature}.
 }
 \description{
-Handles missing ROK column, maps NAZ_LOKAL, correctly sums sexes (Males + Females vs Total),
-and detects extreme fluctuations.
+Derives a minimum observed count of mature individuals, a decline rate, the
+largest single-site count, and an extreme-fluctuation diagnosis from NDOP
+abundance fields.
+}
+\section{What these numbers are (and are not)}{
+
+NDOP records are opportunistic observations, not censuses. The totals
+returned here are therefore \strong{minimum observed counts of mature
+individuals}, not estimates of population size in the sense of IUCN
+Guidelines section 4.3, and \code{max_subpop} uses \emph{locality} as a surrogate for
+\emph{subpopulation} (section 4.2). Both will usually be severe underestimates,
+and both are sensitive to recording effort. They are intended to seed
+expert review in the single-species app, and must be confirmed or replaced
+by the assessor before criteria C or D1 are applied.
+}
+
+\section{Life-stage vocabulary coverage}{
+
+Only records whose \code{POCITANO} (what was counted) names a reproductive stage
+are used. On live NDOP data that is often a minority of the counted
+records - the unqualified term \code{"jedinci"} ("individuals") is the single
+commonest value and is deliberately \emph{not} in \code{\link[=get_mature_terms]{get_mature_terms()}}, because
+it does not assert that the individuals were mature (Guidelines 4.3). The
+returned \code{ignored_terms} and \code{n_records_counted}/\code{n_records_used} make that
+shortfall visible so it cannot silently shrink \code{total_mature}; pass
+\code{mature_terms} to override the vocabulary for a given taxon.
+}
+
+\examples{
+# A locality censused for ten years, declining ~25\% a year.
+yrs <- 2016:2025
+occ <- data.frame(
+  ROK = yrs,
+  POCET = round(400 * 0.75^(seq_along(yrs) - 1)),
+  POCITANO = "adulti",
+  NAZ_LOKAL = "Site A"
+)
+pm <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
+pm$total_mature
+pm$decline_rate          # ~ -94\%, projected over the 10-year window
+pm$extreme_fluctuation   # FALSE: a monotonic crash is a reduction
+
+# A boom-bust series of the same magnitude IS an extreme fluctuation.
+boom <- data.frame(
+  ROK = yrs, POCITANO = "adulti", NAZ_LOKAL = "Site A",
+  POCET = c(1000, 50, 900, 40, 1100, 60, 950, 45, 1050, 55)
+)
+calculate_pop_metrics(boom, year_now = 2025)$extreme_fluctuation
+
+# Unqualified life stages are skipped, and the shortfall is reported.
+mixed <- data.frame(
+  ROK = 2025, POCET = 20, POCITANO = c("adulti", "jedinci", "larvy"),
+  NAZ_LOKAL = "Site A"
+)
+res <- calculate_pop_metrics(mixed, year_now = 2025)
+res$n_records_used       # 1 of 3
+res$ignored_terms
+}
+\references{
+IUCN Standards and Petitions Committee (2024), sections 4.3
+(mature individuals), 4.5.1 (exponential decline), 4.6 and 4.7
+(continuing decline vs. extreme fluctuation).
+}
+\seealso{
+\code{\link[=get_mature_terms]{get_mature_terms()}} for the vocabulary, \code{\link[=summarize_assessment]{summarize_assessment()}}
+whose \code{evaluate_pop} argument decides whether criteria C and D1 are
+applied at all.
 }

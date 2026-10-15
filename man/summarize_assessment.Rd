@@ -14,7 +14,15 @@ summarize_assessment(
   evaluate_pop = TRUE,
   year_last = NA,
   n_records = NA,
-  a_criteria = NULL
+  a_criteria = NULL,
+  eoo_trend = NULL,
+  locations_trend = NULL,
+  severely_fragmented = FALSE,
+  habitat_decline = FALSE,
+  d2_threat = FALSE,
+  generation_length = 1,
+  decline_tolerance = 5,
+  re_threshold_years = 50
 )
 }
 \arguments{
@@ -24,23 +32,147 @@ summarize_assessment(
 
 \item{aoo}{List containing \code{area_km2}.}
 
-\item{trend}{List containing \code{percent_change}.}
+\item{trend}{List containing \code{percent_change} (change in AOO, per cent) and
+optionally \code{eoo_percent_change}.}
 
-\item{locations}{Numeric. Number of locations.}
+\item{locations}{Numeric. Number of locations (may be NA).}
 
-\item{pop_metrics}{List containing \code{decline_rate}, \code{fluct_ratio}, \code{total_mature}, and \code{max_subpop}.}
+\item{pop_metrics}{List containing \code{decline_rate}, \code{extreme_fluctuation},
+\code{total_mature}, \code{max_subpop} and optionally \code{decline_period_years}.}
 
-\item{evaluate_pop}{Logical. If FALSE, ignores Criteria C, D1, and pop-dependent subcriteria.}
+\item{evaluate_pop}{Logical. Whether the abundance data in \code{pop_metrics}
+is fit to be used at all. It governs \strong{every} use of that data, not just
+criteria C and D1:
+\itemize{
+\item criteria C and D1 (population size);
+\item criterion A basis (b), the abundance-derived reduction — with
+\code{evaluate_pop = FALSE} criterion A rests on the spatial trend alone,
+i.e. basis (c);
+\item criterion B(b)(v), continuing decline in mature individuals;
+\item criterion B(c)(iv), extreme fluctuations in mature individuals.
+}
+
+NDOP counts are opportunistic (Guidelines 4.10.8), so a trend derived
+from them is not more reliable than a total derived from them. Set this
+FALSE whenever the counts are too thin or too unrepresentative to stand
+behind — see \code{n_records_used} / \code{n_records_counted} from
+\code{\link[=calculate_pop_metrics]{calculate_pop_metrics()}}.}
 
 \item{year_last}{Numeric. The most recent year observed in the dataset.}
 
 \item{n_records}{Numeric. Total number of records in the dataset.}
 
-\item{a_criteria}{Character vector of A criteria to apply (e.g., c("A2")). Default is NULL.}
+\item{a_criteria}{Character vector of A criteria to apply. Only \code{"A1"}
+changes the thresholds (90/70/50 instead of 80/50/30); default \code{"A2"}.}
+
+\item{eoo_trend}{Numeric. Per cent change in EOO, if measured separately.}
+
+\item{locations_trend}{Numeric. Per cent change in the number of locations.}
+
+\item{severely_fragmented}{Logical. Expert judgement, criterion B(a).}
+
+\item{habitat_decline}{Logical. Expert judgement, criterion B(b)(iii).}
+
+\item{d2_threat}{Logical. Expert-confirmed plausible threat for D2.}
+
+\item{generation_length}{Numeric. Generation length in years, used to scale
+the C1 reference periods (1/2/3 generations for CR/EN/VU).}
+
+\item{decline_tolerance}{Numeric, per cent. Measured changes smaller than
+this are not asserted as a continuing decline. Criteria B and C2 accept a
+continuing decline "at any rate" (Guidelines 4.6), but a trend estimated
+by resampling opportunistic records carries sampling noise, and
+Guidelines 4.9 warns specifically that convex-hull EOO estimates are
+"less suitable as a method for comparing two or more temporal estimates
+... for assessing reductions or continuing declines". Without this guard
+a 1\% wobble between two samples reads as a continuing decline and can
+push an otherwise stable taxon into a threatened category. Set to 0 for
+the literal "any rate" reading.}
+
+\item{re_threshold_years}{Numeric. Years since the last record after which
+the taxon is \emph{screened} as Regionally Extinct. See the note on
+\code{details$re_screened} below.}
 }
 \value{
-A list containing \code{result} (display dataframe) and \code{details} (boolean flags).
+A list of two elements:
+\describe{
+\item{\code{result}}{A one-row data frame: \code{Species}, \code{Category}, \code{Criteria},
+\code{EOO_km2}, \code{AOO_km2}, \code{Locations}, \code{Trend_Perc}. For a Near Threatened
+taxon \code{Criteria} reads "nearly meets ..." rather than a criteria code,
+because NT is defined by proximity to Vulnerable and not by criteria of
+its own (Guidelines 10.1).}
+\item{\code{details}}{Flags consumed by the Shiny expert-review panel:
+\code{a_type}, \code{a_basis}, \code{b_indices}, \code{c_indices}, \code{loc_flag}, \code{c1},
+\code{c2_ai}, \code{c2_aii}, \code{c2_b}, \code{d1_flag}, \code{d2_flag}, \code{d2_candidate},
+\code{re_screened} and \code{nt_reasons}.}
+}
 }
 \description{
-Evaluates Criteria A-E, plus Pre-Assessment for RE (Extinct) and DD (Data Deficient).
+Evaluates criteria A-D from automatable metrics, plus screening checks for
+Regionally Extinct (RE) and Data Deficient (DD). Thresholds follow IUCN Red
+List Categories and Criteria v3.1 (2012); interpretation follows the
+Guidelines for Using the IUCN Red List Categories and Criteria v16 (2024).
+}
+\section{What this function will not decide for you}{
+
+Three subcriteria depend on judgements that occurrence records cannot
+supply, so they are inputs rather than outputs here:
+\itemize{
+\item \strong{B(a) severe fragmentation} (Guidelines 4.8) - pass \code{severely_fragmented}.
+\item \strong{B(b)(iii) habitat decline} (Guidelines 4.6) - pass \code{habitat_decline}.
+NDOP records carry no habitat information, so this is never inferred.
+\item \strong{D2 plausible threat} (Guidelines 8) - pass \code{d2_threat}. Section 8 is
+explicit that meeting the AOO/location thresholds "is not sufficient",
+and that literal interpretation "results in massive over-listing". When
+\code{d2_threat} is FALSE the taxon is only \emph{flagged} as a D2 candidate
+(\code{details$d2_candidate}) and its category is not raised.
+}
+}
+
+\examples{
+# Minimal inputs: a taxon with a restricted range and a measured decline.
+res <- summarize_assessment(
+  species     = "Example species",
+  eoo         = list(area_km2 = 4000),
+  aoo         = list(area_km2 = 400),
+  trend       = list(percent_change = -30, eoo_percent_change = -25),
+  locations   = 4,
+  pop_metrics = list(),
+  evaluate_pop = FALSE,
+  year_last   = 2025,
+  n_records   = 120
+)
+res$result$Category   # "EN": area threshold + (a) few locations + (b) decline
+res$result$Criteria
+
+# Restricted but stable and unthreatened: NOT Near Threatened (Guidelines
+# 10.1 lists this case among those that should not be listed).
+summarize_assessment(
+  species = "Small but stable", eoo = list(area_km2 = 80),
+  aoo = list(area_km2 = 8), trend = list(percent_change = 0),
+  locations = 30, pop_metrics = list(), evaluate_pop = FALSE,
+  year_last = 2025, n_records = 60
+)$result$Category     # "LC"
+
+# Criterion D2 needs a plausible threat, not just a small range.
+args <- list(
+  species = "Restricted", eoo = list(area_km2 = 10),
+  aoo = list(area_km2 = 10), trend = list(percent_change = 0),
+  locations = 3, pop_metrics = list(), evaluate_pop = FALSE,
+  year_last = 2025, n_records = 40
+)
+do.call(summarize_assessment, args)$details$d2_candidate          # TRUE
+do.call(summarize_assessment, args)$result$Category               # not VU
+do.call(summarize_assessment, c(args, list(d2_threat = TRUE)))$result$Category
+}
+\references{
+IUCN (2012), \emph{Categories and Criteria v3.1} — the thresholds.
+
+IUCN Standards and Petitions Committee (2024), \emph{Guidelines} v16 — sections
+4.6, 4.7, 4.9, 8, 10.1, 10.3 and 11.1 as cited inline.
+}
+\seealso{
+\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=calculate_locations]{calculate_locations()}},
+\code{\link[=calculate_trend]{calculate_trend()}}, \code{\link[=calculate_pop_metrics]{calculate_pop_metrics()}} for the inputs;
+\code{\link[=assess_species]{assess_species()}} to run the whole chain for one taxon.
 }

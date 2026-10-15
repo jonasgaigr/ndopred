@@ -8,21 +8,69 @@ calculate_locations(
   occurrence_data,
   threshold_dist = 5000,
   year_start = NULL,
-  year_end = NULL
+  year_end = NULL,
+  max_points = 5000,
+  grid_size = 2000
 )
 }
 \arguments{
 \item{occurrence_data}{An sf object of occurrences.}
 
-\item{threshold_dist}{Numeric. Distance in metres to group points (default 5000).}
+\item{threshold_dist}{Numeric. Distance in metres within which occurrences
+are treated as belonging to the same putative location (default 5000).}
 
 \item{year_start}{Numeric. Optional filter for starting year.}
 
 \item{year_end}{Numeric. Optional filter for ending year.}
+
+\item{max_points}{Integer. Above this many distinct coordinates, points are
+aggregated to occupied-grid-cell centroids before clustering. The exact
+pairwise clustering is quadratic in the number of points and becomes
+intractable for well-recorded taxa (tens of thousands of NDOP records);
+aggregating to the AOO reference grid keeps the count tractable and also
+strips out recording-effort weighting.}
+
+\item{grid_size}{Numeric. Cell size in metres used for that aggregation
+(default 2000, i.e. the IUCN AOO reference grid).}
 }
 \value{
-Numeric count of clusters (locations).
+Numeric count of clusters (putative locations).
 }
 \description{
 Calculate Number of Locations (IUCN Criterion B)
+}
+\section{Important caveat}{
+
+IUCN Guidelines (v16, 2024) section 4.11 define a \emph{location} as "a
+geographically or ecologically distinct area in which a single threatening
+event can rapidly affect all individuals of the taxon present", sized by
+the most serious plausible threat. It is therefore a \strong{threat-based}
+concept that cannot be derived from occurrence records alone. The distance
+clustering below is a purely spatial \emph{surrogate} offered as a starting
+point for expert review, not a guideline-compliant location count. In
+particular, section 4.11 states that "in the absence of any plausible
+threat for the taxon, the term 'location' cannot be used and the
+subcriteria that refer to the number of locations will not be met" - a
+judgement only an assessor can make.
+}
+
+\examples{
+pts <- sf::st_as_sf(
+  data.frame(
+    # three points a few km apart, then two far away
+    x = c(4600000, 4601000, 4602000, 4700000, 4701000),
+    y = c(2900000, 2900000, 2900000, 2900000, 2900000),
+    DATUM_OD = rep("20200615", 5)
+  ),
+  coords = c("x", "y"), crs = 3035
+)
+calculate_locations(pts)                       # 2 clusters at 5 km
+calculate_locations(pts, threshold_dist = 200000)  # 1 cluster at 200 km
+}
+\references{
+IUCN Standards and Petitions Committee (2024), section 4.11.
+}
+\seealso{
+\code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=summarize_assessment]{summarize_assessment()}} whose
+\code{severely_fragmented} argument covers the other half of criterion B(a).
 }

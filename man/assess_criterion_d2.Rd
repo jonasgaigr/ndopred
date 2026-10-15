@@ -4,16 +4,43 @@
 \alias{assess_criterion_d2}
 \title{Evaluate Criterion D2 (Restricted AOO/Locations)}
 \usage{
-assess_criterion_d2(aoo_km2, locations)
+assess_criterion_d2(aoo_km2, locations, plausible_threat = FALSE)
 }
 \arguments{
-\item{aoo_km2}{Numeric AOO}
+\item{aoo_km2}{Numeric AOO.}
 
-\item{locations}{Numeric Location count}
+\item{locations}{Numeric location count.}
+
+\item{plausible_threat}{Logical. Has the assessor identified a plausible
+threat that could drive the taxon to CR or EX in a very short time?}
 }
 \value{
-"VU" or "LC"
+\code{"VU"} if D2 is met, otherwise \code{"LC"}.
 }
 \description{
-Evaluate Criterion D2 (Restricted AOO/Locations)
+IUCN Guidelines (v16, 2024) section 8 is explicit that the AOO and location
+figures under D2 are indicators rather than thresholds, and that "simply
+meeting the suggested (or any other) threshold for AOO or number of
+locations is not sufficient": D2 also requires a plausible threat capable
+of driving the taxon to CR or EX in a very short time. Literal application
+of the numbers alone is called out in the same section as a cause of
+"massive over-listing", so \code{plausible_threat} must be asserted explicitly.
+}
+\examples{
+# A small range alone is not enough...
+assess_criterion_d2(aoo_km2 = 10, locations = 3)
+
+# ...but a small range plus a plausible threat is VU D2.
+assess_criterion_d2(aoo_km2 = 10, locations = 3, plausible_threat = TRUE)
+
+# A widespread taxon does not qualify even with a threat.
+assess_criterion_d2(aoo_km2 = 5000, locations = 40, plausible_threat = TRUE)
+}
+\references{
+IUCN Standards and Petitions Committee (2024), section 8.
+}
+\seealso{
+\code{\link[=summarize_assessment]{summarize_assessment()}}, whose \code{d2_threat} argument does the same
+job inside the full cascade and additionally reports \code{d2_candidate} for
+restricted taxa awaiting a threat assessment.
 }

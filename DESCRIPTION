@@ -1,36 +1,45 @@
 Package: ndopred
 Title: Automated IUCN Red List Assessment for NDOP Data
-Version: 0.1.1
-Authors@R: 
+Version: 0.2.0
+Authors@R:
     person("Jonáš", "Gaigr", , "jonas.gaigr@aopk.gov.cz", role = c("aut", "cre"))
-Description: Automates the calculation of IUCN Red List metrics using occurrence 
-    data from the NDOP database. It includes functions to calculate Extent of 
-    Occurrence (EOO), Area of Occupancy (AOO), population trends (Criterion A), 
-    and population size metrics (Criteria C/D). The package implements strict 
-    IUCN guidelines, including logic for Near Threatened (NT), Data Deficient (DD), 
-    and Regionally Extinct (RE) statuses. Includes an interactive Shiny dashboard 
-    for expert verification and manual overrides.
+Description: Automates the calculation of IUCN Red List metrics using occurrence
+    data from the NDOP database. It includes functions to calculate Extent of
+    Occurrence (EOO), Area of Occupancy (AOO), population trends (Criterion A),
+    and population size metrics (Criteria C/D). Thresholds follow the IUCN Red
+    List Categories and Criteria v3.1 (2012) and their interpretation follows
+    the Guidelines for Using the IUCN Red List Categories and Criteria v16
+    (2024), including logic for Near Threatened (NT) and Data Deficient (DD)
+    statuses. Judgements that occurrence records cannot supply - severe
+    fragmentation, habitat decline, and the plausible threat required by
+    criterion D2 - are left to the assessor rather than inferred. Includes
+    interactive Shiny dashboards for bulk screening and for expert
+    verification with manual overrides.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
-Imports: 
+Imports:
     dplyr,
     ggplot2,
     giscoR,
-    lubridate,
     magrittr,
-    RCzechia,
     rndop (>= 0.2.1.9000),
     sf,
     shiny,
     shinythemes,
-    terra
-Remotes: 
+    stats,
+    terra,
+    units,
+    utils,
+    zip
+Remotes:
     kalab-oto/rndop
-Suggests: 
+Suggests:
+    igraph,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0

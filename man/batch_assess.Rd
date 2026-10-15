@@ -6,23 +6,50 @@
 \usage{
 batch_assess(
   species_list,
-  recent_start = 2010,
-  recent_end = 2026,
-  comp_start = 2000,
-  comp_end = 2016
+  recent_end = as.numeric(format(Sys.Date(), "\%Y")),
+  recent_start = recent_end - 9,
+  comp_end = recent_start - 1,
+  comp_start = comp_end - 9,
+  ...
 )
 }
 \arguments{
 \item{species_list}{Vector of scientific names.}
 
+\item{recent_end}{Numeric. End year for recent data.}
+
 \item{recent_start}{Numeric. Start year for recent data.}
 
-\item{recent_end}{Numeric. End year for recent data.}
+\item{comp_end}{Numeric. End year for comparison data.}
 
 \item{comp_start}{Numeric. Start year for comparison data.}
 
-\item{comp_end}{Numeric. End year for comparison data.}
+\item{...}{Further arguments passed to \code{\link[=assess_species]{assess_species()}}.}
+}
+\value{
+A data frame with one row per successfully processed taxon. Taxa
+that error are reported via \code{\link[=message]{message()}} and omitted, so the run continues.
 }
 \description{
-Batch IUCN Assessment (Harmonised Temporal Scale)
+Runs \code{\link[=assess_species]{assess_species()}} over a list of taxa. Windows default to the last ten
+years compared against the ten years immediately preceding them, so the two
+periods are of equal length and do not overlap.
+}
+\examples{
+\dontrun{
+# Default windows: last ten years vs. the ten before them.
+batch_assess(c("Lucanus cervus", "Bombina bombina"))
+
+# Explicit windows, with criteria C and D1 enabled.
+batch_assess(
+  c("Cypripedium calceolus", "Pulsatilla vernalis"),
+  recent_end = 2025, recent_start = 2016,
+  comp_end = 2015, comp_start = 2006,
+  evaluate_pop = TRUE
+)
+}
+}
+\seealso{
+\code{\link[=assess_species]{assess_species()}} for a single taxon, \code{\link[=run_bulk_app]{run_bulk_app()}} for the
+same screening with a UI, maps and a CSV export.
 }

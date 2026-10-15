@@ -7,10 +7,13 @@
 plot_iucn(
   species_name,
   occ_data = NULL,
-  recent_start = 2010,
-  recent_end = 2026,
-  comp_start = 2000,
-  comp_end = 2016
+  window = 10,
+  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  recent_start = NULL,
+  recent_end = NULL,
+  comp_start = NULL,
+  comp_end = NULL,
+  grid_size = 2000
 )
 }
 \arguments{
@@ -18,14 +21,54 @@ plot_iucn(
 
 \item{occ_data}{An existing sf object (optional). If NULL, it will download.}
 
-\item{recent_start}{Numeric. Start year for recent data (default 2010).}
+\item{window}{Numeric. Length in years of each window. When supplied (and
+the explicit bounds below are not), the recent window is the last
+\code{window} years up to \code{year_now} and the comparison window is the \code{window}
+years immediately before it - matching \code{\link[=calculate_trend]{calculate_trend()}}.}
 
-\item{recent_end}{Numeric. End year for recent data (default 2026).}
+\item{year_now}{Numeric. Final year of the recent window.}
 
-\item{comp_start}{Numeric. Start year for comparison data (default 2000).}
+\item{recent_start}{Numeric. Start year for recent data.}
 
-\item{comp_end}{Numeric. End year for comparison data (default 2016).}
+\item{recent_end}{Numeric. End year for recent data.}
+
+\item{comp_start}{Numeric. Start year for comparison data.}
+
+\item{comp_end}{Numeric. End year for comparison data.}
+
+\item{grid_size}{Numeric. AOO cell size in metres (default 2000).}
+}
+\value{
+A \code{ggplot} object, or \code{NULL} if there is nothing to draw.
 }
 \description{
-Plot IUCN Assessment Map
+Draws the recent and comparison occurrence windows with their EOO hulls and
+AOO grids over the Czech border.
+}
+\details{
+Recent records are drawn as filled black points with a red EOO hull and AOO
+grid; comparison records as grey points with a blue hull and grid;
+historical records as open circles. Both periods' AOO grids share one grid
+origin so the cells are directly comparable. The Czech border comes from
+\pkg{giscoR}; if that call fails the map is drawn without it.
+}
+\examples{
+pts <- sf::st_as_sf(
+  data.frame(
+    x = c(-740000, -700000, -650000, -600000, -730000, -690000),
+    y = c(-1040000, -1080000, -1100000, -1150000, -1050000, -1090000),
+    DATUM_OD = c("20200615", "20210615", "20220615",
+                 "20100615", "20110615", "19950615")
+  ),
+  coords = c("x", "y"), crs = 5514
+)
+
+\donttest{
+# Windows derived from `window` and `year_now`, matching the assessment.
+p <- plot_iucn("Example species", occ_data = pts,
+               window = 10, year_now = 2025)
+}
+}
+\seealso{
+\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=calculate_trend]{calculate_trend()}}
 }

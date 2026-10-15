@@ -9,6 +9,13 @@
 #' @param eoo_km2 Numeric. Estimated EOO in km2 (may be NA).
 #' @param aoo_km2 Numeric. Estimated AOO in km2 (may be NA).
 #' @return Numeric. The reconciled EOO in km2.
+#' @seealso [calculate_eoo()], [calculate_aoo()]
+#' @references IUCN Standards and Petitions Committee (2024), section 4.9.
+#' @examples
+#' reconcile_eoo_aoo(50000, 400)   # EOO already larger: unchanged
+#' reconcile_eoo_aoo(12, 40)       # EOO below AOO: raised to AOO
+#' reconcile_eoo_aoo(NA, 40)       # EOO not computable: AOO stands in
+#' reconcile_eoo_aoo(NA, 0)        # nothing to reconcile against
 #' @export
 reconcile_eoo_aoo <- function(eoo_km2, aoo_km2) {
   if (is.na(aoo_km2) || aoo_km2 == 0) return(eoo_km2)

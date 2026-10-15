@@ -2,15 +2,78 @@
 % Please edit documentation in R/run_app.R
 \name{run_app}
 \alias{run_app}
-\title{Run the NDOP Red List Assessment Dashboard}
+\title{Run the NDOP Single-Species Assessment Dashboard}
 \usage{
-run_app()
+run_app(...)
+}
+\arguments{
+\item{...}{Passed to \code{\link[shiny:runApp]{shiny::runApp()}}, e.g. \code{port} or \code{launch.browser}.}
 }
 \value{
-No return value. Side effect: Launches the Shiny app.
+No return value. Side effect: launches the Shiny application.
 }
 \description{
-Launches the interactive Shiny application for species assessment.
-This dashboard allows experts to calculate spatial metrics, population trends,
-and apply IUCN criteria (A-E) with manual override capabilities.
+Launches the interactive expert dashboard: one taxon at a time, with the
+distribution map and every metric rendered as the assessor works through
+criteria A to E.
+}
+\details{
+Enter a scientific name and press \strong{Run Assessment}. The app downloads
+NDOP records, computes the metrics and shows an \emph{automated baseline}
+category, then lets the assessor confirm or change every input behind it.
+The \strong{Expert Final Verdict} panel updates live as they do.
+
+The three tabs are:
+\describe{
+\item{Spatial & Metrics}{The map (recent, comparison and historical
+records, with EOO hulls and AOO grids) plus the automated category and
+a metrics table.}
+\item{Expert Review}{One panel per criterion. Criterion A takes the type
+(A1–A4), a reduction percentage and its basis; criterion B takes severe
+fragmentation, the location count, and the decline and fluctuation
+subindices; C and D take counts and the D2 threat confirmation; E takes
+a quantitative extinction probability. A \strong{Force Category Override}
+selector enforces DD/RE/EW/EX regardless of the metrics.}
+\item{Trend & History}{The raw trend and population objects, including
+the window definitions actually used.}
+}
+}
+\section{Two windows, two purposes}{
+
+\emph{Current-distribution window} drives EOO, AOO and locations — criterion B
+describes the current distribution (Guidelines 4.9). \emph{Generation length}
+drives the criterion A reduction window, which is ten years or three
+generations, whichever is longer, capped at 100 (Guidelines 4.4, 5.2). The
+app shows the resulting reduction window beneath the input.
+}
+
+\section{Things the app will not decide for you}{
+
+Criteria C and D1 are auto-enabled only for vertebrates and plants \emph{and}
+only when the abundance records behind \code{total_mature} are a substantial
+share of the counted records — NDOP counts are minimum observed values, not
+population estimates. The Expert Review panel shows how many counted
+records were used and which life stages were skipped. Criterion D2 is never
+pre-ticked: a restricted range is flagged, but VU D2 requires the assessor
+to affirm a plausible threat (Guidelines 8).
+}
+
+\section{Credentials}{
+
+NDOP requires a login. Set \code{NDOP_USER} and \code{NDOP_PWD} in \verb{~/.Renviron}, or
+run \code{rndop::isop_login()} once, before starting the app. Without them every
+species returns Data Deficient.
+}
+
+\examples{
+if (interactive()) {
+  run_app()
+
+  # On a fixed port, without opening a browser
+  run_app(port = 4321, launch.browser = FALSE)
+}
+}
+\seealso{
+\code{\link[=run_bulk_app]{run_bulk_app()}} for screening a whole spreadsheet;
+\code{\link[=assess_species]{assess_species()}} for the same pipeline without a UI.
 }

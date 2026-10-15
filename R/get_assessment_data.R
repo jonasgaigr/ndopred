@@ -9,6 +9,33 @@
 #'   up with zero usable records can be traced back to its cause (e.g. no NDOP
 #'   records at all, vs. records excluded for missing coordinates or low
 #'   verification status) instead of a single opaque "no records" outcome.
+#'
+#' @section Quality control:
+#' Records are dropped when they have no coordinates, are flagged as a
+#' negative finding (`NEGATIV == 1`), carry an empty cadastral unit, or have a
+#' verification status of 3 (dubious) or 9. A **missing** value in any of
+#' those fields means the field was never populated, not that the record
+#' failed the check, so `NA`s are kept throughout.
+#'
+#' Coordinates are read as S-JTSK / Krovak East North (EPSG:5514), NDOP's
+#' native CRS, and transformed to ETRS89-LAEA (EPSG:3035) so that areas come
+#' out in equal-area metres.
+#'
+#' @section Credentials:
+#' NDOP requires a login. Set `NDOP_USER` and `NDOP_PWD` in `~/.Renviron`, or
+#' call `rndop::isop_login()` once. Without them the download fails and an
+#' empty result is returned with `filter_counts$raw == 0`.
+#'
+#' @seealso [calculate_eoo()], [calculate_aoo()], [assess_species()]
+#' @examples
+#' \dontrun{
+#' occ <- get_assessment_data("Lucanus cervus")
+#' nrow(occ)
+#' attr(occ, "filter_counts")   # how many records survived each QC step
+#'
+#' # Only the last ten years
+#' recent <- get_assessment_data("Lucanus cervus", year_start = 2016)
+#' }
 #' @export
 get_assessment_data <- function(species_name, year_start = NULL) {
 
@@ -46,10 +73,16 @@ get_assessment_data <- function(species_name, year_start = NULL) {
   # value means the field was never populated (i.e. not flagged as a negative
   # finding), not that the record's status is unknown, so it should not be
   # silently dropped alongside genuine negative-finding records.
-  step_coords <- dplyr::filter(raw_data, !is.na(X), !is.na(Y))
-  step_negativ <- dplyr::filter(step_coords, is.na(NEGATIV) | NEGATIV == 0)
-  step_katastr <- dplyr::filter(step_negativ, KATASTR != "")
-  step_veroh <- dplyr::filter(step_katastr, VEROH != 3 & VEROH != 9)
+  # The same reasoning applies to KATASTR and VEROH: a blank or NA value means
+  # the field was never populated, not that the record failed the check. In R
+  # both `KATASTR != ""` and `VEROH != 3` evaluate to NA for missing values,
+  # and dplyr::filter() drops NA rows - so the previous code silently
+  # discarded every record with an unrecorded cadastral unit or verification
+  # status, inconsistently with the deliberate NA handling for NEGATIV.
+  step_coords <- dplyr::filter(raw_data, !is.na(.data$X), !is.na(.data$Y))
+  step_negativ <- dplyr::filter(step_coords, is.na(.data$NEGATIV) | .data$NEGATIV == 0)
+  step_katastr <- dplyr::filter(step_negativ, is.na(.data$KATASTR) | .data$KATASTR != "")
+  step_veroh <- dplyr::filter(step_katastr, is.na(.data$VEROH) | (.data$VEROH != 3 & .data$VEROH != 9))
 
   filter_counts <- list(
     raw = n_raw,
@@ -72,13 +105,9 @@ get_assessment_data <- function(species_name, year_start = NULL) {
     sf::st_as_sf(coords = c("X", "Y"), crs = 5514) %>%
     sf::st_transform(crs = 3035)
 
-  # 4. Date Filter
+  # 4. Date Filter (shared, format-tolerant year parsing - see extract_year())
   if (!is.null(year_start) && nrow(cleaned_sf) > 0) {
-    # Convert DATUM_OD safely
-    cleaned_sf <- cleaned_sf %>%
-      dplyr::mutate(y = as.numeric(substr(as.character(DATUM_OD), 1, 4))) %>%
-      dplyr::filter(y >= year_start) %>%
-      dplyr::select(-y)
+    cleaned_sf <- filter_years(cleaned_sf, year_start = year_start)
   }
 
   attr(cleaned_sf, "filter_counts") <- filter_counts

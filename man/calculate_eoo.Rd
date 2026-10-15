@@ -4,7 +4,12 @@
 \alias{calculate_eoo}
 \title{Calculate EOO with Temporal Filter}
 \usage{
-calculate_eoo(occurrence_data, year_start = NULL, date_col = "DATUM_OD")
+calculate_eoo(
+  occurrence_data,
+  year_start = NULL,
+  date_col = "DATUM_OD",
+  year_end = NULL
+)
 }
 \arguments{
 \item{occurrence_data}{sf object}
@@ -12,7 +17,39 @@ calculate_eoo(occurrence_data, year_start = NULL, date_col = "DATUM_OD")
 \item{year_start}{Numeric. Only records from this year onwards.}
 
 \item{date_col}{Character. The name of the date column (default is "DATUM_OD").}
+
+\item{year_end}{Numeric. Only records up to and including this year.}
+}
+\value{
+A list with \code{area_km2} (\code{NA} when fewer than 3 points are
+available, or when the hull is degenerate; callers should reconcile
+against AOO via \code{\link{reconcile_eoo_aoo}}) and \code{geom}, the
+hull as an \code{sf} geometry.
 }
 \description{
-Calculate EOO with Temporal Filter
+Minimum convex polygon over the occurrence points, per IUCN Guidelines
+(v16, 2024) section 4.9. Note that section 4.9 explicitly discourages
+excluding discontinuities or disjunctions from EOO for criterion B1, which
+is why no outlier trimming is applied here.
+}
+\examples{
+pts <- sf::st_as_sf(
+  data.frame(
+    x = c(4600000, 4700000, 4650000, 4620000),
+    y = c(2900000, 2900000, 2990000, 2930000),
+    DATUM_OD = c("20200615", "20210615", "20220615", "20120615")
+  ),
+  coords = c("x", "y"), crs = 3035
+)
+calculate_eoo(pts)$area_km2
+
+# Fewer than three points: NA, not zero. AOO then stands in for EOO.
+calculate_eoo(pts[1:2, ])$area_km2
+reconcile_eoo_aoo(calculate_eoo(pts[1:2, ])$area_km2, aoo_km2 = 8)
+}
+\references{
+IUCN Standards and Petitions Committee (2024), section 4.9.
+}
+\seealso{
+\code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=reconcile_eoo_aoo]{reconcile_eoo_aoo()}}
 }
