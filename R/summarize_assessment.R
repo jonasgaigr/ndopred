@@ -167,7 +167,7 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
   }
   in_parts <- function(p, code) !is.null(proposal$parts[[p]]) && code %in% proposal$parts[[p]]$legacy
   clusters <- inp$indication$clusters
-  tl <- suppressWarnings(as.numeric(inp$evidence$threat_locations))
+  tl <- .range3(inp$evidence$threat_locations)[["best"]]
   list(
     a_type = if (!is.null(proposal$parts$A)) W$A$types else character(0),
     a_basis = if (!is.null(proposal$parts$A)) W$A$basis else character(0),

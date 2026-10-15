@@ -63,7 +63,11 @@ B(b)), \code{fluctuation} (named logical vector \code{i}-\code{iv}, B(c)), \code
 \code{reduction_types} (e.g. \code{"A2"}, \code{c("A2", "A4")}), \code{reduction_basis},
 \code{severely_fragmented}, \code{threat} (a description of the most serious
 plausible threat; \code{FALSE} if there is none), \code{threat_locations},
-\code{decline}, \code{fluctuation} and \code{e_category}.
+\code{decline}, \code{fluctuation} and \code{e_category}. Numeric evidence (\code{reduction},
+\code{mature}, \code{mature_decline}, \code{largest_subpop}, \code{prop_largest},
+\code{threat_locations}) is a number or a range, \code{c(min = , best = , max = )}:
+the proposal uses the best estimate, and the plausible range uses the end
+that lowers or raises the risk (Guidelines §3.2).
 }
 \examples{
 inp <- assessment_inputs(

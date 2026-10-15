@@ -70,7 +70,12 @@ mock_species <- function(name, year_now = as.numeric(format(Sys.Date(), "%Y"))) 
 
 local_mock_ndop <- function(env = parent.frame()) {
   testthat::local_mocked_bindings(
-    ndop_download = function(species, ...) mock_species(species),
+    # Stable record IDs (ID_NALEZ), as in real exports.
+    ndop_download = function(species, ...) {
+      d <- mock_species(species)
+      if (!is.null(d)) d$ID_NALEZ <- seq_len(nrow(d))
+      d
+    },
     .package = "rndop", .env = env
   )
 }

@@ -91,6 +91,7 @@ ndopred_config <- function(reference_year,
   }
   # Criteria v3.1 A2: "over the last 10 years or three generations,
   # whichever is the longer" (AOPK, D5: 10 years, 2000-2016 vs 2010-2026).
+  shift_derived <- is.null(trend_shift) && is.null(comp_start) && is.null(comp_end)
   if (is.null(trend_shift)) trend_shift <- max(10, 3 * gl)
   trend_shift <- max(1, as.numeric(trend_shift))
 
@@ -116,6 +117,9 @@ ndopred_config <- function(reference_year,
       ),
       generation_length = gl,
       generation_length_source = generation_length_source,
+      # TRUE when the comparison window follows from the generation length,
+      # so that evidence on the generation length can move it.
+      trend_shift_derived = shift_derived,
       # AOPK, decision D7: the proposal is the best estimate, the whole
       # plausible range is reported (dispute tolerance 0, Guidelines §3.2.3)
       # and a range on both sides of the threatened threshold is flagged.
@@ -153,4 +157,24 @@ print.ndopred_config <- function(x, ...) {
   cat("  proposal:", x$attitude$proposal, "- flagged uncertain when the", x$attitude$uncertain_when, "\n")
   cat("  conventions:", paste(names(x$conventions), unlist(x$conventions), sep = " = ", collapse = ", "), "\n")
   invisible(x)
+}
+
+# A config with a taxon's own generation length or current-window start
+# (expert evidence). A comparison window that followed from the generation
+# length moves with it; an explicit one keeps its shift.
+.update_config <- function(cfg, upd) {
+  if (!length(upd)) return(cfg)
+  w <- cfg$windows
+  gl <- if (is.null(upd$generation_length)) cfg$generation_length else upd$generation_length
+  src <- if (is.null(upd$generation_length_source)) cfg$generation_length_source else upd$generation_length_source
+  rs <- if (is.null(upd$recent_start)) w$recent_start else upd$recent_start
+  shift <- if (isTRUE(cfg$trend_shift_derived)) max(10, 3 * gl) else w$recent_end - w$comp_end
+  out <- do.call(ndopred_config, c(
+    list(reference_year = cfg$reference_year, recent_start = rs, recent_end = w$recent_end,
+         comp_start = rs - shift, comp_end = w$recent_end - shift,
+         generation_length = gl, generation_length_source = src),
+    cfg$conventions
+  ))
+  out$trend_shift_derived <- cfg$trend_shift_derived
+  out
 }

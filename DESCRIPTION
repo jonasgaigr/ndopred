@@ -1,6 +1,6 @@
 Package: ndopred
 Title: Automated IUCN Red List Assessment for NDOP Data
-Version: 0.6.0
+Version: 0.7.0
 Authors@R:
     person("Jonáš", "Gaigr", , "jonas.gaigr@aopk.gov.cz", role = c("aut", "cre"))
 Description: Proposes national IUCN Red List categories for the Czech
@@ -21,6 +21,7 @@ Imports:
     dplyr,
     ggplot2,
     grDevices,
+    htmltools,
     giscoR,
     magrittr,
     rndop (>= 0.2.1.9000),
@@ -37,9 +38,11 @@ Remotes:
 Suggests:
     igraph,
     knitr,
+    readxl,
     rmarkdown,
     testthat (>= 3.0.0),
-    withr
+    withr,
+    writexl
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0

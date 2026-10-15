@@ -101,8 +101,9 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #'   [ndop_snapshot()], [default_snapshot_dir()]).
 #' @param snapshot Optional stored snapshot (object or path) to assess
 #'   instead of downloading.
-#' @param ... Expert evidence (`d2_threat`, `threat_locations`,
-#'   `severely_fragmented`, `habitat_decline`, `a_criteria`, `evidence`) and
+#' @param ... Expert evidence (`evidence`: an evidence table or file, see
+#'   [evidence]; or the older loose arguments `d2_threat`, `threat_locations`,
+#'   `severely_fragmented`, `habitat_decline`, `a_criteria`) and
 #'   configuration (`generation_length`, `decline_tolerance`,
 #'   `re_threshold_years`, `reference_year`); see [summarize_assessment()]
 #'   and [ndopred_config()]. Without `generation_length`, the value for the
@@ -128,6 +129,7 @@ assess_species <- function(sp, recent_start, recent_end, comp_start = NULL, comp
                            evaluate_pop = FALSE, snapshot_dir = NULL, snapshot = NULL,
                            group = NA_character_, ...) {
   args <- list(...)
+  if (is.character(args$evidence) && length(args$evidence) == 1) args$evidence <- read_evidence(args$evidence)
   occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
   if (is.null(args$generation_length)) {
     gl <- .taxon_generation_length(occ, group)

@@ -176,24 +176,58 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
 #'
 #' The pipeline shared by [assess_species()], [batch_assess()], the bulk app
 #' and the single-taxon app: [taxon_metrics()], then [assess_criteria()] and
-#' [categorise()].
+#' [categorise()]. With an evidence table ([validate_evidence()]), record
+#' entries are applied as flags first ([apply_record_evidence()]), a taxon's
+#' generation length or current window adjusts the config, and the final
+#' category is checked ([final_assessment()]).
 #'
-#' @param occ An `sf` object from [get_assessment_data()]. Ignored when
-#'   `metrics` is given.
+#' @param occ An `sf` object from [get_assessment_data()]. With `metrics`,
+#'   used only for the record list and when evidence changes the records or
+#'   windows.
 #' @param species Character. Taxon name.
 #' @param config Object from [ndopred_config()].
 #' @param evaluate_pop Logical. Whether NDOP counts may be used as
 #'   indications for criteria A(b), B(b)(v), B(c)(iv), C and D.
-#' @param evidence List of expert evidence; see [assessment_inputs()].
+#' @param evidence Expert evidence: an evidence table (see [evidence]) or
+#'   the engine's evidence list (see [assessment_inputs()]).
 #' @param display_grid_size Numeric. Cell size in metres of the display AOO.
 #' @param metrics Optional result of [taxon_metrics()], to reuse.
 #' @return A list: `result` (one-row data frame, see [summarize_assessment()]
-#'   for the columns, plus `Reference_Year` and `issue_*` reason codes),
-#'   `metrics`, `assessment`, `proposal` and `config`.
+#'   for the columns, plus `Reference_Year`, the generation length, the final
+#'   category columns and `issue_*` reason codes), `metrics`, `assessment`,
+#'   `proposal`, `config`, `final` ([final_assessment()], or `NULL` without an
+#'   evidence table), `evidence` ([evidence_for_engine()], or `NULL`) and
+#'   `records` (record IDs with `include` and the exclusion reason).
 #' @seealso [assess_species()], [batch_assess()]
 #' @export
 assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
                          evidence = list(), display_grid_size = 2000, metrics = NULL) {
+  ex <- NULL
+  notes <- character(0)
+  if (is.data.frame(evidence)) {
+    ex <- evidence_for_engine(evidence, species)
+    # A table without rows for this taxon is no evidence for it.
+    if (!nrow(ex$entries)) ex <- NULL
+    evidence <- list()
+  }
+  if (!is.null(ex)) {
+    recompute <- FALSE
+    if (nrow(ex$records)) {
+      if (is.null(occ)) {
+        notes <- c(notes, "record evidence not applied: no records passed")
+      } else {
+        occ <- apply_record_evidence(occ, ex$records)
+        notes <- c(notes, attr(occ, "expert_record_notes"))
+        recompute <- TRUE
+      }
+    }
+    if (length(ex$config)) {
+      config <- .update_config(config, ex$config)
+      recompute <- TRUE
+    }
+    if (recompute && !is.null(occ)) metrics <- NULL
+    evidence <- ex$engine
+  }
   if (is.null(metrics)) metrics <- taxon_metrics(occ, config, display_grid_size)
   if (!is.null(metrics$failed)) {
     # No proposal without data: an error is never turned into DD or NE.
@@ -224,11 +258,28 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   row$Generation_Length <- config$generation_length
   row$Generation_Length_Source <- if (is.null(config$generation_length_source)) NA_character_ else
     config$generation_length_source
+  final <- if (!is.null(ex) && !is.null(assessment)) final_assessment(assessment, proposal, ex) else NULL
+  if (!is.null(final)) final$notes <- c(final$notes, notes)
+  row$Final_Category <- if (is.null(final)) NA_character_ else final$category
+  row$Final_Claimed <- if (is.null(final)) NA_character_ else final$claimed
+  row$Final_Status <- if (is.null(final)) NA_character_ else final$status
+  row$Final_Issues <- if (is.null(final)) NA_character_ else paste(final$issues, collapse = "; ")
   row$Records_Excluded <- if (is.null(metrics$n_excluded)) 0L else metrics$n_excluded
   row$Snapshot <- if (is.null(metrics$snapshot)) NA_character_ else metrics$snapshot
   row <- cbind(row, .issue_columns(metrics$issues))
   list(result = row, metrics = metrics, assessment = assessment,
-       proposal = proposal, config = config)
+       proposal = proposal, config = config, final = final, evidence = ex,
+       records = .record_list(occ))
+}
+
+# The records behind an assessment, for the species card: IDs, dates and
+# whether each was used, with the reason when not.
+.record_list <- function(occ) {
+  if (is.null(occ) || !nrow(occ)) return(NULL)
+  d <- if (inherits(occ, "sf")) sf::st_drop_geometry(occ) else as.data.frame(occ)
+  keep <- intersect(c("ID_NALEZ", "DRUH", "year_min", "year_max", "precision_m", "geom_type",
+                      "include", "exclusion_reason", "flag_expert"), names(d))
+  d[, keep, drop = FALSE]
 }
 
 .ISSUE_FIELDS <- c("download", "records", "aoo", "eoo", "locations", "trend", "population")
@@ -244,6 +295,9 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
 # Expert evidence from the loose arguments assess_species() and
 # batch_assess() have always passed through `...`.
 .evidence_from_args <- function(args) {
+  # An evidence table (one file for many taxa) is passed on whole; each
+  # taxon's rows are picked in assess_taxon().
+  if (is.data.frame(args$evidence)) return(args$evidence)
   ev <- if (is.null(args$evidence)) list() else args$evidence
   if (!is.null(args$a_criteria)) ev$reduction_types <- args$a_criteria
   if (!is.null(args$severely_fragmented)) ev$severely_fragmented <- args$severely_fragmented

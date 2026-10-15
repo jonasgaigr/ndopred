@@ -41,8 +41,9 @@ instead of downloading.}
 \item{group}{Optional taxonomic group, used for the generation length
 when the records carry no \code{KAT_TAX}.}
 
-\item{...}{Expert evidence (\code{d2_threat}, \code{threat_locations},
-\code{severely_fragmented}, \code{habitat_decline}, \code{a_criteria}, \code{evidence}) and
+\item{...}{Expert evidence (\code{evidence}: an evidence table or file, see
+\link{evidence}; or the older loose arguments \code{d2_threat}, \code{threat_locations},
+\code{severely_fragmented}, \code{habitat_decline}, \code{a_criteria}) and
 configuration (\code{generation_length}, \code{decline_tolerance},
 \code{re_threshold_years}, \code{reference_year}); see \code{\link[=summarize_assessment]{summarize_assessment()}}
 and \code{\link[=ndopred_config]{ndopred_config()}}. Without \code{generation_length}, the value for the

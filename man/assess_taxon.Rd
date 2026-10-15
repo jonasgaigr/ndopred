@@ -15,8 +15,9 @@ assess_taxon(
 )
 }
 \arguments{
-\item{occ}{An \code{sf} object from \code{\link[=get_assessment_data]{get_assessment_data()}}. Ignored when
-\code{metrics} is given.}
+\item{occ}{An \code{sf} object from \code{\link[=get_assessment_data]{get_assessment_data()}}. With \code{metrics},
+used only for the record list and when evidence changes the records or
+windows.}
 
 \item{species}{Character. Taxon name.}
 
@@ -25,7 +26,8 @@ assess_taxon(
 \item{evaluate_pop}{Logical. Whether NDOP counts may be used as
 indications for criteria A(b), B(b)(v), B(c)(iv), C and D.}
 
-\item{evidence}{List of expert evidence; see \code{\link[=assessment_inputs]{assessment_inputs()}}.}
+\item{evidence}{Expert evidence: an evidence table (see \link{evidence}) or
+the engine's evidence list (see \code{\link[=assessment_inputs]{assessment_inputs()}}).}
 
 \item{display_grid_size}{Numeric. Cell size in metres of the display AOO.}
 
@@ -33,13 +35,19 @@ indications for criteria A(b), B(b)(v), B(c)(iv), C and D.}
 }
 \value{
 A list: \code{result} (one-row data frame, see \code{\link[=summarize_assessment]{summarize_assessment()}}
-for the columns, plus \code{Reference_Year} and \verb{issue_*} reason codes),
-\code{metrics}, \code{assessment}, \code{proposal} and \code{config}.
+for the columns, plus \code{Reference_Year}, the generation length, the final
+category columns and \verb{issue_*} reason codes), \code{metrics}, \code{assessment},
+\code{proposal}, \code{config}, \code{final} (\code{\link[=final_assessment]{final_assessment()}}, or \code{NULL} without an
+evidence table), \code{evidence} (\code{\link[=evidence_for_engine]{evidence_for_engine()}}, or \code{NULL}) and
+\code{records} (record IDs with \code{include} and the exclusion reason).
 }
 \description{
 The pipeline shared by \code{\link[=assess_species]{assess_species()}}, \code{\link[=batch_assess]{batch_assess()}}, the bulk app
 and the single-taxon app: \code{\link[=taxon_metrics]{taxon_metrics()}}, then \code{\link[=assess_criteria]{assess_criteria()}} and
-\code{\link[=categorise]{categorise()}}.
+\code{\link[=categorise]{categorise()}}. With an evidence table (\code{\link[=validate_evidence]{validate_evidence()}}), record
+entries are applied as flags first (\code{\link[=apply_record_evidence]{apply_record_evidence()}}), a taxon's
+generation length or current window adjusts the config, and the final
+category is checked (\code{\link[=final_assessment]{final_assessment()}}).
 }
 \seealso{
 \code{\link[=assess_species]{assess_species()}}, \code{\link[=batch_assess]{batch_assess()}}

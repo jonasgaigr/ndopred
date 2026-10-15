@@ -87,6 +87,10 @@ test_that("GAP-04c: VU D2 needs a specified threat, not a bare TRUE", {
                                      locations = 3, d2_threat = TRUE))
   expect_false(isTRUE(res$details$d2_flag))
   expect_false(res$result$Category == "VU")
+  # Structured form (Phase 3): the evidence schema refuses a bare yes.
+  bare <- rbind(ev_row("threat", "TRUE"), ev_row("d2_scenario", "ano"))
+  expect_error(validate_evidence(bare), "row 1 (threat): describe the threat", fixed = TRUE)
+  expect_error(validate_evidence(bare), "row 2 (d2_scenario): describe the threat", fixed = TRUE)
 })
 
 test_that("GAP-04d: D2 resting on a cluster count says threat-defined locations are needed", {

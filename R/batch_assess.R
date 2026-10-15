@@ -17,6 +17,10 @@
 #' @param recent_end,recent_start Numeric. The current window.
 #' @param comp_end,comp_start Numeric or `NULL`. The comparison window;
 #'   `NULL` derives it per taxon from the generation length.
+#' @param evidence Optional expert evidence for any of the taxa: an evidence
+#'   table or the path of an evidence file (see [evidence]). Each taxon uses
+#'   its own rows; the final category columns report the checked final
+#'   category and its approval.
 #' @param snapshot_dir Optional folder in which every download is stored as
 #'   an RDS snapshot, so the run can be repeated exactly; see
 #'   [default_snapshot_dir()]. The file name is in the `Snapshot` column.
@@ -45,18 +49,23 @@ batch_assess <- function(species_list,
                          comp_start = NULL,
                          comp_end = NULL,
                          snapshot_dir = NULL,
+                         evidence = NULL,
                          ...) {
   if (missing(reference_year)) {
     stop("`reference_year` is required: ndopred no longer reads the system clock.",
          call. = FALSE)
   }
 
+  if (is.character(evidence) && length(evidence) == 1) evidence <- read_evidence(evidence)
+  if (!is.null(evidence)) evidence <- validate_evidence(evidence)
+
   rows <- lapply(species_list, function(sp) {
     message(paste("--- Processing:", sp, "---"))
     tryCatch(
       assess_species(sp, recent_start = recent_start, recent_end = recent_end,
                      comp_start = comp_start, comp_end = comp_end,
-                     reference_year = reference_year, snapshot_dir = snapshot_dir, ...),
+                     reference_year = reference_year, snapshot_dir = snapshot_dir,
+                     evidence = evidence, ...),
       error = function(e) {
         message(paste("Error processing", sp, ":", conditionMessage(e)))
         failed <- .proposal(NA_character_, NA_character_, support = "none",

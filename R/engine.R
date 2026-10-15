@@ -97,14 +97,43 @@
   NA
 }
 
-# A quantity from evidence, else from the indication. (`scenario` is kept
-# for the parameter bounds of Phase 2.)
-.pick <- function(ev, ind, scenario) {
-  ev <- suppressWarnings(as.numeric(ev)[1])
+# An evidenced quantity as min / best / max (Guidelines 3.2.2). A single
+# number is all three; a vector of three, or one named min, best and max,
+# is a range. A missing bound is the best estimate.
+.range3 <- function(x) {
+  v <- unlist(x)
+  nm <- names(v)
+  v <- suppressWarnings(as.numeric(v))
+  out <- c(min = NA_real_, best = NA_real_, max = NA_real_)
+  if (!length(v) || all(is.na(v))) return(out)
+  if (length(v) == 1) return(c(min = v, best = v, max = v))
+  if (!is.null(nm) && all(c("min", "best", "max") %in% nm)) {
+    out[] <- v[match(c("min", "best", "max"), nm)]
+  } else {
+    out[] <- v[1:3]
+  }
+  if (is.na(out[["best"]])) out[["best"]] <- mean(c(out[["min"]], out[["max"]]), na.rm = TRUE)
+  out[is.na(out)] <- out[["best"]]
+  out
+}
+
+# The value of a range in a scenario: the best estimate (working), the less
+# threatening end (low) or the more threatening end (high). `worse` names
+# the more threatening end: "min" for fewer individuals or locations, "max"
+# for a larger reduction.
+.at <- function(r, scenario, worse) {
+  lower_risk <- if (worse == "min") "max" else "min"
+  v <- switch(scenario, working = r[["best"]], low = r[[lower_risk]], high = r[[worse]])
+  if (is.na(v)) r[["best"]] else v
+}
+
+# A quantity from evidence (a min/best/max range), else from the indication.
+.pick <- function(ev, ind, scenario, worse = "max") {
+  r <- .range3(ev)
   ind <- suppressWarnings(as.numeric(ind)[1])
-  if (!is.na(ev)) return(list(value = ev, support = "evidence"))
-  if (!is.na(ind)) return(list(value = ind, support = "indication"))
-  list(value = NA_real_, support = "none")
+  if (!is.na(r[["best"]])) return(list(value = .at(r, scenario, worse), support = "evidence", range = r))
+  if (!is.na(ind)) return(list(value = ind, support = "indication", range = NULL))
+  list(value = NA_real_, support = "none", range = NULL)
 }
 
 # Decline over `period` years from a percentage change measured over
@@ -162,7 +191,11 @@
 #' `reduction_types` (e.g. `"A2"`, `c("A2", "A4")`), `reduction_basis`,
 #' `severely_fragmented`, `threat` (a description of the most serious
 #' plausible threat; `FALSE` if there is none), `threat_locations`,
-#' `decline`, `fluctuation` and `e_category`.
+#' `decline`, `fluctuation` and `e_category`. Numeric evidence (`reduction`,
+#' `mature`, `mature_decline`, `largest_subpop`, `prop_largest`,
+#' `threat_locations`) is a number or a range, `c(min = , best = , max = )`:
+#' the proposal uses the best estimate, and the plausible range uses the end
+#' that lowers or raises the risk (Guidelines §3.2).
 #' @return A list of class `ndopred_inputs`.
 #' @seealso [assess_criteria()], [categorise()]
 #' @examples
@@ -236,7 +269,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
 .eval_A <- function(inp, cfg, scenario) {
   ev <- inp$evidence
   ind <- inp$indication
-  p <- .pick(ev$reduction, ind$reduction, scenario)
+  p <- .pick(ev$reduction, ind$reduction, scenario, worse = "max")
   basis <- if (p$support == "evidence") ev$reduction_basis else ind$reduction_basis
   if (is.na(basis) || !nzchar(basis)) basis <- if (p$support == "evidence") "a" else "c"
   types <- intersect(ev$reduction_types, names(.A_THRESH))
@@ -261,11 +294,12 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
 # known to exist at no more than x threat-defined locations (evidence), with
 # the 5 km cluster count as an indication. Guidelines 4.11: with no
 # plausible threat the location subcriteria are not met.
-.a_cond <- function(inp, level) {
+.a_cond <- function(inp, level, scenario = "working") {
   ev <- inp$evidence
   no_threat <- identical(.threat_state(ev$threat), FALSE)
-  loc_known <- !is.na(suppressWarnings(as.numeric(ev$threat_locations)))
-  loc_ev <- if (no_threat) FALSE else if (loc_known) as.numeric(ev$threat_locations) <= .B_LOC[[level]] else NA
+  locs <- .range3(ev$threat_locations)
+  loc_known <- !is.na(locs[["best"]])
+  loc_ev <- if (no_threat) FALSE else if (loc_known) .at(locs, scenario, "min") <= .B_LOC[[level]] else NA
   ind <- if (no_threat || loc_known || is.na(inp$indication$clusters)) NA else inp$indication$clusters <= .B_LOC[[level]]
   .cond(.k_or(ev$severely_fragmented, loc_ev), ind)
 }
@@ -290,7 +324,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
     # Two of (a), (b), (c) at the highest level whose area threshold is met;
     # (a) depends on the level, so lower levels are tried in turn.
     for (L in gates) {
-      a <- .a_cond(inp, L)
+      a <- .a_cond(inp, L, scenario)
       a_s <- .resolve(a, scenario)
       b_s <- vapply(b, .resolve, logical(1), scenario = scenario)
       c_s <- vapply(c, .resolve, logical(1), scenario = scenario)
@@ -305,7 +339,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
         break
       }
     }
-    if (is.na(out$level) && length(gates)) out$a_cond <- .a_cond(inp, gates[1])
+    if (is.na(out$level) && length(gates)) out$a_cond <- .a_cond(inp, gates[1], scenario)
     res[[sub]] <- out
   }
   res
@@ -317,15 +351,17 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
   ev <- inp$evidence
   ind <- inp$indication
   from_ind <- function(x) if (use_pop) x else NA
-  rate <- .pick(ev$mature_decline, from_ind(ind$mature_decline), scenario)
+  # The more threatening end: fewer mature individuals, a steeper decline
+  # (more negative), a smaller largest subpopulation, a larger share in it.
+  rate <- .pick(ev$mature_decline, from_ind(ind$mature_decline), scenario, worse = "min")
   years <- if (rate$support == "evidence") ev$mature_decline_years else ind$mature_decline_years
   years <- suppressWarnings(as.numeric(years)[1])
   if (is.na(years) || years <= 0) years <- 10
   list(
-    N = .pick(ev$mature, from_ind(ind$mature), scenario),
+    N = .pick(ev$mature, from_ind(ind$mature), scenario, worse = "min"),
     rate = rate, years = years,
-    subpop = .pick(ev$largest_subpop, from_ind(ind$largest_subpop), scenario),
-    share = .pick(ev$prop_largest, from_ind(ind$prop_largest), scenario),
+    subpop = .pick(ev$largest_subpop, from_ind(ind$largest_subpop), scenario, worse = "min"),
+    share = .pick(ev$prop_largest, from_ind(ind$prop_largest), scenario, worse = "max"),
     declining = .cond(ev$decline[["v"]], from_ind(inp$indication$decline[["v"]])),
     fluct = .cond(ev$fluctuation[["iv"]], from_ind(inp$indication$fluctuation[["iv"]]))
   )
@@ -375,9 +411,10 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
   if (!.yes(inp$extant)) return(out)
   aoo_s <- .area(inp$aoo_range, scenario)
   by_aoo <- !is.na(aoo_s) && aoo_s < conv$d2_aoo_km2
-  loc_known <- !is.na(suppressWarnings(as.numeric(ev$threat_locations)))
+  locs <- .range3(ev$threat_locations)
+  loc_known <- !is.na(locs[["best"]])
   loc <- .cond(
-    if (identical(threat, FALSE)) FALSE else if (loc_known) as.numeric(ev$threat_locations) <= conv$d2_locations else NA,
+    if (identical(threat, FALSE)) FALSE else if (loc_known) .at(locs, scenario, "min") <= conv$d2_locations else NA,
     if (identical(threat, FALSE) || loc_known || is.na(inp$indication$clusters)) NA else inp$indication$clusters <= conv$d2_locations
   )
   # The restriction itself is never assumed: an unknown location count

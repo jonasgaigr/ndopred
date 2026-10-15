@@ -12,6 +12,7 @@ batch_assess(
   comp_start = NULL,
   comp_end = NULL,
   snapshot_dir = NULL,
+  evidence = NULL,
   ...
 )
 }
@@ -29,6 +30,11 @@ not read the system clock).}
 \item{snapshot_dir}{Optional folder in which every download is stored as
 an RDS snapshot, so the run can be repeated exactly; see
 \code{\link[=default_snapshot_dir]{default_snapshot_dir()}}. The file name is in the \code{Snapshot} column.}
+
+\item{evidence}{Optional expert evidence for any of the taxa: an evidence
+table or the path of an evidence file (see \link{evidence}). Each taxon uses
+its own rows; the final category columns report the checked final
+category and its approval.}
 
 \item{...}{Passed to \code{\link[=assess_species]{assess_species()}}: \code{evaluate_pop}, expert evidence
 and configuration.}
