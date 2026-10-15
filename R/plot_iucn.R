@@ -18,6 +18,9 @@
 #' @param comp_start Numeric. Start year for comparison data.
 #' @param comp_end Numeric. End year for comparison data.
 #' @param grid_size Numeric. AOO cell size in metres (default 2000).
+#' @param show_excluded Logical. Also draw the excluded records that have a
+#'   position, as red crosses, so the effect of excluding records can be seen
+#'   on the map (the expert app's record toggles).
 #' @return A `ggplot` object, or `NULL` if there is nothing to draw.
 #' @details
 #' Recent records are drawn as filled black points with a red EOO hull and AOO
@@ -51,7 +54,7 @@ plot_iucn <- function(species_name, occ_data = NULL,
                       year_now = NULL,
                       recent_start = NULL, recent_end = NULL,
                       comp_start = NULL, comp_end = NULL,
-                      grid_size = 2000) {
+                      grid_size = 2000, show_excluded = FALSE) {
 
   # Both Shiny apps called this as plot_iucn(..., window = <n>), which was not
   # an argument of the function: every map generation failed with "unused
@@ -76,6 +79,13 @@ plot_iucn <- function(species_name, occ_data = NULL,
 
   # 1. Use provided data or download if missing
   occ_all <- if (!is.null(occ_data)) occ_data else get_assessment_data(species_name)
+
+  # Excluded records with a position, drawn separately when asked for.
+  occ_excluded <- NULL
+  if (show_excluded && !is.null(occ_all) && nrow(occ_all) > 0 && "include" %in% names(occ_all) &&
+      inherits(occ_all, "sf")) {
+    occ_excluded <- suppressWarnings(occ_all[!(occ_all$include %in% TRUE) & !sf::st_is_empty(occ_all), ])
+  }
 
   # Only the records the assessment uses (flag_records()), with a position.
   if (!is.null(occ_all) && nrow(occ_all) > 0 && "include" %in% names(occ_all)) {
@@ -176,6 +186,11 @@ plot_iucn <- function(species_name, occ_data = NULL,
   color_vals <- stats::setNames(c("gray50", "gray40", "black"), c(lbl_hist, lbl_comp, lbl_recent))
   fill_vals  <- stats::setNames(c(NA, "gray40", "black"), c(lbl_hist, lbl_comp, lbl_recent))
 
+  if (!is.null(occ_excluded) && nrow(occ_excluded) > 0) {
+    p <- p + ggplot2::geom_sf(data = sf::st_transform(occ_excluded, 5514), shape = 4,
+                              colour = "red", size = 2, stroke = 0.9)
+  }
+
   p <- p +
     ggplot2::geom_sf(
       data = occ_5514,
@@ -198,6 +213,9 @@ plot_iucn <- function(species_name, occ_data = NULL,
         "%s: black points, red AOO grid + EOO hull\n%s: grey points, blue AOO grid + EOO hull | %s: open circles",
         lbl_recent, lbl_comp, lbl_hist
       ),
+      caption = if (!is.null(occ_excluded) && nrow(occ_excluded) > 0) {
+        sprintf("Red crosses: %d excluded records (not used)", nrow(occ_excluded))
+      },
       color = NULL, fill = NULL, shape = NULL
     )
 

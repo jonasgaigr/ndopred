@@ -41,6 +41,14 @@ bulk_ui <- function() fluidPage(
         "display AOO column only."
       ))),
 
+      fileInput("evidence_file", "Expert evidence (optional, CSV or XLSX)",
+                accept = c(".csv", ".xlsx")),
+      p(tags$small(paste(
+        "One evidence file for any of the taxa (see evidence_template()). It adds",
+        "evidence, record flags and final categories; the final category is",
+        "checked against the evidence and needs an approval."
+      ))),
+
       actionButton("run_bulk", "Run Bulk Assessment", class = "btn-primary", style = "width: 100%;"),
       hr(),
 
@@ -95,7 +103,10 @@ bulk_ui <- function() fluidPage(
   snapshot = "Snapshot NDOP",
   uncertain = "Nejist\u00fd n\u00e1vrh",
   gen_length = "Genera\u010dn\u00ed doba (roky)",
-  gen_source = "Zdroj genera\u010dn\u00ed doby"
+  gen_source = "Zdroj genera\u010dn\u00ed doby",
+  final = "Kategorie (fin\u00e1ln\u00ed)",
+  final_status = "Stav fin\u00e1ln\u00ed kategorie",
+  final_issues = "Nesoulad fin\u00e1ln\u00ed kategorie s doklady"
 )
 
 .SUPPORT_CS <- c(
@@ -138,7 +149,10 @@ bulk_ui <- function() fluidPage(
     snapshot = m$snapshot,
     uncertain = if (is.na(r$Uncertain)) NA_character_ else if (r$Uncertain) "ano" else "ne",
     gen_length = r$Generation_Length,
-    gen_source = r$Generation_Length_Source
+    gen_source = r$Generation_Length_Source,
+    final = r$Final_Category,
+    final_status = r$Final_Status,
+    final_issues = r$Final_Issues
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -225,10 +239,27 @@ bulk_server <- function(input, output, session) {
     })
     # Each taxon's own config: the generation length of its NDOP group sets
     # the criterion A period, and so how far back the comparison window lies.
-    taxon_config <- function(occ, group_hint) {
+    ev_all <- NULL
+    if (!is.null(input$evidence_file)) {
+      ev_all <- tryCatch(read_evidence(input$evidence_file$datapath), error = function(e) {
+        log_msg(paste("Evidence file not used:", conditionMessage(e)))
+        NULL
+      })
+      if (!is.null(ev_all)) {
+        log_msg(paste0("Evidence: ", nrow(ev_all), " entries for ", length(unique(ev_all$taxon)), " taxa."))
+      }
+    }
+    taxon_config <- function(occ, group_hint, sp) {
       gl <- if (is.null(gl_table)) {
         list(years = 1, source = "default 1 year: table not read")
       } else .taxon_generation_length(occ, group_hint, gl_table)
+      # A generation length given as evidence for the taxon wins.
+      if (!is.null(ev_all)) {
+        exg <- evidence_for_engine(ev_all, sp)$config
+        if (!is.null(exg$generation_length)) {
+          gl <- list(years = exg$generation_length, source = exg$generation_length_source)
+        }
+      }
       ndopred_config(reference_year = ref_year, window = win,
                      trend_shift = max(shift, 3 * gl$years),
                      generation_length = gl$years, generation_length_source = gl$source)
@@ -302,7 +333,7 @@ bulk_server <- function(input, output, session) {
                      ", verified=", fc$verified, ")")
             } else paste("No records found for:", sp))
           }
-          cfg_sp <- taxon_config(occ_raw, meta$group)
+          cfg_sp <- taxon_config(occ_raw, meta$group, sp)
           if (is.na(meta$group) && "KAT_TAX" %in% names(occ_raw) && nrow(occ_raw) > 0) {
             meta$group <- as.character(occ_raw$KAT_TAX[1])
           }
@@ -311,6 +342,7 @@ bulk_server <- function(input, output, session) {
           }
           taxon <- tryCatch(
             ndopred::assess_taxon(occ_raw, sp, cfg_sp, evaluate_pop = FALSE,
+                                  evidence = if (is.null(ev_all)) list() else ev_all,
                                   display_grid_size = grid_size_m),
             error = function(e) {
               log_msg(paste("ERROR in automated category for", sp, ":", conditionMessage(e)))

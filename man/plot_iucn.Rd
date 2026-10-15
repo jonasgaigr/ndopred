@@ -13,7 +13,8 @@ plot_iucn(
   recent_end = NULL,
   comp_start = NULL,
   comp_end = NULL,
-  grid_size = 2000
+  grid_size = 2000,
+  show_excluded = FALSE
 )
 }
 \arguments{
@@ -40,6 +41,10 @@ year. Required unless \code{recent_end} is given.}
 \item{comp_end}{Numeric. End year for comparison data.}
 
 \item{grid_size}{Numeric. AOO cell size in metres (default 2000).}
+
+\item{show_excluded}{Logical. Also draw the excluded records that have a
+position, as red crosses, so the effect of excluding records can be seen
+on the map (the expert app's record toggles).}
 }
 \value{
 A \code{ggplot} object, or \code{NULL} if there is nothing to draw.

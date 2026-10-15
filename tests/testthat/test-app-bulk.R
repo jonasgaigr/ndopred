@@ -109,3 +109,31 @@ test_that("The export says whether the proposal is uncertain (D7)", {
   # Restricted, threat unknown: the range reaches the threatened categories.
   expect_equal(df$`Nejistý návrh`[df$Druh == "Restricted stable sp"], "ano")
 })
+
+test_that("An uploaded evidence file reaches each taxon, with final-category columns", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  ev <- evidence_of(
+    ev_row("final_category", "LC", justification = "widespread, stable", taxon = "Stable widespread sp"),
+    approval_for("Stable widespread sp"),
+    ev_row("threat", "building on the only site", taxon = "Restricted stable sp")
+  )
+  ev_file <- withr::local_tempfile(fileext = ".csv")
+  utils::write.csv(as.data.frame(ev), ev_file, row.names = FALSE, na = "", fileEncoding = "UTF-8")
+  csv <- withr::local_tempfile(fileext = ".csv")
+  utils::write.csv(data.frame(TAXON = c("Stable widespread sp", "Restricted stable sp")), csv,
+                   row.names = FALSE)
+  out <- NULL
+  shiny::testServer(bulk_server, {
+    session$setInputs(file1 = list(name = "in.csv", datapath = csv),
+                      evidence_file = list(name = "ev.csv", datapath = ev_file),
+                      window = 10, cell_size = 2, run_bulk = 1)
+    out <<- rv$results_df
+  })
+  st <- stats::setNames(out$`Stav finální kategorie`, out$Druh)
+  expect_equal(unname(st["Stable widespread sp"]), "approved")
+  expect_equal(out$`Kategorie (finální)`[out$Druh == "Stable widespread sp"], "LC")
+  expect_equal(unname(st["Restricted stable sp"]), "no final category")
+  # The described threat makes the restricted taxon VU D2.
+  expect_equal(out$`Kategorie (automatická)`[out$Druh == "Restricted stable sp"], "VU")
+})

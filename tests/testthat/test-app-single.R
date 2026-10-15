@@ -124,3 +124,44 @@ test_that("The map draws overlapping windows (AOPK, D5)", {
   expect_match(p$labels$subtitle, "2010-2026")
   expect_match(p$labels$subtitle, "2000-2016; only 2000-2009 grey", fixed = TRUE)
 })
+
+test_that("The expert workflow: evidence, a record excluded, a final category approved, a stored version", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  dir <- withr::local_tempdir()
+  shiny::testServer(app_dir(), {
+    session$setInputs(species_name = "Restricted stable sp", window = 10, use_pop = FALSE, run_calc = 1)
+    raw_data()
+    id <- raw_data()$occ$ID_NALEZ[raw_data()$occ$include][1]
+
+    # Entries made before naming the assessor still preview, but cannot be saved.
+    session$setInputs(threat_text = "building on the only site", just_b = "site visit 2025")
+    expect_equal(expert_final()$category, "VU")
+    session$setInputs(evidence_dir = dir, store_evidence = 1)
+    expect_match(rv$status, "Not saved: enter the assessor's name")
+
+    session$setInputs(assessor = "A. Expert", rec_ids = as.character(id),
+                      rec_reason = "misidentification", rec_just = "photo shows another species",
+                      rec_exclude = 1)
+    rec <- expert_final()$assessment$records
+    expect_false(rec$include[rec$ID_NALEZ == id])
+
+    session$setInputs(final_cat = "VU", final_criteria = "VU D2", final_just = "single site, building plans")
+    expect_equal(expert_final()$final$status, "awaiting approval")
+    session$setInputs(appr_name = "B. Approver", appr_role = "taxonomist",
+                      appr_group = "Beetle expert group", appr_date = Sys.Date(), add_approval = 1)
+    # The D2 restriction rests on 5 km clusters, not threat-defined locations.
+    expect_equal(expert_final()$final$status, "approved; inconsistent with the evidence")
+    expect_true(any(grepl("criterion D is not met at VU", expert_final()$final$issues)))
+    session$setInputs(threat_locations = 1, loc_option = "all")
+    expect_equal(expert_final()$final$status, "approved")
+
+    session$setInputs(store_evidence = 2)
+    expect_match(rv$status, "^Saved: ")
+    stored <- ndopred::read_evidence(sub("^Saved: ", "", rv$status))
+    expect_setequal(stored$field, c("threat", "threat_locations", "record_exclude", "final_category", "approval"))
+    expect_true(all(stored$author[stored$field != "approval"] == "A. Expert"))
+    # The stored file is now the base: nothing is duplicated when saved again.
+    expect_equal(nrow(evidence_table()), nrow(stored))
+  })
+})
