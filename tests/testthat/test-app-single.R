@@ -165,3 +165,17 @@ test_that("The expert workflow: evidence, a record excluded, a final category ap
     expect_equal(nrow(evidence_table()), nrow(stored))
   })
 })
+
+test_that("The regional panel feeds step one and step three", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  shiny::testServer(app_dir(), {
+    session$setInputs(species_name = "Restricted stable sp", window = 10, use_pop = FALSE, run_calc = 1)
+    session$setInputs(threat_text = "building on the only site")
+    expect_equal(expert_final()$category, "VU")
+    session$setInputs(reg_3a = "yes", reg_3b = "no")
+    expect_equal(expert_final()$regional, paste0("NT", intToUtf8(176)))
+    session$setInputs(reg_origin = "introduced")
+    expect_equal(expert_final()$category, "NA")
+  })
+})

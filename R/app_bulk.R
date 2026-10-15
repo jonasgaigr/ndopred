@@ -106,7 +106,12 @@ bulk_ui <- function() fluidPage(
   gen_source = "Zdroj genera\u010dn\u00ed doby",
   final = "Kategorie (fin\u00e1ln\u00ed)",
   final_status = "Stav fin\u00e1ln\u00ed kategorie",
-  final_issues = "Nesoulad fin\u00e1ln\u00ed kategorie s doklady"
+  final_issues = "Nesoulad fin\u00e1ln\u00ed kategorie s doklady",
+  regional = "Kategorie (region\u00e1ln\u00ed)",
+  regional_criteria = "Krit\u00e9ria (region\u00e1ln\u00ed)",
+  regional_step = "Region\u00e1ln\u00ed krok",
+  global = "Glob\u00e1ln\u00ed kategorie",
+  global_share = "Pod\u00edl glob\u00e1ln\u00ed populace (%)"
 )
 
 .SUPPORT_CS <- c(
@@ -152,7 +157,12 @@ bulk_ui <- function() fluidPage(
     gen_source = r$Generation_Length_Source,
     final = r$Final_Category,
     final_status = r$Final_Status,
-    final_issues = r$Final_Issues
+    final_issues = r$Final_Issues,
+    regional = r$Regional_Category,
+    regional_criteria = r$Regional_Criteria,
+    regional_step = r$Regional_Step,
+    global = r$Global_Category,
+    global_share = r$Global_Population_Share
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)

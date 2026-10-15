@@ -137,3 +137,14 @@ test_that("An uploaded evidence file reaches each taxon, with final-category col
   # The described threat makes the restricted taxon VU D2.
   expect_equal(out$`Kategorie (automatická)`[out$Druh == "Restricted stable sp"], "VU")
 })
+
+test_that("The export carries the regional columns", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  df <- run_bulk("Stable widespread sp")$results
+  cols <- c("Kategorie (regionální)", "Kritéria (regionální)", "Regionální krok",
+            "Globální kategorie", "Podíl globální populace (%)")
+  expect_true(all(cols %in% names(df)))
+  expect_equal(df$`Kategorie (regionální)`, df$`Kategorie (automatická)`)   # no regional evidence
+  expect_equal(df$`Podíl globální populace (%)`, "?")
+})

@@ -331,6 +331,26 @@ server <- function(input, output, session) {
       add("criterion_e", value = input$check_e, just = input$just_e,
           src = if (nzchar(src_e)) src_e else NO_SOURCE)
     }
+    # The regional step (Regional Guidelines v4.0).
+    jr <- input$just_r; sr <- input$src_r
+    chosen <- function(v) !is.null(v) && nzchar(v) && v != "unknown"
+    if (chosen(input$reg_origin)) add("origin", value = input$reg_origin, just = jr, src = sr)
+    if (chosen(input$reg_status)) add("occurrence_status", value = input$reg_status, just = jr, src = sr)
+    since <- num_or_na(input$reg_since)
+    if (!is.na(since)) add("reproduction_since", best = since, just = jr, src = sr)
+    share_g <- num_or_na(input$reg_share)
+    if (!is.na(share_g)) add("global_population_share", best = share_g, just = jr, src = sr)
+    if (chosen(input$reg_global)) {
+      add("global_category", value = input$reg_global, basis = trimws(input$reg_global_criteria %||% ""),
+          just = jr, src = sr)
+    }
+    for (q in c("3a", "3b", "3c", "3d", "3e", "3f")) {
+      v <- input[[paste0("reg_", q)]]
+      if (!is.null(v) && nzchar(v)) add("regional_step3", value = v, subfield = q, just = jr, src = sr)
+    }
+    steps <- num_or_na(input$reg_steps)
+    if (!is.na(steps) && steps != 1) add("regional_steps", best = steps, just = jr, src = sr)
+
     gl <- num_or_na(input$gen_length)
     if (!is.na(gl) && gl > 0) add("generation_length", best = gl, just = input$gen_length_basis)
     if (nzchar(input$final_cat %||% "")) {
@@ -384,6 +404,7 @@ server <- function(input, output, session) {
     list(category = r$Category, criteria = r$Criteria, criteria_iucn = r$Criteria_IUCN,
          support = r$Support, needs = a$proposal$needs, range = r$Category_Range,
          uncertain = isTRUE(r$Uncertain), assessment = a, final = a$final,
+         regional = r$Regional_Category,
          evidence_error = if (is.list(ev) && !is.data.frame(ev)) ev$error else NULL)
   })
 
@@ -503,6 +524,17 @@ server <- function(input, output, session) {
     if (!is.null(r <- get1("prop_largest_subpopulation"))) updateNumericInput(session, "pop_share", value = 100 * r$best)
     if (!is.null(r <- get1("criterion_e"))) updateSelectInput(session, "check_e", selected = if (r$value == "none") "None" else r$value)
     if (!is.null(r <- get1("generation_length"))) updateNumericInput(session, "gen_length", value = r$best)
+    if (!is.null(r <- get1("origin"))) updateSelectInput(session, "reg_origin", selected = r$value)
+    if (!is.null(r <- get1("occurrence_status"))) updateSelectInput(session, "reg_status", selected = r$value)
+    if (!is.null(r <- get1("reproduction_since"))) updateNumericInput(session, "reg_since", value = r$best)
+    if (!is.null(r <- get1("global_population_share"))) updateNumericInput(session, "reg_share", value = r$best)
+    if (!is.null(r <- get1("global_category"))) {
+      updateSelectInput(session, "reg_global", selected = r$value)
+      updateTextInput(session, "reg_global_criteria", value = r$basis)
+    }
+    q3 <- e[e$field == "regional_step3", , drop = FALSE]
+    for (k in seq_len(nrow(q3))) updateSelectInput(session, paste0("reg_", q3$subfield[k]), selected = q3$value[k])
+    if (!is.null(r <- get1("regional_steps"))) updateNumericInput(session, "reg_steps", value = r$best)
     if (!is.null(r <- get1("final_category"))) {
       updateSelectInput(session, "final_cat", selected = r$value)
       updateTextInput(session, "final_criteria", value = r$basis)
@@ -572,8 +604,9 @@ server <- function(input, output, session) {
       p(strong("Proposal: "), a$result$Category, " ", a$result$Criteria_IUCN),
       if (is.null(fin)) p(tags$em("No final category entered.")) else tagList(
         p(strong("Evidence and data alone support: "), fin$evidence_only$category, " ",
-          fin$evidence_only$criteria),
-        p(strong("Final: "), fin$claimed, " ", fin$criteria, " - ", strong(fin$status)),
+          fin$evidence_only$criteria, " | after the regional step: ", fin$evidence_only$regional),
+        p(strong("Final: "), if (is.na(fin$display)) fin$claimed else fin$display, " ", fin$criteria,
+          " - ", strong(fin$status)),
         h5("Inconsistencies with the evidence"), items(fin$issues),
         h5("Notes"), items(fin$notes),
         h5("Approvals"),
@@ -726,6 +759,46 @@ server <- function(input, output, session) {
         column(4, wellPanel(h4("E. Quantitative"),
                             selectInput("check_e", "Extinction Prob:", choices = c("None", "CR", "EN", "VU"), selected = i("check_e") %||% "None"),
                             basis_ui("e")))
+      ),
+      wellPanel(
+        h4("Regional step (Regional Guidelines v4.0)"),
+        p(tags$small(paste("Step one decides whether the regional population is assessed: introduced taxa,",
+                           "vagrants, occasional breeders and colonizers reproducing for fewer than 10 years",
+                           "are Not Applicable. Step three adjusts the category for populations outside the",
+                           "region; an unanswered question leaves it unchanged."), style = "color:#777;")),
+        fluidRow(
+          column(4,
+                 selectInput("reg_origin", "Origin:", c("unknown", "native", "introduced", "reintroduced", "uncertain"),
+                             selected = i("reg_origin") %||% "unknown"),
+                 selectInput("reg_status", "Occurrence:", c("unknown", "resident", "breeding", "visitor", "vagrant",
+                                                            "occasional_breeder", "uncertain"),
+                             selected = i("reg_status") %||% "unknown"),
+                 numericInput("reg_since", "Reproducing in the region since (year):", value = num_or_na(i("reg_since")))),
+          column(4,
+                 p(tags$b("Breeding population")),
+                 lapply(list(c("3a", "3a: significant immigration of propagules likely to reproduce?"),
+                             c("3b", "3b: is the immigration expected to decrease?"),
+                             c("3c", "3c: is the regional population a sink?")), function(q) {
+                   selectInput(paste0("reg_", q[1]), q[2], c("(not answered)" = "", "yes", "likely", "no", "unlikely", "unknown"),
+                               selected = i(paste0("reg_", q[1])) %||% "")
+                 }),
+                 numericInput("reg_steps", "Categories to move (normally 1):", value = num_or_na(i("reg_steps") %||% 1), min = 1)),
+          column(4,
+                 p(tags$b("Visiting population")),
+                 lapply(list(c("3d", "3d: conditions outside the region deteriorating?"),
+                             c("3e", "3e: conditions within the region deteriorating?"),
+                             c("3f", "3f: can the breeding population rescue it should it decline?")), function(q) {
+                   selectInput(paste0("reg_", q[1]), q[2], c("(not answered)" = "", "yes", "likely", "no", "unlikely", "unknown"),
+                               selected = i(paste0("reg_", q[1])) %||% "")
+                 }))
+        ),
+        fluidRow(
+          column(4, selectInput("reg_global", "Global IUCN category:", c("unknown", "EX", "EW", "CR", "EN", "VU", "NT", "LC", "DD", "NE"),
+                                selected = i("reg_global") %||% "unknown")),
+          column(4, textInput("reg_global_criteria", "Global criteria:", value = i("reg_global_criteria") %||% "")),
+          column(4, numericInput("reg_share", "Share of the global population (%):", value = num_or_na(i("reg_share"))))
+        ),
+        basis_ui("r")
       )
     )
   })
@@ -738,6 +811,9 @@ server <- function(input, output, session) {
         p(tags$small(exp$criteria)),
         if (nzchar(exp$criteria_iucn %||% "")) p(tags$small(paste("IUCN:", exp$criteria_iucn))),
         p(tags$small(paste0("Support: ", exp$support, " | range: ", exp$range, uncertain_note(exp$uncertain)))),
+        if (!identical(exp$regional, exp$category) && !is.na(exp$regional %||% NA)) {
+          p(tags$small(strong(paste0("Regional (step three): ", exp$regional))))
+        },
         if (!is.null(fin) && !is.na(fin$claimed)) p(tags$small(strong(paste0("Final: ", fin$claimed, " (", fin$status, ")")))),
         needs_ui(exp$needs))
   })
