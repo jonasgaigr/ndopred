@@ -30,7 +30,7 @@ Every entry point (both apps, `assess_species()`, `batch_assess()`) runs the sam
 1. **A proposed category** with the criteria behind it, in ndopred's established format (`B1ab(ii); B2ab(ii)`) and in IUCN notation (`B1ab(ii)+2ab(ii)`).
 2. **Its support.** *Evidenced* means every condition behind the proposal comes from the assessor or from a measured value. *Indication* means at least one condition rests on a proxy from the records, such as 5 km clusters standing in for threat-defined locations, or the raw change in AOO between two windows standing in for a decline.
 3. **What still needs evidence**, condition by condition, e.g. `B(a): severe fragmentation or threat-defined locations (5 km clusters used as an indication)`.
-4. **The plausible range** of categories if the unknown conditions turned out true, e.g. `LC-EN`.
+4. **The plausible range** of categories, from the largest plausible EOO and AOO to the smallest plausible ones with the unknown conditions true, e.g. `LC-EN`.
 
 What the records cannot show is never assumed absent. An unknown condition is **unknown**: it does not count against the taxon in the proposal, but it widens the range and appears in "needs evidence". A taxon whose range could reach VU or above is proposed as **NT** rather than LC (Guidelines §10.1).
 
@@ -127,12 +127,28 @@ batch_assess(c("Lucanus cervus", "Bombina bombina", "Pulsatilla vernalis"),
 
 A taxon that fails keeps its row: the category is `NA` and an `issue_*` column says why.
 
+### Snapshots: repeatable runs
+
+Pass a folder and every download is stored unchanged as an RDS snapshot, so the same assessment can be rerun on exactly the same records:
+
+```r
+batch_assess(c("Lucanus cervus", "Bombina bombina"), reference_year = 2025,
+             snapshot_dir = default_snapshot_dir())   # Documents/ndop_snapshots
+# ... later, on the same data:
+occ <- get_assessment_data("Bombina bombina",
+                           snapshot = "C:/Users/<you>/Documents/ndop_snapshots/Bombina_bombina_<time>.rds")
+```
+
+Snapshots hold exact (including hidden) coordinates and observer names: keep the folder out of shared repositories.
+
 ### Step by step
 
 ```r
 cfg <- ndopred_config(reference_year = 2025, window = 10)
 occ <- get_assessment_data("Bombina bombina")
-attr(occ, "filter_counts")          # how many records survived each QC step
+table(occ$include)                  # every record is kept; exclusions are flags
+attr(occ, "exclusions")             # how many records were excluded, and why
+attr(occ, "filter_counts")          # records left after each successive test
 
 m <- taxon_metrics(occ, cfg)        # EOO, AOO, clusters, trend, counts, issues
 res <- assess_taxon(species = "Bombina bombina", config = cfg, metrics = m,
@@ -179,7 +195,9 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 | Function | Purpose |
 |---|---|
-| `get_assessment_data()` | Download and quality-filter NDOP records; records how many survived each step and any download error |
+| `ndop_snapshot()`, `read_ndop_snapshot()`, `default_snapshot_dir()` | Store a download unchanged (records and their points, lines and polygons) and read it back |
+| `flag_records()` | One flag per quality test and an `exclusion_reason`; deletes nothing |
+| `get_assessment_data()` | Snapshot plus flags, as points, with the record geometries and any download error attached |
 | `taxon_metrics()` | Metrics for one taxon, with a reason for every value it cannot compute |
 | `assess_taxon()` | Records in, proposal out: what both apps and `batch_assess()` use |
 | `assess_species()`, `batch_assess()` | The pipeline for one or many taxa, headless |
@@ -188,8 +206,8 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 | Function | Purpose |
 |---|---|
-| `calculate_eoo()` | Extent of occurrence, minimum convex polygon (Guidelines §4.9) |
-| `calculate_aoo()` | AOO on the 2 x 2 km reference grid, minimised over grid origins (§4.10.2, §4.10.3) |
+| `calculate_eoo()` | Extent of occurrence, minimum convex polygon (Guidelines §4.9), with bounds from positional precision |
+| `calculate_aoo()` | AOO on the 2 x 2 km reference grid, minimised over grid origins (§4.10.2, §4.10.3), with bounds from positional precision and record polygons |
 | `calculate_locations()` | 5 km cluster count: an *indication* for threat-defined locations (§4.11), never a location count |
 | `reconcile_eoo_aoo()` | Enforce EOO >= AOO (§4.9) |
 | `calculate_trend()` | AOO and EOO change between two windows, on a shared grid origin |
@@ -217,7 +235,12 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Příznaky` | Candidate flags: `D2 candidate`, `DD candidate (plausible range LC-CR)`, `RE candidate` |
 | `AOO nový, zvolená mřížka (km2)` | AOO on the display grid chosen in the app (the B2 value is always on 2 x 2 km) |
 | `Referenční rok` | The reference year of the run |
+| `AOO nový min/max (km2)`, `EOO nový min/max (km2)` | Bounds from positional precision and record polygons |
+| `Záznamů vyřazeno`, `Důvody vyřazení` | How many records were excluded, and why |
+| `Snapshot NDOP` | The snapshot file the row was computed from (when snapshots are stored) |
 | `issue_download` … `issue_population` | The reason for every empty value |
+
+The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it.
 
 ---
 
@@ -239,6 +262,15 @@ The **Expert view** updates live and equals the automated proposal until somethi
 
 ## Methodology notes
 
+- **No record is deleted.** `flag_records()` adds a flag per test and the first exclusion reason. The rules agreed with AOPK:
+  - `VEROH` 6 and 9 (erroneous) are excluded; 0 (not yet validated) and 1 (credible) are used.
+  - `VEROH` 3 (less credible) is excluded, unless more than 10 % of the taxon's records carry it; then those records are kept and flagged.
+  - A proposed validation mark (`VALIDACE`) on an unguaranteed record is only flagged.
+  - Negative findings are kept as non-detections.
+  - Records of another taxon (names match exactly, so the query's hybrids and aggregates are excluded), records without coordinates, and records outside Czechia are excluded.
+  - Literature sources and suspected duplicates are flagged only.
+- **Date ranges count only where they fit.** A record dated 2014–2017 belongs to neither 2006–2015 nor 2016–2025.
+- **AOO and EOO have ranges.** `CXPRESNOST` 0 means an exact position. A record whose precision disc, or NDOP polygon, reaches into other 2 x 2 km cells widens AOO to a minimum and a maximum around the best estimate. These bound the *observed* AOO; for an under-recorded taxon the true AOO can be larger (§4.10.8).
 - **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is NT with a range reaching CR; the same taxon with the conditions evidenced absent is LC (Guidelines §10.1).
 - **D2 needs a described threat.** A restricted range is flagged as a D2 candidate; VU D2 follows once the assessor names a plausible threat able to drive the taxon to CR or EX in a very short time (§8). `d2_threat = TRUE` alone is not a threat and is treated as unknown.
 - **Clusters are not locations.** The 5 km cluster count is an indication for B(a) and D2, always listed as needing threat-defined locations (§4.11). With no plausible threat, the location subcriteria are not met.
@@ -278,7 +310,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.3.0 (experimental). Proposals are a screening aid; the category is the assessor's decision.
+Version 0.4.0 (experimental). Proposals are a screening aid; the category is the assessor's decision.
 
 ## References
 

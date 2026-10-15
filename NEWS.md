@@ -1,3 +1,50 @@
+# ndopred 0.4.0
+
+Phase 2 of the IUCN alignment (`methodology/gap_analysis.md`): snapshots,
+record flags instead of deletion, and AOO/EOO with uncertainty. It
+implements the rules AOPK decided on 2026-10-15 (D2, D3, D8, D12, D13).
+37 of the 42 Phase 0 gap tests now pass; the remaining five belong to
+Phases 4 and 5.
+
+## Snapshots
+
+* New `ndop_snapshot()`, `read_ndop_snapshot()` and `default_snapshot_dir()`.
+  A download is kept unchanged, with its points, lines and polygons
+  (`rndop::ndop_download(locations = 2)`), the query, download time and
+  versions. The default folder is `Documents/ndop_snapshots`.
+* `get_assessment_data()` gains `snapshot` (rerun on a stored download) and
+  `snapshot_dir` (store this one). The same options are on `assess_species()`
+  and `batch_assess()`, and the bulk app stores snapshots by default. The file
+  name goes into the new `Snapshot` / `Snapshot NDOP` column.
+
+## Records are flagged, not deleted
+
+* New `flag_records()`. `get_assessment_data()` now returns **every** record,
+  with `flag_*` columns, `exclusion_reason`, `include`, `year_min`, `year_max`,
+  `precision_m` and `geom_type`; metrics use `include == TRUE`. Attributes
+  `exclusions` (counts per reason) and `record_geometries` are added.
+* `VEROH` follows the AOPK code list: 6 and 9 are excluded, 0 and 1 used. 3 is
+  excluded unless more than 10 % of the taxon's records carry it; then those
+  records are kept and flagged (`less_credible_share`, a convention). A
+  proposed `VALIDACE` mark on an unguaranteed record is flagged only.
+* Taxon names match exactly. The NDOP query for *Bombina bombina* also returns
+  *B. bombina × variegata*; those 229 records are now excluded.
+* Negative findings are kept as non-detections (18 % of the amphibian records).
+* Literature sources and suspected duplicates are flagged.
+* Date ranges: a record belongs to a time window only if its whole
+  `DATUM_OD`–`DATUM_DO` range does.
+
+## AOO and EOO with uncertainty
+
+* `calculate_aoo()` returns `area_km2_min` and `area_km2_max` from positional
+  precision (`CXPRESNOST`, 0 = exact) and NDOP record polygons and lines.
+  `calculate_eoo()` returns EOO bounds the same way. The best estimates are
+  unchanged.
+* The engine uses the bounds for the plausible range: the low end uses the
+  largest areas, the high end the smallest. Results and the bulk export gain
+  `EOO_km2_min/max`, `AOO_km2_min/max` (`AOO/EOO nový min/max (km2)`),
+  `Records_Excluded` (`Záznamů vyřazeno`) and `Důvody vyřazení`.
+
 # ndopred 0.3.0
 
 Phase 1 of the IUCN alignment planned in `methodology/gap_analysis.md`: one

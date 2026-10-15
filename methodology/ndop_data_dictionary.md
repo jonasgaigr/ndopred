@@ -49,8 +49,8 @@ Fill rate is the share of non-blank values. "Used now" describes the working tre
 | Field | Fill S / A | Meaning | Used now | IUCN relevance / planned use |
 |---|---|---|---|---|
 | `X`, `Y` | 100 / 100 | S-JTSK / Krovak East North (EPSG:5514). Set to `NA` by rndop for hidden localities ("Skrytá lokalizace") | yes: the only geometry used | EOO/AOO. For lines and polygons this is a single representative point (how it is derived is *unverified*) |
-| `CXPRESNOST` | 100 / 100 | Positional precision in metres (*unverified*; see the note on 0) | **no** | **AOO uncertainty** (§3.2, §4.10.8). In S, 6.2 % of records are worse than 2 km and 96 are worse than 5 km. A value of 0 occurs in 19 % (S) and 32 % (A) of records; whether 0 means "exact" or "unknown" must be confirmed |
-| `ID_LOKAL` | 100 / 100 | Localisation ID; joins to the geometry layer | as a fallback locality key in `calculate_pop_metrics()` | Precision-aware AOO from the real geometry |
+| `CXPRESNOST` | 100 / 100 | Positional precision in metres. **0 means an exact position** (confirmed by AOPK, 2026-10-15). For polygon records it reflects the polygon's size (341–3,220 m in the live sample) | yes (0.4.0): `precision_m`, AOO/EOO bounds | **AOO uncertainty** (§3.2, §4.10.8). In S, 6.2 % of records are worse than 2 km and 96 are worse than 5 km. 0 occurs in 19 % (S) and 32 % (A) of records |
+| `ID_LOKAL` | 100 / 100 | Localisation ID. **Equals `idx_nd_lok` in the rndop geometry layer** (all 25 live records matched) | yes (0.4.0): joins record polygons and lines; also the fallback locality key in `calculate_pop_metrics()` | Precision-aware AOO from the real geometry |
 | `NAZ_LOKAL` | 100 / 100 | Locality name | yes: used as **subpopulation** in C2a | A site name, not a subpopulation (§4.2) |
 | `KATASTR` | 99.7 / 99.8 | Cadastral area name | yes: blank → record deleted | Blank probably means outside Czechia (*unverified*). Replace with an explicit spatial in-region test and flag |
 | `SITMAP` | 100 / 100 | KFME mapping-grid square | no | Coarse-scale fallback; the scale-correction method of §4.10.5 if precision is square-level |
@@ -75,7 +75,7 @@ Fill rate is the share of non-blank values. "Used now" describes the working tre
 
 | Field | Fill S / A | Meaning | Used now | IUCN relevance / planned use |
 |---|---|---|---|---|
-| `VEROH` | 100 / 100 | Values 0, 1, 3. **Non-zero exactly when `GARANCE` = "Garantováno"** (S: 13,486 of 13,486; A: 59,870 of 59,870). The meaning of 1 versus 3 is *unverified* | yes: **3 and 9 deleted** as "dubious"; 9 never occurs | **Must be confirmed.** ndopred deletes the 255 amphibian records with `VEROH = 3`, all of them guarantor-reviewed; another AOPK project (`Dung_beetle_expansion`) treats `VEROH = 1` as doubtful. Both cannot be right |
+| `VEROH` | 100 / 100 | Credibility after the guarantor's review (code list confirmed by AOPK, 2026-10-15): **0** not yet validated, **1** credible, **3** less credible, **6** erroneous, to be deleted (deleted once guaranteed), **9** erroneous, to be corrected. After the guarantee closes only 1 or 3 remain; while it is open the value is 0 even if a validation mark has been proposed. Seen: 0, 1, 3. Non-zero exactly when `GARANCE` = "Garantováno" (S: 13,486 of 13,486; A: 59,870 of 59,870) | yes (0.4.0): 6 and 9 excluded; 3 excluded unless more than 10 % of the taxon's records carry it, then kept and flagged; 0 and 1 used | ndopred ≤ 0.3 deleted 3 and 9, which matches the code list. The `Dung_beetle_expansion` reading (1 = doubtful) is wrong |
 | `GARANCE` | 59 / 99 | Guarantee status: "Garantováno", "Návrh validace", blank | no | Verification flag |
 | `VALIDACE` | 30 / 0.04 | Validation verdict: "věrohodný záznam", "záznam k opravě" (47), "méně věrohodný záznam" (6), "chybný záznam" (1) (counts from S) | **no** | **"chybný záznam" (erroneous record) and "méně věrohodný záznam" (less credible) are used as if valid.** Should become flags |
 | `VAL_POZN`, `GAR_POZN` | <1 | Validation/guarantee notes | no | Reason text for flags |
@@ -108,7 +108,7 @@ These are **not** in the rndop export:
 ## Consequences for the plan
 
 1. **An events layer cannot be built from rndop alone.** There is no visit ID, and the complete-list flag is unused in the samples seen. T2 occupancy/detection models (review §7.3) therefore need either the AOPK export route with `IDX_ND_AKCE`, or external monitoring datasets identified by `PROJEKT`/`DAT_SADA`. This is a decision for AOPK (prompt §12).
-2. **Precision-aware AOO is feasible.** `CXPRESNOST` is fully populated and the geometry layer is one argument away (`locations = 2`). The meaning of precision 0 must be confirmed first.
-3. **Verification needs a code list.** `VEROH`, `GARANCE` and `VALIDACE` together encode the review state; the current filter uses `VEROH` alone and an unverified meaning of 3.
+2. **Precision-aware AOO is feasible**, and since 0.4.0 implemented: `CXPRESNOST` is fully populated (0 = exact), and the geometry layer comes with `locations = 2`.
+3. **Verification follows the AOPK code list** (see `VEROH`). `VALIDACE` holds a *proposed* mark while the guarantee is open (`VEROH` = 0); it is flagged, not acted on.
 4. **Negative findings are common in monitored groups** (18–36 %) and are the most valuable input for trends and extinction-probability evidence. They must be retained and flagged, not deleted.
-5. **Taxon queries need anchoring.** Match on an accepted taxon ID or an exact `DRUH` list and flag everything else; do not rely on rndop's substring match.
+5. **Taxon queries need anchoring.** Since 0.4.0 records whose `DRUH` is not exactly the queried name are flagged and excluded (decision D13); rndop's substring match is no longer trusted.

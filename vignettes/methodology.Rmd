@@ -66,15 +66,54 @@ Values that are conventions rather than IUCN rules are set in
 `ndopred_config()` and labelled there: the decline tolerance, the NT margins,
 the RE-candidate period and the indicative D2 figures.
 
-# 3. Spatial metrics
+# 3. Records: snapshots and flags
+
+Each download is an **immutable snapshot** (`ndop_snapshot()`): the records and
+their points, lines and polygons as NDOP returned them, with the query, download
+time and versions. Stored as RDS (by default in `Documents/ndop_snapshots`), a
+snapshot lets any assessment be rerun on exactly the same records.
+
+`flag_records()` then adds one flag per test and the first exclusion reason.
+**Nothing is deleted.** The rules, agreed with AOPK:
+
+* `VEROH` (credibility after the guarantor's review): 0 not yet validated and 1
+  credible are used; 6 and 9 (erroneous) are excluded; 3 (less credible) is
+  excluded unless more than 10 % of the taxon's records carry it, in which case
+  those records are kept and flagged. A validation mark proposed while the
+  guarantee is open (`VALIDACE`) is only flagged.
+* Records of another taxon are excluded; names match exactly, because the NDOP
+  query also returns hybrids and aggregates.
+* Negative findings are kept as non-detections, out of the presence metrics.
+* Records without coordinates (including hidden ones) or outside Czechia are
+  excluded.
+* Literature sources and suspected duplicates are flagged only.
+* A record dated as a range (`DATUM_OD` to `DATUM_DO`) belongs to a time window
+  only if the whole range lies inside it.
+
+# 4. Spatial metrics
 
 **AOO** is the count of occupied cells times the cell area (§4.10.2, eq. 4.1) on
 the reference **2 × 2 km** grid (§4.10.3). Because AOO depends on where the grid
 starts, `calculate_aoo()` tests a 4 × 4 lattice of grid origins and keeps the
 **minimum** count, as §4.10.2 requires. The criterion B2 value is always this
 current-window minimum on 2 × 2 km; other grid sizes are for display only.
-Observed AOO is a plausible *lower* bound (§4.10.8); bounds from positional
-precision and habitat are planned.
+
+Positional precision (`CXPRESNOST`, metres; 0 = exact) and NDOP's record
+polygons and lines give AOO a range at the same origin (§3.2):
+
+* the **minimum** puts each record whose precision disc or polygon reaches into
+  other cells into a cell already occupied, whenever it can reach one;
+* the **maximum** gives each such record a cell of its own, whenever it can.
+
+The range bounds the *observed* AOO. Observed AOO is itself a plausible
+*lower* bound on the true AOO of an under-recorded taxon (§4.10.8); an upper
+bound from habitat maps is not implemented.
+
+The EOO range comes from the same sources. The minimum leaves out records less
+precise than 2 km and retained less-credible records; the maximum is the hull of
+every precision disc and polygon. The proposal uses the best estimates. The low
+end of the plausible range uses the largest areas, and the high end the
+smallest.
 
 **EOO** is a minimum convex polygon (§4.9). Discontinuities and disjunctions are
 deliberately *not* excluded. Where a hull cannot be built, EOO is returned as
@@ -89,7 +128,7 @@ threat-defined locations are then always listed as needed. With no plausible
 threat (`threat = FALSE`), "the subcriteria that refer to the number of
 locations will not be met" (§4.11), and the indication is ignored.
 
-# 4. Time windows
+# 5. Time windows
 
 * **Criterion B** describes the **current** distribution: §4.9 states that EOO
   and AOO "should not include areas where the species no longer exists". EOO,
@@ -100,7 +139,7 @@ locations will not be met" (§4.11), and the indication is ignored.
 * **The reference year** is always explicit (`ndopred_config(reference_year)`);
   nothing reads the system clock.
 
-# 5. Criterion A
+# 6. Criterion A
 
 Thresholds are 90/70/50 % for A1 and 80/50/30 % for A2–A4, inclusive. The window
 is 10 years or three generations, whichever is longer. A raw change in AOO or
@@ -110,7 +149,7 @@ estimate, because the number of records changes with recording effort
 (§4.10.8). An assessor's reduction estimate is evidence and replaces the
 indication.
 
-# 6. Criterion B
+# 7. Criterion B
 
 The area threshold must be met (EOO < 100 / 5,000 / 20,000 km², AOO < 10 / 500 /
 2,000 km²) **and at least two of** (a) severe fragmentation or ≤ 1 / 5 / 10
@@ -122,7 +161,7 @@ from EOO change, (ii) from AOO change, (iii) only from the assessor, (iv) from
 the change in clusters, (v) from counts. A change smaller than the decline
 tolerance (default 5 %) is not an indication of decline.
 
-# 7. Criteria C and D
+# 8. Criteria C and D
 
 C: fewer than 250 / 2,500 / 10,000 mature individuals, with either C1 (an
 estimated continuing decline of 25 % in 3 years or 1 generation, 20 % in 5 years
@@ -144,7 +183,7 @@ NDOP counts are minimum observed values and NDOP localities stand in for
 subpopulations (§4.2, §4.3), so both are indications. `evaluate_pop` decides
 whether NDOP counts may be used at all.
 
-# 8. Extreme fluctuations
+# 9. Extreme fluctuations
 
 §4.7 requires variation greater than one order of magnitude **and** a recurring
 pattern of increases and decreases; §4.6 adds that "an observed decline should
@@ -153,7 +192,7 @@ not be considered as a fluctuation unless there is evidence for this".
 reversals, and a boolean `extreme_fluctuation` requiring a ratio ≥ 10, at least
 two reversals and at least five years of data.
 
-# 9. RE, DD and NE
+# 10. RE, DD and NE
 
 * **RE.** A taxon with no current records and no record for longer than
   `re_candidate_years` is proposed as an **RE candidate**, with documented
@@ -171,12 +210,13 @@ A taxon that was recorded in the comparison window but not in the current one is
 proposed under A2c from the indicated loss, with current occurrence listed as
 needing evidence (§11.2 prefers A2 for recent disappearances).
 
-# 10. Known limitations
+# 11. Known limitations
 
 * NDOP is an opportunistic database. AOO, EOO and location counts depend on
   recording effort (§4.10.8), and counts are minimum observed values (§4.3).
-* Positional precision, record polygons, validation verdicts, date ranges and
-  negative findings are not yet used (gap analysis, Phase 2).
+* Negative findings are kept but not yet used: the effort-aware trends that need
+  them come in Phase 5. The redlistr cross-check of the spatial metrics is planned
+  for Phase 6.
 * Effort-corrected trends and data tiers are planned (Phase 5). Until then the
   trend windows in bulk mode are the current-window length, not 10 years or
   three generations, and the single-taxon app caps the reduction window at 100
