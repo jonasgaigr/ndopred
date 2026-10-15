@@ -1,3 +1,82 @@
+# ndopred 0.3.0
+
+Phase 1 of the IUCN alignment planned in `methodology/gap_analysis.md`: one
+rule engine for every entry point, three-valued logic, and proposals that say
+what they rest on. 28 of the 42 Phase 0 gap tests now pass and have moved to
+the regular suite (`test-iucn-alignment.R`); the other 14 belong to later
+phases and stay opt-in (`test-gap-phase0.R`).
+
+## One rule engine
+
+* New `ndopred_config()`, `assessment_inputs()`, `assess_criteria()` and
+  `categorise()`. Every threshold now lives in one file (`R/engine.R`), each
+  with its source in Criteria v3.1 or Guidelines v16. The single-taxon app no
+  longer re-implements criteria A to D (its C2 check had promoted EN C2a(i) to
+  CR on identical inputs).
+* New `taxon_metrics()` and `assess_taxon()`: the pipeline used by
+  `assess_species()`, `batch_assess()` and both apps. The bulk app and
+  `assess_species()` now compute the same B2 AOO for the same window (the bulk
+  app used to pin it to the origin minimised over both windows).
+* `summarize_assessment()`, `assess_criterion_a()` and `assess_criterion_d2()`
+  are kept as wrappers over the engine.
+
+## Proposals, support and evidence gaps
+
+* Every result has a proposed category and its criteria in the established
+  format, plus `Criteria_IUCN` (Annex 2 notation), `Support` (evidence /
+  indication / candidate / none), `Needs_Evidence`, `Category_Range` and
+  `Flags`. The bulk export keeps every existing column and adds
+  `Kritéria (IUCN zápis)`, `Opora návrhu`, `Nutno doložit`,
+  `Rozsah kategorií`, `Příznaky`, `AOO nový, zvolená mřížka (km2)`,
+  `Referenční rok` and `issue_*` reason codes (gap analysis decisions D10,
+  D11).
+* Cluster counts, raw window-to-window changes and NDOP counts are
+  *indications*: they still support proposals, and each one that does is
+  listed as needing evidence.
+* Unknown is no longer read as "no". `severely_fragmented`,
+  `habitat_decline` and `d2_threat` default to `NA`. A restricted taxon with
+  nothing evidenced is now proposed as NT with a range (Guidelines 10.1)
+  rather than LC.
+
+## Behaviour changes
+
+* **The reference year is explicit.** `summarize_assessment()` and
+  `batch_assess()` require `reference_year`; `calculate_trend()`,
+  `calculate_pop_metrics()` and `plot_iucn()` require `year_now` (or explicit
+  window bounds). Nothing reads the system clock any more.
+* **D2 needs a described threat.** `d2_threat = "drainage of the only fen"`;
+  `d2_threat = TRUE` warns and counts as unknown; `d2_threat = FALSE` records
+  that there is no plausible threat, so D2 and the location subcriteria are
+  not met (Guidelines 4.11, 8). `assess_criterion_d2()` returns `NA` when the
+  threat is unknown.
+* **RE, DD and NE.** "Last record more than 50 years ago" is now an RE
+  *candidate* needing documented surveys; the year threshold is a config
+  convention. DD is proposed only as a candidate, for a taxon with records but
+  none current and nothing else to go on; few records alone no longer give DD.
+  A taxon with no usable records is NE (Guidelines 10.4).
+  `assess_criterion_a(NA)` returns `NA`, not `"DD"`.
+* **Errors are not categories.** A failed download or calculation leaves the
+  category empty and says why in `issue_*`; `batch_assess()` keeps a row for
+  every taxon.
+* **Notation.** `Criteria_IUCN` follows Annex 2: `B1ab(ii)+2ab(ii)`, `CR D` /
+  `EN D` (not `D1`), `C2a(i,ii)`, `VU D1+2`.
+* **Bulk app.** It has a reference-year input. B2 always uses the 2 x 2 km
+  grid; another grid size is for maps and a display column only.
+* **Single-taxon app.** Expert entries start as unknown, are tri-state where it
+  matters, and are passed to the engine as evidence. The expert view equals the
+  automated proposal until something is entered. The new Evidence table tab
+  shows every criterion and level.
+
+## Fixes found while rebuilding the engine
+
+* Criterion B was evaluated only at the level of the area threshold met. A
+  taxon with EOO under 100 km2 but four locations failed CR and came out NT;
+  it is now EN, as the EN area threshold is met too.
+* C1 periods are capped at 100 years ("up to a maximum of 100 years in the
+  future", Criteria v3.1 C1).
+* `R CMD check`: non-ASCII strings in R code are escaped and `.data` is
+  imported from dplyr.
+
 # ndopred 0.2.0
 
 Audit of the code against the IUCN documents in `methodology/`

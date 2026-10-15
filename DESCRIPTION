@@ -1,20 +1,19 @@
 Package: ndopred
 Title: Automated IUCN Red List Assessment for NDOP Data
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     person("Jonáš", "Gaigr", , "jonas.gaigr@aopk.gov.cz", role = c("aut", "cre"))
-Description: Automates the calculation of IUCN Red List metrics using occurrence
-    data from the NDOP database. It includes functions to calculate Extent of
-    Occurrence (EOO), Area of Occupancy (AOO), population trends (Criterion A),
-    and population size metrics (Criteria C/D). Thresholds follow the IUCN Red
-    List Categories and Criteria v3.1 (2012) and their interpretation follows
-    the Guidelines for Using the IUCN Red List Categories and Criteria v16
-    (2024), including logic for Near Threatened (NT) and Data Deficient (DD)
-    statuses. Judgements that occurrence records cannot supply - severe
-    fragmentation, habitat decline, and the plausible threat required by
-    criterion D2 - are left to the assessor rather than inferred. Includes
-    interactive Shiny dashboards for bulk screening and for expert
-    verification with manual overrides.
+Description: Proposes national IUCN Red List categories for the Czech
+    Republic from occurrence data in the NDOP database. One rule engine
+    evaluates criteria A to E with three-valued logic (TRUE, FALSE,
+    UNKNOWN), separating data measured from the records, indications derived
+    from them, and evidence supplied by the assessor. Each proposal comes
+    with the criteria behind it (also in IUCN Annex 2 notation), whether it
+    is evidenced or rests on indications, what still needs evidence, and a
+    plausible range of categories. Thresholds follow the IUCN Red List
+    Categories and Criteria v3.1 (2012), interpreted by the Guidelines for
+    Using the IUCN Red List Categories and Criteria v16 (2024). Includes
+    Shiny dashboards for bulk screening and for expert assessment.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

@@ -261,6 +261,12 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 
 **Gap tests turned green:** 01a, 01b, 02, 03, 04a–d, 05a, 06, 07a–c, 08a–b, 10c, 13a–e, 14, 15a–c, 16, 17. New tests cover every threshold boundary (`<` versus `≤`), every UNKNOWN path, the Annex 2 and Guidelines §8.2/§8.3 worked examples, and the unchanged format of `Kriteria (automatická)`.
 
+**Status (2026-10-15): done, version 0.3.0.**
+- All planned gap tests pass, plus two planned for Phase 5 that the engine rewrite closed on the way: 09a (C1 capped at 100 years) and 09b (C2a from localities now listed as needing subpopulation evidence). The 28 closed tests live in `test-iucn-alignment.R`.
+- Still open, as planned: 05b, 05c, 09c, 09d (Phase 5); 10a, 10b, 10d, 11a–e (Phase 2); 12 (Phase 4).
+- Found and fixed during the rewrite: criterion B was checked only at the level of the area threshold met, so a taxon with EOO under 100 km² and four locations came out NT instead of EN.
+- One design point settled during implementation: the low end of the plausible range is the working scenario (evidence, else indication), not evidence alone. Otherwise every NDOP-only range would start at LC and the DD flag would fire for almost every taxon. Whether a condition is evidenced is reported by `Support` and `Needs_Evidence` instead.
+
 **Expected visible effect.**
 - Most proposals with records stay as they are.
 - Every row gains its support, what needs evidence and a plausible range.

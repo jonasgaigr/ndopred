@@ -12,179 +12,174 @@ vignette: >
 `ndopred` applies the **IUCN Red List Categories and Criteria v3.1** (IUCN 2012)
 using the interpretation given in the **Guidelines for Using the IUCN Red List
 Categories and Criteria v16** (IUCN Standards and Petitions Committee, March
-2024). Both documents are in `methodology/`. Section numbers cited below refer
-to the Guidelines unless stated otherwise.
+2024), for a **national (Czech) Red List** built from NDOP occurrence records.
+The **Guidelines for Application of IUCN Red List Criteria at Regional and
+National Levels v4.0** (IUCN 2012) are in `methodology/` too; the regional step
+(eligibility before the assessment, adjustment for populations outside the
+country after it) is planned but not yet implemented. Section numbers below
+refer to the Guidelines v16 unless stated otherwise.
 
-The case study is a **national (Czech) Red List** built from NDOP occurrence
-records. Two documents that a national list also needs are **not** bundled here
-and are not implemented:
+`methodology/gap_analysis.md` records the audit of the package against these
+documents and the plan for closing the remaining gaps.
 
-* *Guidelines for Application of IUCN Red List Criteria at Regional and National
-  Levels: Version 4.0* (IUCN 2012). This is where **RE** is defined, and where
-  the downgrading/upgrading step for immigration from outside the region is
-  specified. `ndopred` performs **no regional adjustment**: it produces a
-  global-style category from Czech data only. That step remains manual.
-* *Documentation Standards and Consistency Checks*.
+# 1. One engine, three layers of input
 
-# 1. What is automated, and what is not
+All entry points (both Shiny apps, `assess_species()`, `batch_assess()` and the
+deprecated `summarize_assessment()`) call the same engine:
+`assessment_inputs()` → `assess_criteria()` → `categorise()`. No other code
+holds thresholds or category logic.
 
-Occurrence records support some criteria and not others. `ndopred` never infers
-a judgement it has no data for; those are function arguments instead.
+The engine distinguishes three kinds of input:
 
-| Element | Source |
-|---|---|
-| EOO, AOO, number of locations, spatial trends | Computed from NDOP |
-| Mature individuals, decline rate, fluctuations | Computed from NDOP counts, as **minimum observed values** |
-| B(a) severe fragmentation (§4.8) | `severely_fragmented` — assessor |
-| B(b)(iii) habitat decline (§4.6) | `habitat_decline` — assessor; NDOP carries no habitat data |
-| D2 plausible threat (§8) | `d2_threat` — assessor |
-| Criterion E | Not automated |
+| Layer | Examples | Source |
+|---|---|---|
+| **Data** | EOO, AOO, record counts | measured from the records |
+| **Indication** | 5 km cluster count for locations; raw AOO/EOO change between windows for decline and reduction; NDOP counts for mature individuals; localities for subpopulations | proxies derived from the records |
+| **Evidence** | severe fragmentation, the most serious plausible threat, threat-defined locations, continuing decline, population estimates, an evidenced reduction | the assessor |
 
-# 2. Spatial metrics
+Every condition is TRUE, FALSE or **UNKNOWN**. The proposal uses the evidence
+where there is some, otherwise the indication. An unknown condition with no
+indication does not count towards the proposal, but it is never read as FALSE:
+it widens the plausible range and is listed as needing evidence.
+
+# 2. The proposal
+
+`categorise()` returns:
+
+* the **proposed category**: the highest category met (§2.3), with every
+  criterion met at that category;
+* the **criteria** in ndopred's established format (`B1ab(ii); B2ab(ii)`) and
+  in IUCN Annex 2 notation (`B1ab(ii)+2ab(ii)`);
+* the **support**: `evidence` when nothing behind the proposal rests on an
+  indication or an unknown, `indication` otherwise;
+* what **needs evidence**, condition by condition;
+* the **plausible range**: the high end assumes every unevidenced condition is
+  met wherever the taxon's own data meet the criterion's gate (an area
+  threshold, the D2 restriction, a small population).
+
+A proposal of LC whose range reaches VU or above becomes **NT** (§10.1: "if the
+range of plausible categories include both LC and VU (or EN), the taxon can be
+classified as NT"). A range from LC to CR adds a **DD flag** (§10.3); DD itself
+is the assessor's decision after all five criteria are documented (§10.4).
+
+Values that are conventions rather than IUCN rules are set in
+`ndopred_config()` and labelled there: the decline tolerance, the NT margins,
+the RE-candidate period and the indicative D2 figures.
+
+# 3. Spatial metrics
 
 **AOO** is the count of occupied cells times the cell area (§4.10.2, eq. 4.1) on
 the reference **2 × 2 km** grid (§4.10.3). Because AOO depends on where the grid
 starts, `calculate_aoo()` tests a 4 × 4 lattice of grid origins and keeps the
-**minimum** count, as §4.10.2 requires. A different grid size emits a warning:
-estimates at other scales are not comparable with the criterion thresholds.
+**minimum** count, as §4.10.2 requires. The criterion B2 value is always this
+current-window minimum on 2 × 2 km; other grid sizes are for display only.
+Observed AOO is a plausible *lower* bound (§4.10.8); bounds from positional
+precision and habitat are planned.
 
 **EOO** is a minimum convex polygon (§4.9). Discontinuities and disjunctions are
-deliberately *not* excluded — §4.9 strongly discourages that for criterion B1.
-Where a hull cannot be built (fewer than three points, or a degenerate hull),
-EOO is returned as `NA` and `reconcile_eoo_aoo()` substitutes AOO, per the rule
-that EOO is never smaller than AOO.
+deliberately *not* excluded. Where a hull cannot be built, EOO is returned as
+`NA` and `reconcile_eoo_aoo()` substitutes AOO, per the rule that EOO is never
+smaller than AOO.
 
-**Locations** (§4.11) are a *threat-based* concept: "a geographically or
-ecologically distinct area in which a single threatening event can rapidly
-affect all individuals of the taxon present". That cannot be derived from
-records. `calculate_locations()` returns a **distance-cluster surrogate**
-(default 5 km) as a starting point for review, nothing more. Note also that
-"in the absence of any plausible threat for the taxon, the term 'location'
-cannot be used and the subcriteria that refer to the number of locations will
-not be met" — a judgement only the assessor can make.
+**Locations** (§4.11) are threat-defined: "a geographically or ecologically
+distinct area in which a single threatening event can rapidly affect all
+individuals of the taxon present". `calculate_locations()` counts 5 km
+clusters. That count is only an **indication**: it may support a proposal, and
+threat-defined locations are then always listed as needed. With no plausible
+threat (`threat = FALSE`), "the subcriteria that refer to the number of
+locations will not be met" (§4.11), and the indication is ignored.
 
-# 3. Time windows
-
-Two different windows are used, because the criteria ask different questions.
+# 4. Time windows
 
 * **Criterion B** describes the **current** distribution: §4.9 states that EOO
   and AOO "should not include areas where the species no longer exists". EOO,
-  AOO and locations therefore use a short recent window (default 10 years).
-* **Criterion A** measures reduction over **10 years or three generations,
-  whichever is longer**, capped at 100 years (§4.4, §5.2).
+  AOO and locations use a short current window (default 10 years).
+* **The trend** compares the current window with the equal-length window before
+  it, on a **single shared grid origin**, so that the change is not an artefact
+  of two different grids.
+* **The reference year** is always explicit (`ndopred_config(reference_year)`);
+  nothing reads the system clock.
 
-Trends compare the recent window against the **immediately preceding window of
-equal length**. Both windows use a **single shared grid origin**: minimising the
-origin separately per period would compare two different grids and manufacture
-change that is not there.
+# 5. Criterion A
 
-# 4. Criterion A
+Thresholds are 90/70/50 % for A1 and 80/50/30 % for A2–A4, inclusive. The window
+is 10 years or three generations, whichever is longer. A raw change in AOO or
+EOO between windows is an **indication** of reduction with basis (c); NDOP counts
+give basis (b). Either is listed as needing an effort-corrected or monitored
+estimate, because the number of records changes with recording effort
+(§4.10.8). An assessor's reduction estimate is evidence and replaces the
+indication.
 
-Thresholds are 90/70/50 % for A1 and 80/50/30 % for A2–A4. Basis (b) is used
-when the reduction comes from counts ("an index of abundance appropriate to the
-taxon") and basis (c) when it comes from a decline in AOO or EOO.
+# 6. Criterion B
 
-Reduction from counts is estimated with the **exponential** model of §4.5.1
-(constant proportional rate), fitted as `log(N) ~ year` and projected over the
-assessment window, floored at −100 %.
+The area threshold must be met (EOO < 100 / 5,000 / 20,000 km², AOO < 10 / 500 /
+2,000 km²) **and at least two of** (a) severe fragmentation or ≤ 1 / 5 / 10
+locations, (b) continuing decline, (c) extreme fluctuations. The conditions are
+checked at every level whose area threshold is met, because (a) depends on the
+level: a taxon with EOO 50 km² and four locations is EN, not "CR minus one
+condition". Subindices under (b) come from what was measured or evidenced: (i)
+from EOO change, (ii) from AOO change, (iii) only from the assessor, (iv) from
+the change in clusters, (v) from counts. A change smaller than the decline
+tolerance (default 5 %) is not an indication of decline.
 
-# 5. Criterion B
+# 7. Criteria C and D
 
-The area threshold must be met **and at least two of the three conditions**
-(a) severe fragmentation or few locations, (b) continuing decline, (c) extreme
-fluctuations. Subindices under (b) reflect only what was actually measured:
-(i) from an EOO trend, (ii) from an AOO trend, (iv) from a trend in the number
-of locations, (v) from a trend in mature individuals. **(iii) is never inferred.**
+C: fewer than 250 / 2,500 / 10,000 mature individuals, with either C1 (an
+estimated continuing decline of 25 % in 3 years or 1 generation, 20 % in 5 years
+or 2 generations, 10 % in 10 years or 3 generations, whichever is longer, up to
+100 years) or C2 (a continuing decline in mature individuals and a(i) no
+subpopulation over 50 / 250 / 1,000, a(ii) at least 90 / 95 / 100 % in one
+subpopulation, or b extreme fluctuations). The observed rate is re-projected onto
+each category's own period at a constant proportional rate (§4.5.1).
 
-Because a trend resampled from opportunistic records carries noise — and §4.9
-warns that convex-hull EOO is "less suitable as a method for comparing two or
-more temporal estimates … for assessing reductions or continuing declines" — a
-change smaller than `decline_tolerance` (default 5 %) is not asserted as a
-continuing decline. Set it to 0 for the literal "decline at any rate" reading.
+D: CR and EN **D** below 50 and 250 mature individuals; VU **D1** below 1,000.
+**D2** (VU) needs the restriction (AOO typically < 20 km² or typically ≤ 5
+locations) **and** a specified plausible threat able to make the taxon CR or EX
+in a very short time (§8). "Simply meeting the suggested (or any other)
+threshold for AOO or number of locations is not sufficient", and literal use
+"results in massive over-listing" (§8). An unknown threat is never assumed in
+the proposal; a restricted taxon is flagged as a D2 candidate.
 
-# 6. Criteria C and D
+NDOP counts are minimum observed values and NDOP localities stand in for
+subpopulations (§4.2, §4.3), so both are indications. `evaluate_pop` decides
+whether NDOP counts may be used at all.
 
-C1 thresholds are 25 % in 3 years or 1 generation (CR), 20 % in 5 years or 2
-generations (EN), and 10 % in 10 years or 3 generations (VU) — whichever is
-longer in each case. The observed rate is re-projected onto each category's own
-reference period before comparison; a single 10-year rate must not be tested
-against all three.
-
-C2 requires a continuing decline **in numbers of mature individuals**; a purely
-spatial trend does not satisfy it. C2a(i) caps the largest subpopulation at
-50/250/1000, and C2a(ii) requires 90 %/95 %/100 % of mature individuals in one
-subpopulation — the proportions differ by category.
-
-## One switch for all abundance evidence
-
-`evaluate_pop` decides whether the NDOP counts are fit to be used **at all**.
-It gates criteria C and D1, criterion A basis (b), B(b)(v) and B(c)(iv)
-together. The reason they move as a group is that they all rest on the same
-records: a *trend* computed from thin or unrepresentative counts is no more
-trustworthy than a *total* computed from them, and is in fact more exposed to
-recording effort (§4.10.8). Letting the trend through while refusing the total
-would drive criterion A from data the assessment has just declared unusable.
-
-With the switch off, criterion A rests on the spatial trend alone — basis (c),
-"a decline in area of occupancy, extent of occurrence and/or quality of
-habitat". The single-species app sets it automatically for vertebrates and
-plants whose counted records substantially cover a mature life stage, shows
-the coverage figures and the skipped life stages, and lets the assessor
-override the decision either way.
-
-D1 applies at fewer than 50/250/1000 mature individuals.
-
-**D2 is not applied from the numbers alone.** §8 is explicit: "simply meeting
-the suggested (or any other) threshold for AOO or number of locations is not
-sufficient", and literal application "results in massive over-listing". A
-restricted taxon is reported as a **D2 candidate**; VU D2 follows only once the
-assessor confirms a plausible threat capable of causing CR or EX in a very short
-time.
-
-# 7. Extreme fluctuations
+# 8. Extreme fluctuations
 
 §4.7 requires variation greater than one order of magnitude **and** a recurring
 pattern of increases and decreases; §4.6 adds that "an observed decline should
 not be considered as a fluctuation unless there is evidence for this".
-`calculate_pop_metrics()` therefore reports the max/min ratio, a count of
-direction reversals, and a boolean `extreme_fluctuation` requiring a ratio ≥ 10,
-at least two reversals, and at least five years of data. A steep monotonic
-crash is a reduction, not a fluctuation.
+`calculate_pop_metrics()` reports the max/min ratio, a count of direction
+reversals, and a boolean `extreme_fluctuation` requiring a ratio ≥ 10, at least
+two reversals and at least five years of data.
 
-# 8. Near Threatened
+# 9. RE, DD and NE
 
-NT is defined by **proximity to Vulnerable**, not by its own criteria (§10.1),
-so NT results are reported as "nearly meets …" rather than with a criteria code.
-It is applied when:
+* **RE.** A taxon with no current records and no record for longer than
+  `re_candidate_years` is proposed as an **RE candidate**, with documented
+  surveys listed as needed. Regional Guidelines v4.0 III.14 define RE as "no
+  reasonable doubt that the last individual potentially capable of reproduction
+  within the region has died or has disappeared", and leave any time limit to
+  the regional authority; Guidelines §11.3 gives the probability models.
+* **DD.** Proposed only as a candidate for a taxon with records but none in the
+  current window and nothing else to go on, and flagged when the plausible
+  range spans LC to CR. DD requires the assessor to document all five criteria
+  (§10.4).
+* **NE.** A taxon with no usable records has not been evaluated (§10.4).
 
-* a reduction of 20–29 % is measured (§10.1 gives 20–25 % as a worked example);
-* the criterion B area threshold is met together with exactly **one** of the
-  three conditions;
-* the population is below roughly twice the D1 threshold (§10.1 gives ~1,500
-  mature individuals as NT and "more than 2,000" as not NT).
-
-A restricted but stable and unthreatened taxon meeting **none** of the three B
-conditions is **not** NT — §10.1 lists that case explicitly among those that
-should not be listed.
-
-# 9. DD and RE screens
-
-**DD** (§10.3) is applied when fewer than three usable records exist, or when
-AOO cannot be estimated, or when the taxon is absent from the recent window
-without meeting the RE screen. §10.3 discourages liberal use of DD, so these are
-deliberately narrow.
-
-**RE** is a *screen*, not a determination. Neither bundled document defines a
-years-since-last-record rule; RE belongs to the Regional Guidelines v4.0, and
-§11.1 requires exhaustive surveys before any extinction listing, warning against
-the "Romeo Error". `re_threshold_years` (default 50) therefore flags taxa for
-survey follow-up and is a parameter, not a constant.
+A taxon that was recorded in the comparison window but not in the current one is
+proposed under A2c from the indicated loss, with current occurrence listed as
+needing evidence (§11.2 prefers A2 for recent disappearances).
 
 # 10. Known limitations
 
-* NDOP is an opportunistic database. AOO, EOO and location counts are sensitive
-  to recording effort (§4.10.8), and counts are minimum observed values, not
-  population estimates (§4.3). Both bound the true values from below.
-* Subpopulations (§4.2) are approximated by NDOP localities.
-* No regional adjustment for immigration is applied (see the Introduction).
-* Criterion E is not implemented.
+* NDOP is an opportunistic database. AOO, EOO and location counts depend on
+  recording effort (§4.10.8), and counts are minimum observed values (§4.3).
+* Positional precision, record polygons, validation verdicts, date ranges and
+  negative findings are not yet used (gap analysis, Phase 2).
+* Effort-corrected trends and data tiers are planned (Phase 5). Until then the
+  trend windows in bulk mode are the current-window length, not 10 years or
+  three generations, and the single-taxon app caps the reduction window at 100
+  years, which §5.2 applies only to projected reductions.
+* The regional step of the Regional Guidelines is not yet implemented (Phase 4).
+* Criterion E is taken only from the assessor.
