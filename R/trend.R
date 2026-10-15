@@ -221,12 +221,20 @@ ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir
   parts <- if (is.null(done)) list() else list(as.data.frame(done)[, setdiff(names(done), "visit"), drop = FALSE])
   for (y in setdiff(seq(years[1], years[2]), have)) {
     chunk <- download(lat, sprintf("1.1.%d", y), sprintf("31.12.%d", y))
-    if (is.null(chunk)) {
+    complete <- !is.null(chunk)
+    if (!complete) {
       # Too large or failed: month by month.
       ends <- c(31, 28 + (y %% 4 == 0 & (y %% 100 != 0 | y %% 400 == 0)), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-      chunk <- do.call(rbind, lapply(1:12, function(mo) {
+      months <- lapply(1:12, function(mo) {
         download(lat, sprintf("1.%d.%d", mo, y), sprintf("%d.%d.%d", ends[mo], mo, y))
-      }))
+      })
+      complete <- !any(vapply(months, is.null, logical(1)))
+      chunk <- do.call(rbind, months)
+    }
+    if (!complete) {
+      # A year is done only when all of it came; it is fetched again next time.
+      message("ndop_effort: ", lat, " ", y, " incomplete; will be retried on the next run")
+      next
     }
     if (!is.null(chunk) && nrow(chunk)) parts[[length(parts) + 1]] <- .effort_rows(chunk)
     have <- c(have, y)
@@ -265,12 +273,17 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
 # One chunk from NDOP (rndop): NULL when the query fails or is too large.
 .download_chunk <- function(lat, from, to) {
   p <- rndop::set_search_payload(rfKategorie = paste0("^", lat, "$"), rfDatumOd = from, rfDatumDo = to)
-  n <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p, num_rec_only = TRUE)),
-                error = function(e) NA)
-  if (is.na(n)) return(NULL)
-  if (n == 0) return(data.frame())
-  tab <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p)), error = function(e) NULL)
-  if (is.data.frame(tab)) tab else NULL
+  # Two attempts: the NDOP server drops a request now and then.
+  for (attempt in 1:2) {
+    n <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p, num_rec_only = TRUE)),
+                  error = function(e) NA)
+    if (!is.na(n) && n == 0) return(data.frame())
+    if (!is.na(n)) {
+      tab <- tryCatch(suppressMessages(rndop::ndop_download(search_payload = p)), error = function(e) NULL)
+      if (is.data.frame(tab) && nrow(tab) > 0) return(tab)
+    }
+  }
+  NULL
 }
 
 # Keep only what effort needs; observers become part of an anonymous visit

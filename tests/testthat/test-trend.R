@@ -106,7 +106,7 @@ test_that("ndop_effort downloads year by year, resumes, and splits a failed year
   calls <- character(0)
   fake <- function(lat, from, to) {
     calls <<- c(calls, from)
-    if (from == "1.1.2001") return(NULL)            # too large: month by month
+    if (from == "1.1.2001" && to == "31.12.2001") return(NULL)   # too large: month by month
     yr <- as.numeric(sub(".*\\.", "", from))
     data.frame(ID_NALEZ = length(calls), DRUH = "A b", X = -700000, Y = -1080000,
                DATUM_OD = yr * 10000 + 615, ID_LOKAL = 1, AUTOR = "Observer", NEGATIV = 0,
@@ -236,4 +236,19 @@ test_that("The census range: most recent counts, latest year, per-locality maxim
                     POCITANO = "adulti", NAZ_LOKAL = c("A", "A", "B"))
   res <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
   expect_equal(c(res$total_mature_min, res$total_mature, res$total_mature_max), c(10, 40, 130))
+})
+
+test_that("A year that does not download completely is retried on the next run", {
+  dir <- withr::local_tempdir()
+  fail <- TRUE
+  fake <- function(lat, from, to) {
+    if ((from == "1.1.2001" && to == "31.12.2001") || (fail && from == "1.3.2001")) return(NULL)
+    data.frame(ID_NALEZ = sample.int(1e6, 1), DRUH = "A b", X = -700000, Y = -1080000,
+               DATUM_OD = 20010615, ID_LOKAL = 1, AUTOR = "O", NEGATIV = 0, PROJEKT = "P")
+  }
+  first <- suppressMessages(ndop_effort("Amphibia", years = c(2001, 2001), dir = dir, download = fake))
+  expect_false(2001 %in% attr(first, "years_done"))
+  fail <- FALSE
+  second <- ndop_effort("Amphibia", years = c(2001, 2001), dir = dir, download = fake)
+  expect_true(2001 %in% attr(second, "years_done"))
 })
