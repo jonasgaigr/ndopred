@@ -7,7 +7,7 @@
 calculate_pop_metrics(
   occ_data,
   window_years = 10,
-  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  year_now,
   mature_terms = get_mature_terms()
 )
 }
@@ -16,8 +16,8 @@ calculate_pop_metrics(
 
 \item{window_years}{Number of recent years to consider.}
 
-\item{year_now}{Numeric. Final year of the window (defaults to the current
-calendar year).}
+\item{year_now}{Numeric. Final year of the window: the reference year
+(required; the system clock is never read).}
 
 \item{mature_terms}{Character vector of \code{POCITANO} values to treat as
 mature individuals. Defaults to \code{\link[=get_mature_terms]{get_mature_terms()}}.}

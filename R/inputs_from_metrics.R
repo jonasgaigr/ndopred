@@ -1,0 +1,86 @@
+# Turns computed metrics into engine inputs. Everything derived from the
+# records is an *indication*; only the `evidence` list carries evidence.
+# Shared by assess_taxon() and the deprecated summarize_assessment(), so the
+# two cannot read the same numbers differently.
+.inputs_from_metrics <- function(eoo_km2, aoo_km2, n_records, n_current, year_last,
+                                 aoo_change, eoo_change, locs_change, clusters,
+                                 pop_metrics, evaluate_pop, tolerance, evidence = list()) {
+  num <- function(x) {
+    v <- suppressWarnings(as.numeric(x))
+    if (length(v) == 0) NA_real_ else v[1]
+  }
+  # A measured change indicates a continuing decline only once it clears the
+  # sampling-noise tolerance (ndopred_config(decline_tolerance)); an unknown
+  # change indicates nothing either way.
+  declining <- function(x) if (is.na(x)) NA else (x < 0 && abs(x) >= tolerance)
+
+  aoo_change <- num(aoo_change)
+  eoo_change <- num(eoo_change)
+  pm <- if (is.null(pop_metrics)) list() else pop_metrics
+  pop_rate <- if (evaluate_pop) num(pm$decline_rate) else NA_real_
+  total <- if (evaluate_pop) num(pm$total_mature) else NA_real_
+  biggest <- if (evaluate_pop) num(pm$max_subpop) else NA_real_
+  fluct <- NA
+  if (evaluate_pop) {
+    if (!is.null(pm$extreme_fluctuation)) {
+      fluct <- as.logical(pm$extreme_fluctuation)[1]
+    } else if (!is.na(num(pm$fluct_ratio))) {
+      fluct <- num(pm$fluct_ratio) >= 10
+    }
+  }
+
+  # Criterion A indication: the larger of the spatial decline (basis c) and
+  # the count-based decline (basis b). The count-based one counts only past
+  # the tolerance, and wins ties on category, as before.
+  spatial <- suppressWarnings(min(c(aoo_change, eoo_change), na.rm = TRUE))
+  spatial <- if (is.finite(spatial)) max(0, -spatial) else NA_real_
+  pop_red <- if (isTRUE(declining(pop_rate))) -pop_rate else NA_real_
+  a_level <- function(v) {
+    if (is.na(v)) return(0L)
+    hit <- which(v >= .A_THRESH$A2[.LEVELS])
+    if (length(hit)) 4L - hit[1] else 0L
+  }
+  use_pop <- !is.na(pop_red) && (is.na(spatial) || a_level(pop_red) >= a_level(spatial))
+  reduction <- if (use_pop) pop_red else spatial
+
+  indication <- list(
+    reduction = reduction,
+    reduction_basis = if (use_pop) "b" else "c",
+    reduction_source = if (use_pop) "opportunistic NDOP counts (minimum observed)" else
+      "raw AOO/EOO change between windows (not effort-corrected)",
+    clusters = num(clusters),
+    decline = c(i = declining(eoo_change), ii = declining(aoo_change),
+                iv = declining(num(locs_change)),
+                v = if (evaluate_pop) declining(pop_rate) else NA),
+    fluctuation = c(iv = fluct),
+    mature = total,
+    mature_decline = pop_rate,
+    mature_decline_years = num(pm$decline_period_years),
+    largest_subpop = biggest,
+    prop_largest = if (!is.na(total) && total > 0 && !is.na(biggest)) biggest / total else NA_real_
+  )
+  assessment_inputs(eoo_km2 = eoo_km2, aoo_km2 = aoo_km2, n_records = n_records,
+                    n_current = n_current, year_last = year_last,
+                    indication = indication, evidence = evidence)
+}
+
+# One-row result shared by summarize_assessment(), assess_taxon(),
+# assess_species() and batch_assess().
+.result_row <- function(species, proposal, eoo_km2, aoo_km2, locations, trend_perc) {
+  na_or <- function(x, f) if (is.null(x) || length(x) == 0 || is.na(x[1])) NA_real_ else f(x[1])
+  data.frame(
+    Species = species,
+    Category = proposal$category,
+    Criteria = proposal$criteria,
+    EOO_km2 = na_or(eoo_km2, function(v) round(v, 2)),
+    AOO_km2 = na_or(aoo_km2, function(v) round(v, 2)),
+    Locations = na_or(locations, as.numeric),
+    Trend_Perc = na_or(trend_perc, function(v) round(v, 1)),
+    Criteria_IUCN = proposal$criteria_iucn,
+    Support = proposal$support,
+    Needs_Evidence = paste(proposal$needs, collapse = "; "),
+    Category_Range = if (is.na(proposal$range)) NA_character_ else proposal$range,
+    Flags = paste(proposal$flags, collapse = "; "),
+    stringsAsFactors = FALSE
+  )
+}

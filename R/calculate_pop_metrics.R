@@ -26,8 +26,8 @@
 #'
 #' @param occ_data Dataframe or sf object of occurrences.
 #' @param window_years Number of recent years to consider.
-#' @param year_now Numeric. Final year of the window (defaults to the current
-#'   calendar year).
+#' @param year_now Numeric. Final year of the window: the reference year
+#'   (required; the system clock is never read).
 #' @param mature_terms Character vector of `POCITANO` values to treat as
 #'   mature individuals. Defaults to [get_mature_terms()].
 #' @return A list with `total_mature`, `decline_rate`, `max_subpop`,
@@ -72,8 +72,11 @@
 #' res$ignored_terms
 #' @export
 calculate_pop_metrics <- function(occ_data, window_years = 10,
-                                  year_now = as.numeric(format(Sys.Date(), "%Y")),
+                                  year_now,
                                   mature_terms = get_mature_terms()) {
+  if (missing(year_now) || is.null(year_now) || is.na(year_now)) {
+    stop("`year_now` (the reference year) is required.", call. = FALSE)
+  }
 
   empty_result <- function(reason = NA_character_) {
     list(total_mature = NA_real_, decline_rate = NA_real_, max_subpop = NA_real_,
@@ -118,7 +121,7 @@ calculate_pop_metrics <- function(occ_data, window_years = 10,
     }
   }
 
-  male_terms <- c("samci", "vychovaní samci")
+  male_terms <- c("samci", "vychovan\u00ed samci")
   female_terms <- c("samice")
   cutoff_year <- year_now - window_years + 1
 

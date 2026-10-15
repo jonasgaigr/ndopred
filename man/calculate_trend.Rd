@@ -7,7 +7,7 @@
 calculate_trend(
   occurrence_data,
   window_years = 10,
-  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  year_now = NULL,
   recent_start = NULL,
   recent_end = NULL,
   comp_start = NULL,
@@ -21,8 +21,9 @@ or a 'year' column).}
 
 \item{window_years}{Numeric. Length in years of each window (default 10).}
 
-\item{year_now}{Numeric. Final year of the recent window (defaults to the
-current calendar year).}
+\item{year_now}{Numeric. Final year of the recent window: the reference
+year. Required unless \code{recent_end} is given; the system clock is never
+read.}
 
 \item{recent_start, recent_end, comp_start, comp_end}{Numeric or NULL.
 Explicit window bounds; override the derived windows when supplied.}

@@ -42,40 +42,40 @@ get_mature_terms <- function() {
   c(
     # --- ANIMALS ---
     "adulti",
-    "adulti s mláďaty",
+    "adulti s ml\u00e1\u010faty",
     "adulti s vejci",
-    "adulti v prostém šatě",
-    "adulti ve svatebním šatě",
+    "adulti v prost\u00e9m \u0161at\u011b",
+    "adulti ve svatebn\u00edm \u0161at\u011b",
     "amplexus",          # Count as 2
-    "dělnice",
-    "dospělci",
-    "farátní imaga",
+    "d\u011blnice",
+    "dosp\u011blci",
+    "far\u00e1tn\u00ed imaga",
     "imaga",
     "kopulace",          # Count as 2
     "samci",             # Male
     "samice",            # Female
-    "vychovaní samci",   # Male
+    "vychovan\u00ed samci",   # Male
 
     # --- PLANTS ---
-    "kvetoucí a plodné lodyhy",
-    "kvetoucí a plodné trsy",
-    "kvetoucí a plodní jedinci",
-    "kvetoucí jedinci",
-    "kvetoucí lodyhy",
-    "kvetoucí prýty",
-    "kvetoucí stébla",
-    "kvetoucí trsy",
-    "zralé tobolky",
+    "kvetouc\u00ed a plodn\u00e9 lodyhy",
+    "kvetouc\u00ed a plodn\u00e9 trsy",
+    "kvetouc\u00ed a plodn\u00ed jedinci",
+    "kvetouc\u00ed jedinci",
+    "kvetouc\u00ed lodyhy",
+    "kvetouc\u00ed pr\u00fdty",
+    "kvetouc\u00ed st\u00e9bla",
+    "kvetouc\u00ed trsy",
+    "zral\u00e9 tobolky",
 
     # Fruiting stages. A plant in fruit has demonstrably reproduced, so these
     # are mature under section 4.3 just as the flowering stages above are.
     # The list previously held only the combined "kvetoucí a plodné ..."
     # forms, so records counted as fruiting alone were silently discarded
     # (e.g. Cypripedium calceolus).
-    "plodné lodyhy",
-    "plodné prýty",
-    "plodné stébla",
-    "plodné trsy",
-    "plodní jedinci"
+    "plodn\u00e9 lodyhy",
+    "plodn\u00e9 pr\u00fdty",
+    "plodn\u00e9 st\u00e9bla",
+    "plodn\u00e9 trsy",
+    "plodn\u00ed jedinci"
   )
 }

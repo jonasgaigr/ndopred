@@ -51,18 +51,26 @@ get_assessment_data <- function(species_name, year_start = NULL) {
     )
   }
 
-  # 1. Download
+  # 1. Download. A failure (server down, login refused) is recorded on the
+  # result rather than passed off as "no records": the two need different
+  # responses (gap_analysis.md, item 15).
+  download_error <- NULL
   raw_data <- tryCatch({
     rndop::ndop_download(species_name)
-  }, error = function(e) return(NULL))
+  }, error = function(e) {
+    download_error <<- conditionMessage(e)
+    NULL
+  })
 
   # 2. Check if data actually exists before doing anything else
   if (is.null(raw_data) || !is.data.frame(raw_data) || nrow(raw_data) == 0) {
-    message(paste("Zero records for:", species_name))
+    message(paste(if (is.null(download_error)) "Zero records for:" else "Download failed for:",
+                  species_name))
     result <- empty_sf()
     attr(result, "filter_counts") <- list(
       raw = 0, coords = 0, non_negative = 0, has_katastr = 0, verified = 0
     )
+    if (!is.null(download_error)) attr(result, "download_error") <- download_error
     return(result)
   }
 

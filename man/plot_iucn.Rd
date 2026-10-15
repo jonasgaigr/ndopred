@@ -8,7 +8,7 @@ plot_iucn(
   species_name,
   occ_data = NULL,
   window = 10,
-  year_now = as.numeric(format(Sys.Date(), "\%Y")),
+  year_now = NULL,
   recent_start = NULL,
   recent_end = NULL,
   comp_start = NULL,
@@ -26,7 +26,8 @@ the explicit bounds below are not), the recent window is the last
 \code{window} years up to \code{year_now} and the comparison window is the \code{window}
 years immediately before it - matching \code{\link[=calculate_trend]{calculate_trend()}}.}
 
-\item{year_now}{Numeric. Final year of the recent window.}
+\item{year_now}{Numeric. Final year of the recent window: the reference
+year. Required unless \code{recent_end} is given.}
 
 \item{recent_start}{Numeric. Start year for recent data.}
 

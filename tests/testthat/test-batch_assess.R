@@ -16,31 +16,48 @@ test_that("assess_species returns a one-row result frame", {
 
 test_that("batch_assess binds every taxon into one table", {
   local_mock_ndop()
-  res <- batch_assess(c("Declining sp", "Stable widespread sp", "Barely known sp"))
+  yn <- as.numeric(format(Sys.Date(), "%Y"))
+  res <- suppressMessages(batch_assess(
+    c("Declining sp", "Stable widespread sp", "Barely known sp"), reference_year = yn
+  ))
 
   expect_equal(nrow(res), 3)
   expect_setequal(res$Species,
                   c("Declining sp", "Stable widespread sp", "Barely known sp"))
-  # Two records only -> DD, via the same screen the Shiny apps use rather
-  # than the old "EX?" pseudo-category.
-  expect_equal(res$Category[res$Species == "Barely known sp"], "DD")
+  # Two records only: a proposal is still made (Guidelines 10.4: few records
+  # are not a reason for DD), with its range and what needs evidence.
+  barely <- res[res$Species == "Barely known sp", ]
+  expect_false(barely$Category == "DD")
+  expect_match(barely$Flags, "DD candidate")
+  expect_true(nzchar(barely$Needs_Evidence))
+  expect_true(all(res$Reference_Year == yn))
+})
+
+test_that("batch_assess needs an explicit reference year", {
+  expect_error(batch_assess("Stable widespread sp"), "reference_year")
 })
 
 test_that("batch_assess default windows do not overlap", {
   local_mock_ndop()
-  expect_no_warning(batch_assess("Stable widespread sp"))
+  yn <- as.numeric(format(Sys.Date(), "%Y"))
+  expect_no_warning(suppressMessages(batch_assess("Stable widespread sp", reference_year = yn)))
 })
 
-test_that("A taxon absent from the recent window is screened, not called EX?", {
+test_that("A taxon absent for decades is an RE candidate, not called EX?", {
   local_mock_ndop()
-  res <- batch_assess("Ghost sp")
+  yn <- as.numeric(format(Sys.Date(), "%Y"))
+  res <- suppressMessages(batch_assess("Ghost sp", reference_year = yn))
   expect_equal(res$Category, "RE")
+  expect_equal(res$Support, "candidate")
 })
 
-test_that("assess_criterion_d2 requires a plausible threat", {
-  expect_equal(assess_criterion_d2(10, 3), "LC")
-  expect_equal(assess_criterion_d2(10, 3, plausible_threat = TRUE), "VU")
-  expect_equal(assess_criterion_d2(5000, 40, plausible_threat = TRUE), "LC")
+test_that("assess_criterion_d2 requires a specified plausible threat", {
+  expect_true(is.na(assess_criterion_d2(10, 3)))                 # threat unknown
+  expect_equal(assess_criterion_d2(10, 3, plausible_threat = "drainage"), "VU")
+  expect_equal(assess_criterion_d2(10, 3, plausible_threat = FALSE), "LC")
+  expect_warning(res <- assess_criterion_d2(10, 3, plausible_threat = TRUE), "does not specify")
+  expect_true(is.na(res))
+  expect_equal(assess_criterion_d2(5000, 40, plausible_threat = "drainage"), "LC")
 })
 
 test_that("assess_criterion_a applies the A1 and A2 threshold sets", {
@@ -48,5 +65,6 @@ test_that("assess_criterion_a applies the A1 and A2 threshold sets", {
   expect_equal(assess_criterion_a(list(percent_change = -85), "A1"), "EN")
   expect_equal(assess_criterion_a(list(percent_change = -22)), "NT")
   expect_equal(assess_criterion_a(list(percent_change = 15)), "LC")
-  expect_equal(assess_criterion_a(list(percent_change = NA)), "DD")
+  # Unknown, not DD: DD is a decision about the whole assessment.
+  expect_true(is.na(assess_criterion_a(list(percent_change = NA))))
 })

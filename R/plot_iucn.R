@@ -9,7 +9,8 @@
 #'   the explicit bounds below are not), the recent window is the last
 #'   `window` years up to `year_now` and the comparison window is the `window`
 #'   years immediately before it - matching [calculate_trend()].
-#' @param year_now Numeric. Final year of the recent window.
+#' @param year_now Numeric. Final year of the recent window: the reference
+#'   year. Required unless `recent_end` is given.
 #' @param recent_start Numeric. Start year for recent data.
 #' @param recent_end Numeric. End year for recent data.
 #' @param comp_start Numeric. Start year for comparison data.
@@ -42,7 +43,7 @@
 #' @export
 plot_iucn <- function(species_name, occ_data = NULL,
                       window = 10,
-                      year_now = as.numeric(format(Sys.Date(), "%Y")),
+                      year_now = NULL,
                       recent_start = NULL, recent_end = NULL,
                       comp_start = NULL, comp_end = NULL,
                       grid_size = 2000) {
@@ -52,7 +53,10 @@ plot_iucn <- function(species_name, occ_data = NULL,
   # argument (window = ...)" and was swallowed by the surrounding tryCatch.
   # `window` is now the primary interface and drives the same windows the
   # assessment uses, so the map and the numbers can no longer disagree.
-  if (is.null(recent_end))   recent_end   <- year_now
+  if (is.null(recent_end)) {
+    if (is.null(year_now)) stop("Give `year_now` (the reference year) or `recent_end`.", call. = FALSE)
+    recent_end <- year_now
+  }
   if (is.null(recent_start)) recent_start <- recent_end - window + 1
   if (is.null(comp_end))     comp_end     <- recent_start - 1
   if (is.null(comp_start))   comp_start   <- comp_end - window + 1

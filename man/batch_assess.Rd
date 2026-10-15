@@ -2,11 +2,12 @@
 % Please edit documentation in R/batch_assess.R
 \name{batch_assess}
 \alias{batch_assess}
-\title{Batch IUCN Assessment (Harmonised Temporal Scale)}
+\title{Batch Assessment of Many Taxa}
 \usage{
 batch_assess(
   species_list,
-  recent_end = as.numeric(format(Sys.Date(), "\%Y")),
+  reference_year,
+  recent_end = reference_year,
   recent_start = recent_end - 9,
   comp_end = recent_start - 1,
   comp_start = comp_end - 9,
@@ -16,40 +17,42 @@ batch_assess(
 \arguments{
 \item{species_list}{Vector of scientific names.}
 
-\item{recent_end}{Numeric. End year for recent data.}
+\item{reference_year}{Numeric. The assessment year (required; ndopred does
+not read the system clock).}
 
-\item{recent_start}{Numeric. Start year for recent data.}
+\item{recent_end, recent_start}{Numeric. The current window.}
 
-\item{comp_end}{Numeric. End year for comparison data.}
+\item{comp_end, comp_start}{Numeric. The comparison window.}
 
-\item{comp_start}{Numeric. Start year for comparison data.}
-
-\item{...}{Further arguments passed to \code{\link[=assess_species]{assess_species()}}.}
+\item{...}{Passed to \code{\link[=assess_species]{assess_species()}}: \code{evaluate_pop}, expert evidence
+and configuration.}
 }
 \value{
-A data frame with one row per successfully processed taxon. Taxa
-that error are reported via \code{\link[=message]{message()}} and omitted, so the run continues.
+A data frame with one row per input taxon.
 }
 \description{
-Runs \code{\link[=assess_species]{assess_species()}} over a list of taxa. Windows default to the last ten
-years compared against the ten years immediately preceding them, so the two
-periods are of equal length and do not overlap.
+Runs \code{\link[=assess_species]{assess_species()}} over a list of taxa with one configuration. A
+taxon that fails keeps its row: the category is \code{NA} and an \verb{issue_*}
+column says why, so no taxon silently drops out of the table.
+}
+\details{
+Windows default to the ten years ending in \code{reference_year}, compared with
+the ten years before them.
 }
 \examples{
 \dontrun{
-# Default windows: last ten years vs. the ten before them.
-batch_assess(c("Lucanus cervus", "Bombina bombina"))
+batch_assess(c("Lucanus cervus", "Bombina bombina"), reference_year = 2025)
 
-# Explicit windows, with criteria C and D1 enabled.
+# Explicit windows, with NDOP counts used for criteria C and D.
 batch_assess(
   c("Cypripedium calceolus", "Pulsatilla vernalis"),
-  recent_end = 2025, recent_start = 2016,
+  reference_year = 2025, recent_start = 2016,
   comp_end = 2015, comp_start = 2006,
   evaluate_pop = TRUE
 )
 }
 }
 \seealso{
-\code{\link[=assess_species]{assess_species()}} for a single taxon, \code{\link[=run_bulk_app]{run_bulk_app()}} for the
-same screening with a UI, maps and a CSV export.
+\code{\link[=assess_species]{assess_species()}}, \code{\link[=run_bulk_app]{run_bulk_app()}} for the same screening with
+a UI, maps and a CSV export.
 }

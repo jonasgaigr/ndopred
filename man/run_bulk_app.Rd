@@ -13,8 +13,7 @@ run_bulk_app(...)
 No return value. Side effect: launches the Shiny application.
 }
 \description{
-Screens a whole spreadsheet of taxa on the criteria that can be automated
-from occurrence records alone, and writes one row per taxon plus a
+Screens a whole spreadsheet of taxa and writes one row per taxon plus a
 distribution map per taxon.
 }
 \details{
@@ -24,21 +23,26 @@ to build a link to the species' card on \url{https://portal.nature.cz}. The
 separator and encoding are detected by trying \code{read.csv2}/\code{read.csv} with
 CP1250 and UTF-8 and keeping whichever yields a \code{TAXON} column.
 
-For each taxon the app downloads NDOP records via \code{\link[=get_assessment_data]{get_assessment_data()}},
-computes EOO, AOO and locations for the recent window and for the
-equal-length window immediately before it, and runs the metrics through
-\code{\link[=summarize_assessment]{summarize_assessment()}} with \code{evaluate_pop = FALSE} — criteria C and D1
-need a population estimate, which this pass does not attempt. Restricted
-taxa are flagged in a \verb{D2 kandidát} column for the assessor rather than
-listed as VU (see \code{\link[=summarize_assessment]{summarize_assessment()}} on criterion D2).
-
-Results download as CSV; maps download as a ZIP of PNGs.
+Each taxon goes through the same pipeline as \code{\link[=assess_species]{assess_species()}} and the
+single-taxon app (\code{\link[=assess_taxon]{assess_taxon()}}) with NDOP counts not used
+(\code{evaluate_pop = FALSE}).
 }
+\section{The export}{
+
+Every row has a \strong{proposed category} (\code{Kategorie (automatická)}) and the
+criteria behind it in the established format (\code{Kriteria (automatická)}).
+Alongside them: \verb{Kritéria (IUCN zápis)} (IUCN Annex 2 notation),
+\verb{Opora návrhu} (whether the proposal is evidenced or rests on indications
+from the records), \verb{Nutno doložit} (what still needs evidence),
+\verb{Rozsah kategorií} (plausible range), \code{Příznaky} (candidate flags) and
+\verb{issue_*} columns giving the reason for every empty value.
+}
+
 \section{Credentials}{
 
 NDOP requires a login. Set \code{NDOP_USER} and \code{NDOP_PWD} in \verb{~/.Renviron}, or
-run \code{rndop::isop_login()} once, before starting the app. Without them every
-taxon returns "No records found".
+run \code{rndop::isop_login()} once, before starting the app. A failed download
+leaves the category empty and is explained in \code{issue_download}.
 }
 
 \examples{

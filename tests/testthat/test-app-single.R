@@ -51,7 +51,7 @@ test_that("Criterion B uses the short current-distribution window", {
   expect_equal(aoo[["1"]]$aoo, aoo[["30"]]$aoo)
 })
 
-test_that("D2 is not pre-ticked for the expert", {
+test_that("D2 is not asserted for the expert", {
   local_mock_ndop()
   local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
 
@@ -59,9 +59,27 @@ test_that("D2 is not pre-ticked for the expert", {
     session$setInputs(species_name = "Restricted stable sp", window = 10,
                       gen_length = 1, use_pop = FALSE, run_calc = 1)
     raw_data()
+    auto_assessment()
     expect_true(rv$d2_candidate)   # the restriction is detected...
-    expect_false(rv$d2)            # ...but VU D2 is not asserted for them
+    # ...but VU D2 needs the expert to describe a plausible threat.
     expect_false(expert_final()$category == "VU")
+    expect_true(any(grepl("D2", expert_final()$needs)))
+
+    session$setInputs(threat_text = "drainage of the only site")
+    expect_equal(expert_final()$category, "VU")
+  })
+})
+
+test_that("The expert view equals the automated proposal until evidence is entered", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+
+  shiny::testServer(app_dir(), {
+    session$setInputs(species_name = "Declining sp", window = 10,
+                      gen_length = 1, use_pop = FALSE, run_calc = 1)
+    auto <- auto_assessment()$result
+    expect_equal(expert_final()$category, auto$Category)
+    expect_equal(expert_final()$criteria, auto$Criteria)
   })
 })
 

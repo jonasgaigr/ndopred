@@ -25,8 +25,9 @@
 #' @param occurrence_data Data frame or sf object (must contain DATUM_OD, ROK
 #'   or a 'year' column).
 #' @param window_years Numeric. Length in years of each window (default 10).
-#' @param year_now Numeric. Final year of the recent window (defaults to the
-#'   current calendar year).
+#' @param year_now Numeric. Final year of the recent window: the reference
+#'   year. Required unless `recent_end` is given; the system clock is never
+#'   read.
 #' @param recent_start,recent_end,comp_start,comp_end Numeric or NULL.
 #'   Explicit window bounds; override the derived windows when supplied.
 #' @param grid_size Numeric. AOO cell size in metres (default 2000).
@@ -59,13 +60,17 @@
 #' @export
 calculate_trend <- function(occurrence_data,
                             window_years = 10,
-                            year_now = as.numeric(format(Sys.Date(), "%Y")),
+                            year_now = NULL,
                             recent_start = NULL, recent_end = NULL,
                             comp_start = NULL, comp_end = NULL,
                             grid_size = 2000) {
 
-  # Derive contiguous, non-overlapping windows unless told otherwise.
-  if (is.null(recent_end))   recent_end   <- year_now
+  # Derive contiguous, non-overlapping windows unless told otherwise. The
+  # reference year is always explicit: no system clock in calculations.
+  if (is.null(recent_end)) {
+    if (is.null(year_now)) stop("Give `year_now` (the reference year) or `recent_end`.", call. = FALSE)
+    recent_end <- year_now
+  }
   if (is.null(recent_start)) recent_start <- recent_end - window_years + 1
   if (is.null(comp_end))     comp_end     <- recent_start - 1
   if (is.null(comp_start))   comp_start   <- comp_end - window_years + 1

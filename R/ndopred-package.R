@@ -71,4 +71,5 @@
 #' @seealso `vignette("methodology", package = "ndopred")` for the mapping of
 #'   each rule to its guideline section.
 #' @keywords internal
+#' @importFrom dplyr .data
 "_PACKAGE"

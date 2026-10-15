@@ -2,45 +2,48 @@
 % Please edit documentation in R/assess_criteria.R
 \name{assess_criterion_d2}
 \alias{assess_criterion_d2}
-\title{Evaluate Criterion D2 (Restricted AOO/Locations)}
+\title{Evaluate Criterion D2 (Restricted AOO or Locations) on Its Own}
 \usage{
-assess_criterion_d2(aoo_km2, locations, plausible_threat = FALSE)
+assess_criterion_d2(aoo_km2, locations, plausible_threat = NA)
 }
 \arguments{
-\item{aoo_km2}{Numeric AOO.}
+\item{aoo_km2}{Numeric AOO (2 x 2 km).}
 
 \item{locations}{Numeric location count.}
 
-\item{plausible_threat}{Logical. Has the assessor identified a plausible
-threat that could drive the taxon to CR or EX in a very short time?}
+\item{plausible_threat}{A description of the threat (character). \code{FALSE}
+records that there is none. \code{NA} (default) is unknown. A bare \code{TRUE} is
+not a specified threat and counts as unknown.}
 }
 \value{
-\code{"VU"} if D2 is met, otherwise \code{"LC"}.
+\code{"VU"} if D2 is met, \code{"LC"} if it is not, \code{NA} if the restriction
+is present but the threat is unknown.
 }
 \description{
-IUCN Guidelines (v16, 2024) section 8 is explicit that the AOO and location
-figures under D2 are indicators rather than thresholds, and that "simply
-meeting the suggested (or any other) threshold for AOO or number of
-locations is not sufficient": D2 also requires a plausible threat capable
-of driving the taxon to CR or EX in a very short time. Literal application
-of the numbers alone is called out in the same section as a cause of
-"massive over-listing", so \code{plausible_threat} must be asserted explicitly.
+Deprecated: D2 is evaluated with the other criteria by
+\code{\link[=assess_criteria]{assess_criteria()}}. Kept for existing scripts.
+}
+\details{
+Guidelines v16 §8: the AOO and location figures under D2 are indicators,
+not thresholds, and "simply meeting the suggested (or any other)
+threshold for AOO or number of locations is not sufficient". D2 also
+needs a specified plausible threat able to drive the taxon to CR or EX in
+a very short time.
 }
 \examples{
-# A small range alone is not enough...
+# A small range alone is not enough: the answer is unknown...
 assess_criterion_d2(aoo_km2 = 10, locations = 3)
 
-# ...but a small range plus a plausible threat is VU D2.
-assess_criterion_d2(aoo_km2 = 10, locations = 3, plausible_threat = TRUE)
+# ...a small range plus a specified threat is VU D2...
+assess_criterion_d2(aoo_km2 = 10, locations = 3,
+                    plausible_threat = "drainage of the only fen")
 
-# A widespread taxon does not qualify even with a threat.
-assess_criterion_d2(aoo_km2 = 5000, locations = 40, plausible_threat = TRUE)
+# ...and with no plausible threat it is not met.
+assess_criterion_d2(aoo_km2 = 10, locations = 3, plausible_threat = FALSE)
 }
 \references{
 IUCN Standards and Petitions Committee (2024), section 8.
 }
 \seealso{
-\code{\link[=summarize_assessment]{summarize_assessment()}}, whose \code{d2_threat} argument does the same
-job inside the full cascade and additionally reports \code{d2_candidate} for
-restricted taxa awaiting a threat assessment.
+\code{\link[=assess_criteria]{assess_criteria()}}
 }
