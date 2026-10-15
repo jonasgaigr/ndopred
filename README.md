@@ -37,7 +37,9 @@ What the records cannot show is never assumed absent. An unknown condition is **
 
 The proposal is the **best estimate** (AOPK decision D7). Uncertainty never changes it; it is flagged. Guidelines §10.1 allows NT for a taxon whose range holds LC and VU or EN, and DD when every category from LC to CR is plausible; §10.4 leaves that choice to the assessor's risk tolerance. The flag says which applies. ndopred itself proposes NT only where a criterion is nearly met.
 
-The proposal is not a final category. Approval belongs to the assessor.
+The proposal is step two of the regional procedure (Regional Guidelines v4.0). **Step one** decides whether the regional population is assessed at all: introduced taxa, vagrants, occasional breeders and colonizers reproducing for fewer than 10 years are Not Applicable (NA). **Step three** adjusts the category for populations outside Czechia, normally by one step down when immigration rescues the regional population, and marks it with a degree sign (`VU°`). Without regional evidence a taxon is assessed and left unchanged, as the Guidelines require when the influence of outside populations is unknown.
+
+The proposal is not a final category. Approval belongs to group experts.
 
 ---
 
@@ -234,6 +236,14 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 **Deprecated, kept for existing scripts:** `summarize_assessment()`, `assess_criterion_a()`, `assess_criterion_d2()`.
 
+**Regional step** (Regional Guidelines v4.0)
+
+| Function | Purpose |
+|---|---|
+| `regional_eligibility()` | Step one: is the regional population assessed, or Not Applicable? |
+| `regional_adjustment()` | Step three: questions 3a-3f, down- or uplisting with the degree sign |
+| `regional_assessment()` | Both steps around a step-two category, with the global category and share |
+
 **Presentation:** `plot_iucn()`, `run_app()`, `run_bulk_app()`.
 
 ---
@@ -261,6 +271,9 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Kategorie (finální)` | The assessor's final category, once approved (with an evidence file) |
 | `Stav finální kategorie` | `approved`, `approved; inconsistent with the evidence`, `awaiting approval` or `no final category` |
 | `Nesoulad finální kategorie s doklady` | Where the final category and the evidence disagree |
+| `Kategorie (regionální)`, `Kritéria (regionální)` | After the regional step: `NA` from step one, or the category adjusted in step three (`NT°`) |
+| `Regionální krok` | Why: the step-one reason and the step-three answers |
+| `Globální kategorie`, `Podíl globální populace (%)` | Published beside the regional category (Regional Guidelines V.4); `?` when the share is unknown |
 | `issue_download` … `issue_population` | The reason for every empty value |
 
 The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it. An optional **evidence file** (one for any number of taxa) adds the experts' evidence, record flags and final categories; with evidence, the proposal in `Kategorie (automatická)` uses it.
@@ -311,6 +324,7 @@ Each row names the taxon, the field (`evidence_fields()`), the value or `min`/`b
 - **D2 needs a described threat.** A restricted range is flagged as a D2 candidate; VU D2 follows once the assessor names a plausible threat able to drive the taxon to CR or EX in a very short time (§8). `d2_threat = TRUE` alone is not a threat and is treated as unknown.
 - **Clusters are not locations.** The 5 km cluster count is an indication for B(a) and D2, always listed as needing threat-defined locations (§4.11). With no plausible threat, the location subcriteria are not met.
 - **Raw changes between windows are indications.** They can support B(b) and A2c proposals, but are listed as needing an effort-corrected or monitored estimate, because the number of records changes with recording effort (§4.10.8).
+- **The regional step needs experts.** Eligibility (origin, occurrence, years of reproduction, share of the global population), the step-three questions 3a-3f, the number of steps and the global category are evidence entries. An optional filter on the share of the global population (`ndopred_config(regional_filter_share)`) is off until AOPK sets one. A final category one step below what the evidence supports is consistent when the step-three answers give that downlisting.
 - **RE and DD are candidates, NE is "not evaluated".** A taxon not recorded for longer than `re_candidate_years` (a convention, default 50) is an RE candidate needing documented surveys (Regional Guidelines III.14). DD is proposed only for a taxon with records but none current and nothing else to go on, and is flagged when the range spans LC to CR (§10.1, §10.4). A taxon with no usable records is NE (§10.4).
 - **Notation follows Annex 2** in `Criteria_IUCN` / `Kritéria (IUCN zápis)`: `CR D` and `EN D` (not `D1`), `B1…+2…`, `C2a(i,ii)`, `VU D1+2`.
 - **No system clock.** Every run states its reference year.
@@ -346,7 +360,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.7.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
+Version 0.8.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
 
 ## References
 

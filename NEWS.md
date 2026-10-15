@@ -1,3 +1,61 @@
+# ndopred 0.8.0
+
+Phase 4 of the IUCN alignment (`methodology/gap_analysis.md`): the regional
+step of the Guidelines for Application of IUCN Red List Criteria at Regional
+and National Levels v4.0 (RG). GAP-12 is closed. GAP-05b, already closed by
+the generation-length table of 0.6.0, moves to the regular suite.
+
+## Step one: eligibility
+
+* New `regional_eligibility()` (RG IV.2, Annex 3). Not Applicable (NA):
+  * introduced taxa, vagrants, and occasional breeders that regularly become
+    regionally extinct;
+  * colonizers reproducing for fewer than `colonizer_years` (10);
+  * taxa below an optional filter on the share of the global population
+    (`regional_filter_share`, off by default).
+
+  Unknown answers lead to assessment, as in the flowchart. Visitors are
+  assessed as visiting populations.
+* An ineligible taxon's proposal is NA, with the reason, before any
+  criterion is applied.
+
+## Step three: adjustment
+
+* New `regional_adjustment()` (RG IV.4, Figure 3, Table 1):
+  * breeding populations follow questions 3a-3c, visiting populations 3d-3f;
+  * the change is normally one step, as many as the evidence states, noted
+    when more than two;
+  * EX, EW, RE, DD, NE and NA are never adjusted;
+  * an adjusted category carries the degree sign (RG V.3);
+  * a visiting taxon listed globally under D is not downlisted.
+
+  Unanswered questions leave the category unchanged.
+* New `regional_assessment()` combines both steps around the step-two
+  category. It also carries the global category and the share of the global
+  population, `?` when unknown (RG V.4).
+
+## Pipeline, checks and outputs
+
+* Evidence fields:
+  * `occurrence_status` gains `occasional_breeder`;
+  * new `reproduction_since`, `global_population_share` and
+    `global_category`;
+  * new `regional_step3` (subfields 3a-3f) and `regional_steps`.
+* Result rows gain `Regional_Category`, `Regional_Criteria`,
+  `Regional_Step`, `Global_Category` and `Global_Population_Share`.
+* The bulk export gains `Kategorie (regionální)`, `Kritéria (regionální)`,
+  `Regionální krok`, `Globální kategorie` and
+  `Podíl globální populace (%)`.
+* `final_assessment()` applies the regional step to what the evidence
+  supports. A final category set by a documented rescue effect is
+  consistent and displayed with its degree sign (`display`). NA is checked
+  against step one, and RE should not pre-date 1500 AD. Visitors no longer
+  count as NA.
+* Species card: a regional-step section.
+* Single-taxon app: a regional-step panel (eligibility, questions 3a-3f,
+  steps, global category and share) and the regional category in the live
+  view.
+
 # ndopred 0.7.0
 
 Phase 3 of the IUCN alignment (`methodology/gap_analysis.md`): the evidence

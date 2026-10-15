@@ -14,10 +14,10 @@ using the interpretation given in the **Guidelines for Using the IUCN Red List
 Categories and Criteria v16** (IUCN Standards and Petitions Committee, March
 2024), for a **national (Czech) Red List** built from NDOP occurrence records.
 The **Guidelines for Application of IUCN Red List Criteria at Regional and
-National Levels v4.0** (IUCN 2012) are in `methodology/` too; the regional step
-(eligibility before the assessment, adjustment for populations outside the
-country after it) is planned but not yet implemented. Section numbers below
-refer to the Guidelines v16 unless stated otherwise.
+National Levels v4.0** (IUCN 2012, "RG") give the regional step: eligibility
+before the assessment, adjustment for populations outside the country after it
+(section 12). Section numbers below refer to the Guidelines v16 unless stated
+otherwise.
 
 `methodology/gap_analysis.md` records the audit of the package against these
 documents and the plan for closing the remaining gaps.
@@ -277,7 +277,52 @@ final category with approvals and checks, parameters with bounds, every
 criterion with the rule applied and what decided it, the evidence with its
 authors, the record IDs used and excluded, open questions and the versions.
 
-# 12. Known limitations
+# 12. The regional step
+
+A national Red List follows three steps (RG IV.1, Figure 1): decide which
+regional populations to assess, apply the criteria to the regional population
+(step two, the engine), and adjust the result for conspecific populations
+outside the region.
+
+**Step one** (`regional_eligibility()`, RG IV.2 and Annex 3). The criteria apply
+"only to wild populations inside their natural range and to populations
+resulting from benign introductions". Not Applicable (NA), and not assessed:
+
+* introduced taxa;
+* vagrants ("Vagrant taxa should NOT be assessed");
+* occasional breeders that regularly become regionally extinct;
+* colonizers until they have reproduced in the region "for several years
+  (typically for at least 10 consecutive years)" (`colonizer_years`);
+* taxa below an optional filter on the share of the global population
+  (`regional_filter_share`, off until AOPK sets one).
+
+As in the flowchart, an answer the assessor does not know leads to assessment.
+Visitors are assessed, as visiting populations.
+
+**Step three** (`regional_adjustment()`, RG IV.4, Figure 3, Table 1). Breeding
+populations: if there is (3a) significant immigration of propagules likely to
+reproduce, and it is not (3b) expected to decrease, the category is downlisted;
+if it is expected to decrease (or that is unknown) and (3c) the regional
+population is a sink, it is uplisted. Visiting populations are downlisted only
+when conditions are deteriorating neither (3d) outside nor (3e) inside the
+region and (3f) the breeding population can rescue them, which a taxon listed
+globally under D cannot. "If it is unknown whether or not extra-regional
+populations influence the extinction risk of the regional population, the
+category from step two should be kept unaltered." A change is normally one
+step, two for expanding populations at the edge of their range, more only in
+extremely rare cases. EX, EW, RE, DD, NE and NA are never adjusted. An adjusted
+category carries a degree sign, `VU°`, which "should be interpreted as being
+equivalent to the same category" (RG V.3).
+
+Every row reports the regional category, the reason from step one and the
+step-three answers, and the global category with the share of the global
+population in the region, `?` when unknown (RG V.4). The final-category check
+applies the same regional step to what the evidence supports, so a final
+category set by a documented rescue effect is consistent and shown with its
+degree sign. RE needs documented surveys and should not pre-date 1500 AD (RG
+III.14).
+
+# 13. Known limitations
 
 * NDOP is an opportunistic database. AOO, EOO and location counts depend on
   recording effort (§4.10.8), and counts are minimum observed values (§4.3).
@@ -294,5 +339,8 @@ authors, the record IDs used and excluded, open questions and the versions.
   identifier. Phase 5 has to rebuild visits from date, site and observer.
 * Threats, and so threat-defined locations and the D2 threat, come only from
   the assessor (AOPK, D6).
-* The regional step of the Regional Guidelines is not yet implemented (Phase 4).
+* One assessment covers a taxon's NDOP records as one regional population.
+  Breeding and visiting populations that RG IV.2 would assess separately are
+  not separated: NDOP records carry no breeding/visiting distinction, and
+  evidence is keyed by taxon name.
 * Criterion E is taken only from the assessor.

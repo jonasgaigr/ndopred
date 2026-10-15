@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phases 4–6 open (§8) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phases 5–6 open (§8) |
 
 ## 1. Summary
 
@@ -363,6 +363,14 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 - **Output fields** for the global category and the share of the global population.
 
 **Gap test turned green:** 12.
+
+**Status (2026-10-15): done, version 0.8.0.**
+- Step one, `regional_eligibility()` (RG IV.2, Annex 3): introduced taxa, vagrants, occasional breeders, colonizers reproducing for fewer than 10 years (`colonizer_years`) and taxa below an optional filter (`regional_filter_share`, off until AOPK sets one) are NA before any criterion is applied. Unknown answers lead to assessment, as in the flowchart. Visitors are assessed as visiting populations (the Phase 3 check had wrongly allowed NA for visitors).
+- Step three, `regional_adjustment()` (RG IV.4, Figure 3, Table 1): questions 3a-3c for breeding and 3d-3f for visiting populations, normally one step, never for EX, EW, RE, DD, NE or NA, with the degree sign (RG V.3); a taxon listed globally under D is not expected to rescue a visiting population. Unanswered questions leave the category unchanged, as RG IV.4 requires.
+- Rows carry the regional category and criteria, the step trail, the global category and the share of the global population (`?` when unknown, RG V.4); the bulk export and the species card show them; the single-taxon app has a regional-step panel.
+- `final_assessment()` applies the same regional step to what the evidence supports, so a final category set by a documented rescue effect is consistent; RE must have surveys and should not pre-date 1500 AD (RG III.14).
+- GAP-12 restated and moved to the regular suite (it had only looked for an argument name in the deprecated wrapper). GAP-05b already passed after the generation-length table (0.6.0) and moved too. Open: 05c, 09c, 09d (Phase 5).
+- Not done: breeding and visiting populations of one taxon cannot be assessed separately; NDOP records carry no breeding/visiting distinction and evidence is keyed by taxon name.
 
 ### Phase 5: trend module and criterion C (items 5, 9)
 
