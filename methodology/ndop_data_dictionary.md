@@ -107,7 +107,7 @@ These are **not** in the rndop export:
 
 ## Consequences for the plan
 
-1. **An events layer cannot be built from rndop alone.** There is no visit ID, and the complete-list flag is unused in the samples seen. T2 occupancy/detection models (review §7.3) therefore need either the AOPK export route with `IDX_ND_AKCE`, or external monitoring datasets identified by `PROJEKT`/`DAT_SADA`. This is a decision for AOPK (prompt §12).
+1. **An events layer cannot be built from rndop alone.** There is no visit ID, and the complete-list flag is unused in the samples seen. T2 occupancy/detection models (review §7.3) therefore need either the AOPK export route with `IDX_ND_AKCE`, or external monitoring datasets identified by `PROJEKT`/`DAT_SADA`. AOPK decided (D4, 2026-10-15) that ndopred uses rndop only, so visits have to be rebuilt from `DATUM_OD`/`DATUM_DO`, `ID_LOKAL` and `AUTOR`, with `ZDROJ`, `DAT_SADA` and `PROJEKT` separating monitoring from opportunistic records.
 2. **Precision-aware AOO is feasible**, and since 0.4.0 implemented: `CXPRESNOST` is fully populated (0 = exact), and the geometry layer comes with `locations = 2`.
 3. **Verification follows the AOPK code list** (see `VEROH`). `VALIDACE` holds a *proposed* mark while the guarantee is open (`VEROH` = 0); it is flagged, not acted on.
 4. **Negative findings are common in monitored groups** (18–36 %) and are the most valuable input for trends and extinction-probability evidence. They must be retained and flagged, not deleted.

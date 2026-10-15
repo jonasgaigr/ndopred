@@ -1,3 +1,52 @@
+# ndopred 0.5.0
+
+AOPK decisions D4-D7 of 2026-10-15 (`methodology/gap_analysis.md`, section 9).
+D5 and D7 change the output for most taxa.
+
+## Windows (D5)
+
+* The default current window is the 17 years up to the reference year
+  (2010-2026 for 2026), and the trend compares it with 2000-2016.
+  `ndopred_config()` replaces `trend_window` with `trend_shift` (default 10):
+  the comparison window is the current window moved that many years back.
+  `window` now defaults to 17. `batch_assess()` and both apps use the same
+  defaults; the bulk app has a field for the shift.
+* Overlapping windows no longer warn in `calculate_trend()` and
+  `batch_assess()`. They are the agreed design; the vignette describes how the
+  shared years damp the measured change.
+* The trend now always compares the comparison window with the whole current
+  window (`trend_start` = `recent_start`). Previously, explicit comparison
+  bounds made the recent side start the year after the comparison window.
+* The single-taxon app moves the comparison window back by the criterion A
+  period: 10 years, or three generations when longer.
+* `plot_iucn()` draws overlapping windows. The blue hull and grid use the
+  whole comparison window, the grey points only its years outside the current
+  window. Both apps now pass the assessment's windows to the map.
+
+## The proposal is the best estimate (D7)
+
+* Uncertainty no longer moves the proposal. A best estimate of LC whose
+  plausible range reaches VU or above stays **LC**; it is no longer proposed as
+  NT. Such taxa, and any other proposal whose range holds both a
+  non-threatened and a threatened category, are flagged **uncertain**:
+  * `categorise()` returns `uncertain`;
+  * result rows gain `Uncertain`, and the bulk export gains `Nejistý návrh`
+    (`ano`/`ne`);
+  * `Flags` / `Příznaky` say which choice Guidelines §10.1 allows, e.g.
+    "Uncertain: plausible range LC-EN - NT may be chosen (Guidelines 10.1)".
+
+  NT is still proposed where a criterion is nearly met.
+* `ndopred_config()` records the attitude: best estimate, dispute tolerance 0
+  (the whole plausible range reported).
+* The DD flag (range LC to CR) now cites Guidelines §10.1 and §10.4.
+
+## Recorded, no code change
+
+* D4: NDOP data come only through rndop. Phase 5 rebuilds visits from date,
+  site and observer, because rndop exports no visit identifier.
+* D6: threats, threat-defined locations and the D2 threat are expert input
+  (Phase 3); no threat layer.
+
 # ndopred 0.4.0
 
 Phase 2 of the IUCN alignment (`methodology/gap_analysis.md`): snapshots,

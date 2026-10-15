@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; Phases 3–6 open (§8) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0); Phases 3–6 open (§8); D9 open |
 
 ## 1. Summary
 
@@ -199,7 +199,7 @@ There are no reason columns (GAP-15a, 15b). `batch_assess()` drops a taxon that 
 Full detail is in [`ndop_data_dictionary.md`](ndop_data_dictionary.md).
 
 - An rndop export has 45 columns. **There is no `ROK` and no `CELED`**, so those code paths never run on real data.
-- **No event (visit) ID** is exported by rndop. `IDX_ND_AKCE` exists only in another AOPK export route, and the complete-list flag `KOMPLETNI_SEZNAM` was 0 in every record seen. Building T2 occupancy models needs a decision on the data route (D4).
+- **No event (visit) ID** is exported by rndop. `IDX_ND_AKCE` exists only in another AOPK export route, and the complete-list flag `KOMPLETNI_SEZNAM` was 0 in every record seen. AOPK decided on rndop only (D4), so T2 occupancy models need visits rebuilt from date, site and observer.
 - `ID_NALEZ` is a stable unique record key, which suits the evidence layer.
 - Fields ndopred could use and does not: `CXPRESNOST`, the geometry layer (`locations = 2`), `DATUM_DO`, `VALIDACE`/`GARANCE`, `NEGATIV` as data rather than a deletion filter, `PROJEKT`/`DAT_SADA` (to identify monitoring programmes), `REDLIST` (the previous category, for §2.2.1 transfers) and `DATI_INSERT` (snapshot reconstruction).
 
@@ -238,8 +238,8 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - **needs further evidence**: every condition behind the proposal that rests on an indication, plus every unknown condition that could raise the category;
   - the **plausible range**. The low end uses evidence alone. The high end sets every unevidenced B subcondition TRUE where the taxon's own area meets a B threshold, and the D2 threat TRUE where its AOO or locations meet the D2 restriction; parameter min/max feed in from Phase 2.
 - **Rules applied to the range**
-  - §10.1: a best estimate of LC whose range reaches VU or above is proposed as **NT**, with the criteria nearly met.
-  - §10.3: a range spanning LC to CR adds a **DD flag** beside the proposal; DD itself is never proposed.
+  - §10.1: a best estimate of LC whose range reaches VU or above is proposed as **NT**, with the criteria nearly met. *Superseded by D7 in 0.5.0: the range flags the proposal as uncertain and no longer moves it.*
+  - §10.3: a range spanning LC to CR adds a **DD flag** beside the proposal; DD itself is never proposed. *(The rule is in §10.1 and §10.4; the citation was corrected in 0.5.0.)*
   - **RE** is proposed only as a labelled candidate, with survey evidence listed as needed (Regional Guidelines III.14; Guidelines §11.3); the year threshold is a config convention.
   - A taxon with no usable records is **NE**.
 
@@ -270,7 +270,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 **Expected visible effect.**
 - Most proposals with records stay as they are.
 - Every row gains its support, what needs evidence and a plausible range.
-- Restricted taxa whose B subconditions are all unknown move from LC to NT under §10.1.
+- Restricted taxa whose B subconditions are all unknown move from LC to NT under §10.1. *(Reverted by D7 in 0.5.0: LC, flagged uncertain.)*
 - The RE screen becomes a labelled candidate, and the DD pre-checks become a flag.
 - An error gives a reason code instead of DD; a taxon with no records is NE.
 
@@ -298,7 +298,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - EOO with and without uncertain records.
 
   Cross-checked against redlistr 2.1.0 in tests.
-- **Cluster diagnostics** are renamed `cluster_count` and documented as such. A location workflow uses the four §4.11 options (a)–(d) with a documented basis, plus a threat layer if AOPK provides one (D6).
+- **Cluster diagnostics** are renamed `cluster_count` and documented as such. A location workflow uses the four §4.11 options (a)–(d) with a documented basis, with threats from the experts (D6: no threat layer).
 
 **Gap tests turned green:** 10a, 10b, 10d, 11a–e.
 
@@ -308,10 +308,17 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 - `flag_records()` applies decisions D2, D3, D8 and D13.
 - AOO and EOO carry `min`/`best`/`max`, and the engine uses them for the plausible range (the low end uses the largest areas, the high end the smallest).
 - Time windows use a record's whole date range.
-- Not done, and moved to Phase 6: the redlistr cross-check (redlistr is not installed here) and the location workflow with §4.11 options (a)–(d). Phase 1's `threat_locations` evidence already covers the count; the options belong with the Phase 3 evidence layer and the threat layer (D6).
+- Not done, and moved to Phase 6: the redlistr cross-check (redlistr is not installed here) and the location workflow with §4.11 options (a)–(d). Phase 1's `threat_locations` evidence already covers the count; the options belong with the Phase 3 evidence layer, where experts enter threats (D6).
 - Checked on real data:
   - *Onthophagus medius* (live export, 6 polygon records): AOO 28 km² best, 28–40 km² with positional uncertainty.
   - *Bombina bombina* (27,396 cached records): 229 hybrid records excluded by the exact-name rule; 3,649 negative findings kept as non-detections; 117 `VEROH` 3 records excluded (0.4 % share).
+
+### Decisions D4–D7 (done, version 0.5.0)
+
+- **D5 windows.** `ndopred_config()` defaults to a 17-year current window and a comparison window 10 years earlier: 2010–2026 against 2000–2016 for reference year 2026. `trend_shift` replaces `trend_window`, and the trend always compares the comparison window with the whole current window. `batch_assess()`, both apps and `plot_iucn()` follow; overlap no longer warns. The windows share 2010–2016, which damps measured change, and the B window can hold sites lost since 2010 (§4.9). Both are documented in the vignette and README, not hidden.
+- **D7 proposal.** Uncertainty no longer moves the proposal. `categorise()` returns `uncertain`, rows gain `Uncertain` / `Nejistý návrh`, and the flag text says which §10.1 choice applies. GAP-04b and GAP-08b were restated: they asserted "not LC", which stood for "not a silent LC"; they now check the uncertainty flag, the range and the evidence needed.
+- **D4, D6** need no code now; their consequences are in the Phase 3 and Phase 5 plans.
+- Checked on real data (reference year 2026): *O. medius* stays NT (B1 and B2 nearly met), now flagged uncertain (LC–EN). *P. cuprea* and *B. bombina* stay LC. The longer window raises *B. bombina* AOO from 5,704 to 8,020 km² and turns its AOO change from −3.4 % to +10.9 %.
 
 ### Phase 3: evidence layer, templates, expert UI, species card
 
@@ -344,7 +351,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - the share of negative findings;
   - monitoring `PROJEKT`/`DAT_SADA`;
   - repeat visits per site;
-  - event IDs, if D4 allows.
+  - visits rebuilt from date, site and observer (D4: rndop exports no event ID).
 - **T0/T1 data** produce labelled diagnostics only. The interim proxy is an effort-corrected AOO-change indicator (relative to group-level recording effort, or Frescalo via sparta 1.0.1).
 - **T2** uses occupancy/detection models (spOccupancy 0.8.2 or sparta); **T3** uses abundance indices.
 - **Reduction windows**
@@ -357,7 +364,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - `total_mature` is taken from a defined census period with min/best/max;
   - C1 is capped at 100 years and requires "estimated" quality;
   - fluctuation diagnosis requires a consistent-effort series or expert evidence.
-- **Generation length per taxon or group** in the bulk input (D5).
+- **Generation length per taxon or group** in the bulk input, once AOPK names a source (D5); the comparison window then moves back by three generations where that exceeds 10 years, as the single-taxon app already does.
 
 **Gap tests turned green:** 05b, 05c, 09a–d.
 
@@ -370,7 +377,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 
 ## 9. Decisions needed from AOPK
 
-**Decided:** D1, D10, D11, and D2, D3, D8, D12, D13 (all 2026-10-15). **Open, for later phases:** D4–D7, D9.
+**Decided:** D1–D8 and D10–D13 (all 2026-10-15). **Open:** D9, needed for Phase 3; the source of generation lengths (part of D5).
 
 One question the prompt already settles is not listed: taxa with no usable records become NE with a reason code, not DD (Guidelines §10.4).
 
@@ -379,10 +386,10 @@ One question the prompt already settles is not listed: taxa with no usable recor
 | D1 | Commit the current uncommitted working tree (your v0.2.0 revision) as the baseline before Phase 1? | **Decided 2026-10-15: yes.** Committed as `ec341f9` |
 | D2 | What do `VEROH` 0/1/3 mean, and how do `VEROH`, `GARANCE` and `VALIDACE` combine? Which states exclude a record by default? | **Decided 2026-10-15.** 0 not yet validated, 1 credible, 3 less credible, 6 erroneous (to delete), 9 erroneous (to correct). After the guarantee only 1 or 3 remain; while it is open `VEROH` is 0 even with a proposed mark. Implemented: 6 and 9 excluded; 0 and 1 used; a proposed `VALIDACE` mark flagged only; 3 per D8 |
 | D3 | Does `CXPRESNOST = 0` mean "exact" or "unknown"? | **Decided 2026-10-15: exact.** |
-| D4 | Can records be linked to visits (`IDX_ND_AKCE`) and complete lists? Which export route may ndopred depend on: rndop only, or the AOPK export? | Without event data, T2 trends only for external monitoring datasets; T0/T1 diagnostics elsewhere |
-| D5 | The definition of "current" occurrence per taxon group, the default comparison windows, and the source of generation lengths | A group-level table maintained by AOPK specialists, overridable per taxon in the evidence layer |
-| D6 | Is there, or will there be, a maintained threat layer for locations? | Phase 2 starts with locations as expert input only |
-| D7 | Default dispute and risk tolerance for the national list | Dispute 0 (§3.2.3); risk tolerance set by AOPK (the Guidelines suggest 0.40–0.49 for global listings); reported on every output |
+| D4 | Can records be linked to visits (`IDX_ND_AKCE`) and complete lists? Which export route may ndopred depend on: rndop only, or the AOPK export? | **Decided 2026-10-15: rndop only**; the records come from a range of sources. No `IDX_ND_AKCE`, so Phase 5 rebuilds visits from date, site (`ID_LOKAL`) and observer (`AUTOR`), and uses `ZDROJ`/`DAT_SADA`/`PROJEKT` to tell monitoring from opportunistic records |
+| D5 | The definition of "current" occurrence per taxon group, the default comparison windows, and the source of generation lengths | **Decided 2026-10-15:** current window 1.1.2010–31.12.2026, trend reference window 1.1.2000–31.12.2016, nationally. Implemented as `ndopred_config(window = 17, trend_shift = 10)`, relative to the reference year. Generation lengths not settled; until AOPK names a source they are expert input (single-taxon app; Phase 3 evidence layer) and the bulk default stays 1 year |
+| D6 | Is there, or will there be, a maintained threat layer for locations? | **Decided 2026-10-15: no layer.** Threats, if any, are filled in by the experts: threat-defined locations and the D2 threat are expert input only (Phase 3) |
+| D7 | Default dispute and risk tolerance for the national list | **Decided 2026-10-15:** "Propose the category and the criteria behind it, but flag as uncertain when uncertainty criteria are clearly met." Implemented: the proposal is the best estimate, the whole plausible range is reported (dispute tolerance 0), and a range holding both a non-threatened and a threatened category is flagged uncertain (the §10.1/§10.4 case) instead of moving the proposal to NT |
 | D8 | Are `VEROH` 3/9 and literature or collection records excluded by default, or only flagged? | **Decided 2026-10-15:** "only flagged if more than 10 % of species records carry 3". Read as: `VEROH` 3 is excluded unless more than 10 % of the taxon's records carry it, in which case they are kept and flagged (`flag_records(less_credible_share = 0.10)`, a labelled convention). Literature/collection records are flagged only. *Confirm this reading* |
 | D9 | Who approves eligibility, regional adjustment and final categories, and how is approval recorded? | An approval record in the evidence file (author, role, date, version); the engine refuses a final category without one |
 | D10 | May `Kategorie (automatická)` and `Kriteria (automatická)` change meaning (no final LC/NT/DD/RE from the engine; Annex 2 notation)? | **Decided 2026-10-15: no.** Both columns keep a proposed category and the criteria behind it, and `Kriteria (automatická)` keeps today's format. Annex 2 notation goes in a new `Kritéria (IUCN zápis)` column. Further new columns: `Opora návrhu`, `Nutno doložit`, `Rozsah kategorií`, `issue_*` |

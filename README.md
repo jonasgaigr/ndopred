@@ -25,14 +25,17 @@ It follows the **IUCN Red List Categories and Criteria v3.1** (IUCN 2012), the *
 
 ## How a category is proposed
 
-Every entry point (both apps, `assess_species()`, `batch_assess()`) runs the same rule engine and reports four things for each taxon:
+Every entry point (both apps, `assess_species()`, `batch_assess()`) runs the same rule engine and reports five things for each taxon:
 
 1. **A proposed category** with the criteria behind it, in ndopred's established format (`B1ab(ii); B2ab(ii)`) and in IUCN notation (`B1ab(ii)+2ab(ii)`).
 2. **Its support.** *Evidenced* means every condition behind the proposal comes from the assessor or from a measured value. *Indication* means at least one condition rests on a proxy from the records, such as 5 km clusters standing in for threat-defined locations, or the raw change in AOO between two windows standing in for a decline.
 3. **What still needs evidence**, condition by condition, e.g. `B(a): severe fragmentation or threat-defined locations (5 km clusters used as an indication)`.
 4. **The plausible range** of categories, from the largest plausible EOO and AOO to the smallest plausible ones with the unknown conditions true, e.g. `LC-EN`.
+5. **Whether it is uncertain**: the range holds both a non-threatened category (LC, NT) and a threatened one (VU, EN, CR).
 
-What the records cannot show is never assumed absent. An unknown condition is **unknown**: it does not count against the taxon in the proposal, but it widens the range and appears in "needs evidence". A taxon whose range could reach VU or above is proposed as **NT** rather than LC (Guidelines §10.1).
+What the records cannot show is never assumed absent. An unknown condition is **unknown**: it does not count against the taxon in the proposal, but it widens the range and appears in "needs evidence".
+
+The proposal is the **best estimate** (AOPK decision D7). Uncertainty never changes it; it is flagged. Guidelines §10.1 allows NT for a taxon whose range holds LC and VU or EN, and DD when every category from LC to CR is plausible; §10.4 leaves that choice to the assessor's risk tolerance. The flag says which applies. ndopred itself proposes NT only where a criterion is nearly met.
 
 The proposal is not a final category. Approval belongs to the assessor.
 
@@ -103,16 +106,16 @@ The password is stored in plain text, so restrict the file's permissions. A fail
 library(ndopred)
 
 assess_species("Lucanus cervus",
-               recent_start = 2016, recent_end = 2025,
-               comp_start   = 2006, comp_end   = 2015)
+               recent_start = 2010, recent_end = 2026,
+               comp_start   = 2000, comp_end   = 2016)
 ```
 
 The reference year defaults to `recent_end`. The assessor's evidence can be passed straight through:
 
 ```r
 assess_species("Bombina bombina",
-               recent_start = 2016, recent_end = 2025,
-               comp_start   = 2006, comp_end   = 2015,
+               recent_start = 2010, recent_end = 2026,
+               comp_start   = 2000, comp_end   = 2016,
                d2_threat = "drainage of breeding ponds",   # describe the threat
                threat_locations = 8,
                habitat_decline = TRUE)                       # B(b)(iii)
@@ -122,7 +125,7 @@ assess_species("Bombina bombina",
 
 ```r
 batch_assess(c("Lucanus cervus", "Bombina bombina", "Pulsatilla vernalis"),
-             reference_year = 2025)
+             reference_year = 2026)   # 2010-2026 against 2000-2016
 ```
 
 A taxon that fails keeps its row: the category is `NA` and an `issue_*` column says why.
@@ -132,7 +135,7 @@ A taxon that fails keeps its row: the category is `NA` and an `issue_*` column s
 Pass a folder and every download is stored unchanged as an RDS snapshot, so the same assessment can be rerun on exactly the same records:
 
 ```r
-batch_assess(c("Lucanus cervus", "Bombina bombina"), reference_year = 2025,
+batch_assess(c("Lucanus cervus", "Bombina bombina"), reference_year = 2026,
              snapshot_dir = default_snapshot_dir())   # Documents/ndop_snapshots
 # ... later, on the same data:
 occ <- get_assessment_data("Bombina bombina",
@@ -144,7 +147,7 @@ Snapshots hold exact (including hidden) coordinates and observer names: keep the
 ### Step by step
 
 ```r
-cfg <- ndopred_config(reference_year = 2025, window = 10)
+cfg <- ndopred_config(reference_year = 2026)   # AOPK windows: 2010-2026 vs 2000-2016
 occ <- get_assessment_data("Bombina bombina")
 table(occ$include)                  # every record is kept; exclusions are flags
 attr(occ, "exclusions")             # how many records were excluded, and why
@@ -155,7 +158,7 @@ res <- assess_taxon(species = "Bombina bombina", config = cfg, metrics = m,
                     evaluate_pop = TRUE,
                     evidence = list(threat = "drainage of breeding ponds",
                                     threat_locations = 8))
-res$proposal                        # category, criteria, support, needs, range
+res$proposal                        # category, criteria, support, needs, range, uncertain
 res$assessment$table                # one row per criterion x subcriterion x level
 ```
 
@@ -174,7 +177,10 @@ categorise(assess_criteria(inp, ndopred_config(2025)))
 ### A map
 
 ```r
-p <- plot_iucn("Bombina bombina", occ_data = occ, window = 10, year_now = 2025)
+w <- cfg$windows                     # the windows the assessment used
+p <- plot_iucn("Bombina bombina", occ_data = occ,
+               recent_start = w$recent_start, recent_end = w$recent_end,
+               comp_start = w$comp_start, comp_end = w$comp_end)
 ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white")
 ```
 
@@ -222,7 +228,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 ## The bulk export
 
-Upload a CSV with `TAXON` (required), and optionally `CELED`, `SKUPINA` and `ID_TAXON` (for a link to the species card on portal.nature.cz). Set the reference year and the window length; the comparison window is the equal-length window before it.
+Upload a CSV with `TAXON` (required), and optionally `CELED`, `SKUPINA` and `ID_TAXON` (for a link to the species card on portal.nature.cz). Set the reference year, the length of the current window (AOPK default 17 years: 2010–2026 for 2026) and how far back the comparison window lies (default 10 years: 2000–2016).
 
 The established columns are unchanged. `Kategorie (automatická)` holds the proposed category and `Kriteria (automatická)` the criteria behind it, in the established format. The new columns are:
 
@@ -232,12 +238,13 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Opora návrhu` | `doloženo` (evidenced), `indikace z nálezových dat` (rests on indications), `kandidát` (RE/DD candidate), `nehodnoceno` (NE) |
 | `Nutno doložit` | What still needs evidence, condition by condition |
 | `Rozsah kategorií` | Plausible range, e.g. `LC-EN` |
-| `Příznaky` | Candidate flags: `D2 candidate`, `DD candidate (plausible range LC-CR)`, `RE candidate` |
+| `Příznaky` | Flags: `Uncertain: plausible range LC-EN - NT may be chosen (Guidelines 10.1)`, `D2 candidate`, `DD candidate (plausible range LC-CR)`, `RE candidate` |
 | `AOO nový, zvolená mřížka (km2)` | AOO on the display grid chosen in the app (the B2 value is always on 2 x 2 km) |
 | `Referenční rok` | The reference year of the run |
 | `AOO nový min/max (km2)`, `EOO nový min/max (km2)` | Bounds from positional precision and record polygons |
 | `Záznamů vyřazeno`, `Důvody vyřazení` | How many records were excluded, and why |
 | `Snapshot NDOP` | The snapshot file the row was computed from (when snapshots are stored) |
+| `Nejistý návrh` | `ano` when the plausible range holds both a non-threatened and a threatened category (AOPK, D7) |
 | `issue_download` … `issue_population` | The reason for every empty value |
 
 The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it.
@@ -269,13 +276,14 @@ The **Expert view** updates live and equals the automated proposal until somethi
   - Negative findings are kept as non-detections.
   - Records of another taxon (names match exactly, so the query's hybrids and aggregates are excluded), records without coordinates, and records outside Czechia are excluded.
   - Literature sources and suspected duplicates are flagged only.
-- **Date ranges count only where they fit.** A record dated 2014–2017 belongs to neither 2006–2015 nor 2016–2025.
+- **Windows (AOPK, D5).** The current window is the 17 years up to the reference year (2010–2026); the trend compares it with 2000–2016. The two windows' midpoints are 10 years apart, the period of criterion A. They share 2010–2016, which damps the measured change: a site lost after 2010 still counts as current if it was recorded before the loss. For the same reason the criterion B window can hold sites lost since 2010, which §4.9 asks to leave out.
+- **Date ranges count only where they fit.** A record dated 1995–2012 belongs to neither 2000–2016 nor 2010–2026.
 - **AOO and EOO have ranges.** `CXPRESNOST` 0 means an exact position. A record whose precision disc, or NDOP polygon, reaches into other 2 x 2 km cells widens AOO to a minimum and a maximum around the best estimate. These bound the *observed* AOO; for an under-recorded taxon the true AOO can be larger (§4.10.8).
-- **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is NT with a range reaching CR; the same taxon with the conditions evidenced absent is LC (Guidelines §10.1).
+- **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is proposed as LC, flagged uncertain, with a range reaching CR and the missing conditions listed; the same taxon with the conditions evidenced absent is LC without the flag (Guidelines §10.1).
 - **D2 needs a described threat.** A restricted range is flagged as a D2 candidate; VU D2 follows once the assessor names a plausible threat able to drive the taxon to CR or EX in a very short time (§8). `d2_threat = TRUE` alone is not a threat and is treated as unknown.
 - **Clusters are not locations.** The 5 km cluster count is an indication for B(a) and D2, always listed as needing threat-defined locations (§4.11). With no plausible threat, the location subcriteria are not met.
 - **Raw changes between windows are indications.** They can support B(b) and A2c proposals, but are listed as needing an effort-corrected or monitored estimate, because the number of records changes with recording effort (§4.10.8).
-- **RE and DD are candidates, NE is "not evaluated".** A taxon not recorded for longer than `re_candidate_years` (a convention, default 50) is an RE candidate needing documented surveys (Regional Guidelines III.14). DD is proposed only for a taxon with records but none current and nothing else to go on, and is flagged when the range spans LC to CR (§10.3). A taxon with no usable records is NE (§10.4).
+- **RE and DD are candidates, NE is "not evaluated".** A taxon not recorded for longer than `re_candidate_years` (a convention, default 50) is an RE candidate needing documented surveys (Regional Guidelines III.14). DD is proposed only for a taxon with records but none current and nothing else to go on, and is flagged when the range spans LC to CR (§10.1, §10.4). A taxon with no usable records is NE (§10.4).
 - **Notation follows Annex 2** in `Criteria_IUCN` / `Kritéria (IUCN zápis)`: `CR D` and `EN D` (not `D1`), `B1…+2…`, `C2a(i,ii)`, `VU D1+2`.
 - **No system clock.** Every run states its reference year.
 - **Counts are minima.** `total_mature` and `max_subpop` are minimum observed values from opportunistic records, and NDOP *localities* stand in for subpopulations, so both are indications (§4.2, §4.3).
@@ -310,7 +318,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.4.0 (experimental). Proposals are a screening aid; the category is the assessor's decision.
+Version 0.5.0 (experimental). Proposals are a screening aid; the category is the assessor's decision.
 
 ## References
 
