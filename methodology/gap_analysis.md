@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phases 5–6 open (§8) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phase 5 done (0.9.0); Phase 6 open (§8) |
 
 ## 1. Summary
 
@@ -395,6 +395,16 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 
 **Gap tests turned green:** 05b, 05c, 09a–d.
 
+**Status (2026-10-15): done, version 0.9.0.**
+- `trend_estimate()` classifies each taxon's data into T0-T3 (review Table 5) and gives the estimate the tier allows, with an interval; the estimate is the reduction indication and its interval the plausible range. T0: raw AOO and alpha-hull EOO change with the start-year range (comparison window moved two years either way). T1: relative occupancy on cells recorded for the group in both windows, bootstrap interval. T2: spOccupancy `tPGOcc` with list length as the detection covariate, run when `occupancy_model = TRUE`. T3: a log-linear index from monitoring projects AOPK lists.
+- A first T0 design (equal-size subsamples of each window) gave intervals that excluded zero for a stable taxon: subsampling does not capture the noise of the window samples themselves. It was replaced by the start-year range, and the alpha-hull is built on occupied cells, because on raw records it followed recording density (*Bombina bombina*: -41 % on records, +0 % on cells).
+- Effort layers (`ndop_effort()`): every record of an NDOP group as cells and anonymous visits; downloaded year by year (month by month where a year is too large), resumable. NDOP counts per window: Amphibia ~174,000-296,000, Odonata ~129,000-153,000, Coleoptera 363,000 (2000-2016); the counts for Lepidoptera, and for Coleoptera in 2010-2026, timed out, so chunking is required.
+- Alpha-hull for EOO change (Guidelines 4.9), `calculate_eoo_alpha()`; MCP stays for B1.
+- Criterion C: census total from each locality's most recent count with a min/max range (GAP-09c); fluctuations only from consistent-effort (T3) series (GAP-09d); C1 only from an estimated decline (Table 3.1); expert evidence below the Table 3.1 minimum documented but not used. Past reductions not capped at 100 years in the single-taxon app (GAP-05c).
+- All 42 gap tests now pass in the regular suite; the opt-in file is removed.
+- Real data: *Bombina bombina* T1 +2 % (+1 to +3) on 2,784 cells, T2 +9 % (+3 to +15), Rhat 1.09, 100 s; *Protaetia cuprea* T0 +236 % (+180 to +313), which mostly reflects growing recording effort.
+- Not done: negative findings are not yet used as non-detections in T1/T2; an occupancy model with year effects (rather than a linear trend); the A4 moving window from data; C1 from T2.
+
 ### Phase 6: benchmark, pilot validation, documentation
 
 - **ConR 2.1** (GitHub `gdauby/ConR`, active, not on CRAN): a benchmark script comparing EOO, AOO, locations and category with ndopred on the pilot taxa.
@@ -427,10 +437,7 @@ One question the prompt already settles is not listed: taxa with no usable recor
 ## 10. Running the gap tests
 
 ```r
-Sys.setenv(NDOPRED_GAP_TESTS = "true")
-devtools::test(filter = "gap-phase0")   # 42 tests, all fail on the current code
-Sys.unsetenv("NDOPRED_GAP_TESTS")
-devtools::test()                        # regular suite: 177 pass; the gap file is skipped
+devtools::test()   # every gap test now runs in the regular suite (test-iucn-alignment.R)
 ```
 
 Each test name starts with its item number (GAP-01 … GAP-17). The fixtures reuse `helper-mock-ndop.R` and add two synthetic taxa: *Effort drop sp*, whose range is unchanged while records fall from 200 to 40, and *Origin sp*, whose coordinates were chosen so that the two grid-origin rules disagree.

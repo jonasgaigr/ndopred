@@ -236,6 +236,15 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 **Deprecated, kept for existing scripts:** `summarize_assessment()`, `assess_criterion_a()`, `assess_criterion_d2()`.
 
+**Trends** (review Table 5; Guidelines §4.5, §4.9)
+
+| Function | Purpose |
+|---|---|
+| `trend_estimate()`, `data_tier()` | The data tier T0-T3 of a taxon and the trend estimate it allows, with its interval and start-year sensitivity |
+| `trend_settings()` | Conventions of the trend module: thresholds per tier, monitoring projects (T3), the occupancy model (T2) |
+| `ndop_effort()`, `effort_layer()`, `read_effort()` | Recording effort of a whole NDOP group (cells and visits, no names), downloaded once and cached |
+| `calculate_eoo_alpha()` | EOO as an alpha-hull, the measure for change in EOO (§4.9) |
+
 **Regional step** (Regional Guidelines v4.0)
 
 | Function | Purpose |
@@ -274,6 +283,8 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Kategorie (regionální)`, `Kritéria (regionální)` | After the regional step: `NA` from step one, or the category adjusted in step three (`NT°`) |
 | `Regionální krok` | Why: the step-one reason and the step-three answers |
 | `Globální kategorie`, `Podíl globální populace (%)` | Published beside the regional category (Regional Guidelines V.4); `?` when the share is unknown |
+| `Úroveň dat (T0-T3)`, `Odhad trendu (%)`, `Zdroj trendu` | The data tier, the trend estimate with its interval, and what it rests on |
+| `Citlivost trendu na začátek období` | The raw AOO change for comparison windows starting two years earlier to two years later |
 | `issue_download` … `issue_population` | The reason for every empty value |
 
 The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it. An optional **evidence file** (one for any number of taxa) adds the experts' evidence, record flags and final categories; with evidence, the proposal in `Kategorie (automatická)` uses it.
@@ -323,12 +334,13 @@ Each row names the taxon, the field (`evidence_fields()`), the value or `min`/`b
 - **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is proposed as LC, flagged uncertain, with a range reaching CR and the missing conditions listed; the same taxon with the conditions evidenced absent is LC without the flag (Guidelines §10.1).
 - **D2 needs a described threat.** A restricted range is flagged as a D2 candidate; VU D2 follows once the assessor names a plausible threat able to drive the taxon to CR or EX in a very short time (§8). `d2_threat = TRUE` alone is not a threat and is treated as unknown.
 - **Clusters are not locations.** The 5 km cluster count is an indication for B(a) and D2, always listed as needing threat-defined locations (§4.11). With no plausible threat, the location subcriteria are not met.
-- **Raw changes between windows are indications.** They can support B(b) and A2c proposals, but are listed as needing an effort-corrected or monitored estimate, because the number of records changes with recording effort (§4.10.8).
+- **Trends follow the data tier** (review, Table 5). **T0**, records only: the raw change in AOO and in alpha-hull EOO, with the range from moving the comparison window two years either way; a diagnostic, not a population trend. **T1**, with an effort layer of the group (`ndop_effort()`): relative occupancy on the cells recorded for the group in both windows, an interim proxy with a bootstrap interval. **T2**, repeat visits: an occupancy-detection model (spOccupancy) when switched on. **T3**, counts from standardized monitoring projects that AOPK lists: an abundance index (basis b). Each estimate is an indication with its interval; a continuing decline is indicated only when the whole interval says so. The needs list says what each tier still lacks (a monitored estimate for T0/T1; the link from occupancy to population for T2).
+- **Minimum data quality** (Guidelines Table 3.1): expert evidence below the minimum of its criterion (a suspected decline for B or C2; inferred numbers for C, D or C2a(i); an inferred decline for C1) is documented but not used. C1 needs an estimated decline, so only standardized monitoring (T3) or evidence gives it, and only T3 counts diagnose extreme fluctuations.
 - **The regional step needs experts.** Eligibility (origin, occurrence, years of reproduction, share of the global population), the step-three questions 3a-3f, the number of steps and the global category are evidence entries. An optional filter on the share of the global population (`ndopred_config(regional_filter_share)`) is off until AOPK sets one. A final category one step below what the evidence supports is consistent when the step-three answers give that downlisting.
 - **RE and DD are candidates, NE is "not evaluated".** A taxon not recorded for longer than `re_candidate_years` (a convention, default 50) is an RE candidate needing documented surveys (Regional Guidelines III.14). DD is proposed only for a taxon with records but none current and nothing else to go on, and is flagged when the range spans LC to CR (§10.1, §10.4). A taxon with no usable records is NE (§10.4).
 - **Notation follows Annex 2** in `Criteria_IUCN` / `Kritéria (IUCN zápis)`: `CR D` and `EN D` (not `D1`), `B1…+2…`, `C2a(i,ii)`, `VU D1+2`.
 - **No system clock.** Every run states its reference year.
-- **Counts are minima.** `total_mature` and `max_subpop` are minimum observed values from opportunistic records, and NDOP *localities* stand in for subpopulations, so both are indications (§4.2, §4.3).
+- **Counts are minima.** `total_mature` and `max_subpop` are minimum observed values from opportunistic records, and NDOP *localities* stand in for subpopulations, so both are indications (§4.2, §4.3). `total_mature` sums each locality's most recent count, with the latest year and the per-locality maxima as its range.
 
 ---
 
@@ -341,14 +353,9 @@ devtools::test()
 The suite covers:
 - the engine at every threshold boundary;
 - the IUCN Annex 2 and Guidelines §8.2/§8.3 worked examples;
-- every closed gap from the Phase 0 audit (`test-iucn-alignment.R`);
+- all 42 gaps from the Phase 0 audit, now closed (`test-iucn-alignment.R`);
+- the evidence layer, the regional step and the trend tiers, including a small occupancy model when spOccupancy is installed;
 - both Shiny apps end-to-end against a synthetic NDOP fixture (`tests/testthat/helper-mock-ndop.R`).
-
-Gaps still open are opt-in tests:
-
-```r
-Sys.setenv(NDOPRED_GAP_TESTS = "true"); devtools::test(filter = "gap-phase0")
-```
 
 ---
 
@@ -360,7 +367,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.8.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
+Version 0.9.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
 
 ## References
 

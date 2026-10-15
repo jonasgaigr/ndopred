@@ -16,7 +16,7 @@ Categories and Criteria v16** (IUCN Standards and Petitions Committee, March
 The **Guidelines for Application of IUCN Red List Criteria at Regional and
 National Levels v4.0** (IUCN 2012, "RG") give the regional step: eligibility
 before the assessment, adjustment for populations outside the country after it
-(section 12). Section numbers below refer to the Guidelines v16 unless stated
+(section 13). Section numbers below refer to the Guidelines v16 unless stated
 otherwise.
 
 `methodology/gap_analysis.md` records the audit of the package against these
@@ -168,12 +168,13 @@ its source.
 # 6. Criterion A
 
 Thresholds are 90/70/50 % for A1 and 80/50/30 % for A2–A4, inclusive. The window
-is 10 years or three generations, whichever is longer. A raw change in AOO or
-EOO between windows is an **indication** of reduction with basis (c); NDOP counts
-give basis (b). Either is listed as needing an effort-corrected or monitored
-estimate, because the number of records changes with recording effort
-(§4.10.8). An assessor's reduction estimate is evidence and replaces the
-indication.
+is 10 years or three generations, whichever is longer; past reductions (A2) are
+not capped at 100 years, which §5.2 applies to projections only. The reduction
+indication comes from the trend module (section 10): its tier, estimate and
+interval, with basis (c) for occupancy and basis (b) for standardized counts or
+NDOP counts. It is listed with what it still needs, because the number of
+records changes with recording effort (§4.10.8). An assessor's reduction
+estimate is evidence and replaces the indication.
 
 # 7. Criterion B
 
@@ -183,9 +184,11 @@ locations, (b) continuing decline, (c) extreme fluctuations. The conditions are
 checked at every level whose area threshold is met, because (a) depends on the
 level: a taxon with EOO 50 km² and four locations is EN, not "CR minus one
 condition". Subindices under (b) come from what was measured or evidenced: (i)
-from EOO change, (ii) from AOO change, (iii) only from the assessor, (iv) from
-the change in clusters, (v) from counts. A change smaller than the decline
-tolerance (default 5 %) is not an indication of decline.
+from the change in alpha-hull EOO, (ii) from the trend estimate of AOO or
+occupancy, (iii) only from the assessor, (iv) from the change in clusters, (v)
+from counts. A decline in (i) or (ii) is indicated only when the whole interval
+of the change lies below the decline tolerance (default 5 %), ruled out when it
+lies above, and unknown otherwise.
 
 # 8. Criteria C and D
 
@@ -207,18 +210,60 @@ the proposal; a restricted taxon is flagged as a D2 candidate.
 
 NDOP counts are minimum observed values and NDOP localities stand in for
 subpopulations (§4.2, §4.3), so both are indications. `evaluate_pop` decides
-whether NDOP counts may be used at all.
+whether NDOP counts may be used at all. The total is each locality's most recent
+count, not a sum of maxima from different years; the latest census year and the
+per-locality maxima are its range.
+
+Guidelines Table 3.1 sets a minimum data quality per criterion: below it, the
+criterion "is considered not to have been met". C1 needs an *estimated*
+continuing decline, so it is met only from evidence or from a standardized
+monitoring series (T3), never from opportunistic counts. Expert evidence below
+the minimum of its criterion (a suspected decline for B(b) or C2; inferred
+numbers for C, D or C2a(i); an inferred decline for C1) is documented but not
+used.
 
 # 9. Extreme fluctuations
 
 §4.7 requires variation greater than one order of magnitude **and** a recurring
 pattern of increases and decreases; §4.6 adds that "an observed decline should
 not be considered as a fluctuation unless there is evidence for this".
-`calculate_pop_metrics()` reports the max/min ratio, a count of direction
-reversals, and a boolean `extreme_fluctuation` requiring a ratio ≥ 10, at least
-two reversals and at least five years of data.
+`calculate_pop_metrics()` reports the max/min ratio and a count of direction
+reversals. Whether the change is in the population or in recording can only be
+judged from a consistent-effort series, so `extreme_fluctuation` (a ratio ≥ 10,
+at least two reversals, at least five years) is diagnosed only from standardized
+monitoring counts (T3) and is unknown otherwise.
 
-# 10. RE, DD and NE
+# 10. Trends and data tiers
+
+`trend_estimate()` classifies each taxon's data into the tiers of the review
+(Table 5) and computes the trend the tier allows:
+
+* **T0**, records only: the raw change in AOO (one grid origin for both windows)
+  and in EOO as an alpha-hull. §4.9 recommends the alpha-hull, not the convex
+  hull, "for assessing reductions or continuing declines in EOO"; it is built
+  on one point per occupied 2 × 2 km cell so that it follows the range rather
+  than the density of recording. The comparison window is also moved two years
+  earlier and later, and the range of changes is the interval (start-year
+  sensitivity, review §7.3). A diagnostic, not a population trend.
+* **T1**, an effort layer of the group (`ndop_effort()`: every record of the
+  NDOP group, reduced to cells and anonymous visits): relative occupancy on the
+  cells recorded for the group in both windows, with a bootstrap interval. An
+  explicitly labelled interim proxy.
+* **T2**, repeat visits of the group around the taxon: a multi-season
+  occupancy-detection model (`spOccupancy::tPGOcc()`), occupancy with a linear
+  trend over years, detection with the visit's list length. A trend in
+  occupancy, not in mature individuals (review §7.3), so basis (c). Run when
+  `trend_settings(occupancy_model = TRUE)`; it takes minutes per taxon.
+* **T3**, counts from standardized monitoring projects that AOPK lists
+  (`monitoring_projects`): an abundance index, a log-linear model of counts on
+  site and year, basis (b). The only source of an estimated decline (C1) and of
+  a fluctuation diagnosis from records.
+
+The best available tier gives the reduction indication, with its interval as
+the plausible range. Bulk mode still proposes from T0 and T1 (AOPK, D11); the
+needs list says what each tier lacks.
+
+# 11. RE, DD and NE
 
 * **RE.** A taxon with no current records and no record for longer than
   `re_candidate_years` is proposed as an **RE candidate**, with documented
@@ -236,7 +281,7 @@ A taxon that was recorded in the comparison window but not in the current one is
 proposed under A2c from the indicated loss, with current occurrence listed as
 needing evidence (§11.2 prefers A2 for recent disappearances).
 
-# 11. Expert evidence, the final category and approval
+# 12. Expert evidence, the final category and approval
 
 Expert evidence is one table with a row per piece of evidence
 (`evidence_fields()` lists the fields; `evidence_template()` writes a CSV or
@@ -277,7 +322,7 @@ final category with approvals and checks, parameters with bounds, every
 criterion with the rule applied and what decided it, the evidence with its
 authors, the record IDs used and excluded, open questions and the versions.
 
-# 12. The regional step
+# 13. The regional step
 
 A national Red List follows three steps (RG IV.1, Figure 1): decide which
 regional populations to assess, apply the criteria to the regional population
@@ -322,21 +367,24 @@ category set by a documented rescue effect is consistent and shown with its
 degree sign. RE needs documented surveys and should not pre-date 1500 AD (RG
 III.14).
 
-# 13. Known limitations
+# 14. Known limitations
 
 * NDOP is an opportunistic database. AOO, EOO and location counts depend on
   recording effort (§4.10.8), and counts are minimum observed values (§4.3).
-* Negative findings are kept but not yet used: the effort-aware trends that need
-  them come in Phase 5. The redlistr cross-check of the spatial metrics is planned
-  for Phase 6.
-* Effort-corrected trends and data tiers are planned (Phase 5). Until then the
-  overlap of the AOPK windows damps the change, and the single-taxon app caps
-  the reduction window at 100 years, which §5.2 applies only to projected
-  reductions.
+* Negative findings count as zero counts in T3 monitoring series; T1 and T2 use
+  the group's positive records as effort and do not use them yet. The redlistr
+  cross-check of the spatial metrics is planned for Phase 6.
+* Without an effort layer a trend is T0: a raw change, effort-blind. Effort
+  layers are downloaded once per group; for large groups that takes hours. T1
+  still carries target-species bias (review §7.1); T2 assumes a linear trend in
+  occupancy and reports convergence (Rhat). The overlap of the AOPK windows damps
+  every change.
 * Generation lengths are a 1-year placeholder for every group until AOPK
   refines the table.
 * NDOP data come only through rndop (AOPK, D4), which exports no visit
-  identifier. Phase 5 has to rebuild visits from date, site and observer.
+  identifier: visits are rebuilt from date, locality and an anonymous observer
+  code, and as NDOP lists are rarely complete, list length is the detection
+  covariate of T2.
 * Threats, and so threat-defined locations and the D2 threat, come only from
   the assessor (AOPK, D6).
 * One assessment covers a taxon's NDOP records as one regional population.

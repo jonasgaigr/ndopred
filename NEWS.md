@@ -1,3 +1,66 @@
+# ndopred 0.9.0
+
+Phase 5 of the IUCN alignment (`methodology/gap_analysis.md`): the trend
+module with data tiers T0-T3 (review, Table 5), the alpha-hull for EOO
+change, criterion C corrections, and the minimum data quality of Guidelines
+Table 3.1. All 42 gap tests of the Phase 0 audit now pass; the opt-in file
+is gone.
+
+## Trends and data tiers
+
+* New `trend_estimate()` and `data_tier()`:
+  * **T0**, records only: the raw change in AOO and in alpha-hull EOO, with
+    the range from moving the comparison window two years either way
+    (start-year sensitivity). A diagnostic.
+  * **T1**, with an effort layer of the group: relative occupancy on the
+    cells recorded for the group in both windows, with a bootstrap interval.
+    An interim proxy.
+  * **T2**, repeat visits: a multi-season occupancy-detection model
+    (spOccupancy, in Suggests), run when `occupancy_model = TRUE`.
+  * **T3**, counts from standardized monitoring projects that AOPK lists: an
+    abundance index (basis b).
+* The tier's estimate is the reduction indication, its interval the
+  plausible range. A continuing decline in EOO or AOO is indicated only when
+  the whole interval says so, and is unknown otherwise. The needs list says
+  what each tier lacks.
+* New `trend_settings()`, the trend conventions, carried in
+  `ndopred_config(trend = )`.
+* New `ndop_effort()`, `effort_layer()` and `read_effort()`: the recording
+  effort of a whole NDOP group as cells and anonymous visits (no names).
+  Downloaded year by year, month by month where a year is too large;
+  resumable and cached.
+* `assess_taxon(effort = )`, `assess_species(effort_dir = )`,
+  `batch_assess(effort_dir = )`; the bulk app reads (and optionally
+  downloads) effort layers; both apps can fit occupancy models and take a
+  list of monitoring projects.
+* Rows gain `Data_Tier`, `Trend_Estimate`, `Trend_Source` and
+  `Trend_Sensitivity`. The bulk export gains `Úroveň dat (T0-T3)`,
+  `Odhad trendu (%)`, `Zdroj trendu` and
+  `Citlivost trendu na začátek období`.
+* The engine accepts indications as min/best/max ranges too.
+
+## EOO change
+
+* New `calculate_eoo_alpha()`. Change in EOO uses an alpha-hull (alpha 2) on
+  occupied 2 x 2 km cells (Guidelines §4.9); the convex hull stays the
+  criterion B1 measure. `calculate_trend()` reports both.
+
+## Criterion C and data quality
+
+* `calculate_pop_metrics()`:
+  * `total_mature` is the sum of each locality's most recent count, with
+    `total_mature_min` (latest year) and `total_mature_max` (per-locality
+    maxima), no longer a sum of maxima from different years (GAP-09c);
+  * extreme fluctuations are diagnosed only from a consistent-effort series
+    (`consistent_effort = TRUE`; T3) and are otherwise unknown (GAP-09d);
+  * `decline_estimated` says whether the decline rate is an estimate.
+* C1 needs an estimated decline (Guidelines Table 3.1): it is met only from
+  evidence or a T3 series, never from opportunistic counts.
+* Expert evidence below the minimum quality of its criterion (Table 3.1) is
+  documented but not used, with a note.
+* The single-taxon app no longer caps past reductions (A2) at 100 years
+  (GAP-05c).
+
 # ndopred 0.8.0
 
 Phase 4 of the IUCN alignment (`methodology/gap_analysis.md`): the regional
