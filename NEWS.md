@@ -2,8 +2,8 @@
 
 Phase 1 of the IUCN alignment planned in `methodology/gap_analysis.md`: one
 rule engine for every entry point, three-valued logic, and proposals that say
-what they rest on. 28 of the 42 Phase 0 gap tests now pass and have moved to
-the regular suite (`test-iucn-alignment.R`); the other 14 belong to later
+what they rest on. 29 of the 42 Phase 0 gap tests now pass and have moved to
+the regular suite (`test-iucn-alignment.R`); the other 13 belong to later
 phases and stay opt-in (`test-gap-phase0.R`).
 
 ## One rule engine

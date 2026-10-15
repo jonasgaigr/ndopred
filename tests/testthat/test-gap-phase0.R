@@ -148,10 +148,3 @@ test_that("GAP-12: regional eligibility and adjustment exist", {
   expect_true(any(grepl("eligib|native|regional|rescue", f)))
 })
 
-# ------------------------------------------------------ GAP-14: stale docs
-
-test_that("GAP-14: README install instructions point at the real repository", {
-  readme <- testthat::test_path("..", "..", "README.md")
-  skip_if_not(file.exists(readme), "README not available (installed package)")
-  expect_false(any(grepl("yourusername", readLines(readme, warn = FALSE))))
-})

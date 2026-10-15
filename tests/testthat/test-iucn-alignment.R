@@ -300,3 +300,11 @@ test_that("GAP-17: the assessment reference year is an explicit argument", {
   expect_true("reference_year" %in% names(formals(summarize_assessment)))
   expect_true("reference_year" %in% names(formals(batch_assess)))
 })
+
+# ------------------------------------------------------ GAP-14: stale docs
+
+test_that("GAP-14: README install instructions point at the real repository", {
+  readme <- testthat::test_path("..", "..", "README.md")
+  skip_if_not(file.exists(readme), "README not available (installed package)")
+  expect_false(any(grepl("yourusername", readLines(readme, warn = FALSE))))
+})
