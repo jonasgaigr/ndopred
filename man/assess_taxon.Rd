@@ -11,7 +11,8 @@ assess_taxon(
   evaluate_pop = FALSE,
   evidence = list(),
   display_grid_size = 2000,
-  metrics = NULL
+  metrics = NULL,
+  effort = NULL
 )
 }
 \arguments{
@@ -32,6 +33,9 @@ the engine's evidence list (see \code{\link[=assessment_inputs]{assessment_input
 \item{display_grid_size}{Numeric. Cell size in metres of the display AOO.}
 
 \item{metrics}{Optional result of \code{\link[=taxon_metrics]{taxon_metrics()}}, to reuse.}
+
+\item{effort}{Optional effort layer of the taxon's group (\code{\link[=ndop_effort]{ndop_effort()}}),
+for the trend tiers T1 and T2 (\code{\link[=trend_estimate]{trend_estimate()}}).}
 }
 \value{
 A list: \code{result} (one-row data frame, see \code{\link[=summarize_assessment]{summarize_assessment()}}

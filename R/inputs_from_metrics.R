@@ -6,7 +6,8 @@
                                  aoo_change, eoo_change, locs_change, clusters,
                                  pop_metrics, evaluate_pop, tolerance, evidence = list(),
                                  eoo_km2_min = NA, eoo_km2_max = NA,
-                                 aoo_km2_min = NA, aoo_km2_max = NA) {
+                                 aoo_km2_min = NA, aoo_km2_max = NA,
+                                 trend_est = NULL) {
   num <- function(x) {
     v <- suppressWarnings(as.numeric(x))
     if (length(v) == 0) NA_real_ else v[1]
@@ -33,29 +34,49 @@
 
   # Criterion A indication: the larger of the spatial decline (basis c) and
   # the count-based decline (basis b). The count-based one counts only past
-  # the tolerance, and wins ties on category, as before.
-  spatial <- suppressWarnings(min(c(aoo_change, eoo_change), na.rm = TRUE))
-  spatial <- if (is.finite(spatial)) max(0, -spatial) else NA_real_
+  # the tolerance, and wins ties on category, as before. With a trend
+  # estimate (trend_estimate()), the spatial decline is its tiered estimate
+  # with its interval; otherwise the raw change.
+  te <- trend_est
+  has_te <- !is.null(te) && !is.null(te$change) && !is.na(te$change[["best"]])
+  if (has_te) {
+    spatial <- .as_reduction(te$change)
+    spatial_basis <- te$basis
+    spatial_source <- te$source
+  } else {
+    spatial <- suppressWarnings(min(c(aoo_change, eoo_change), na.rm = TRUE))
+    spatial <- if (is.finite(spatial)) max(0, -spatial) else NA_real_
+    spatial_basis <- "c"
+    spatial_source <- "raw AOO/EOO change between windows (not effort-corrected)"
+  }
   pop_red <- if (isTRUE(declining(pop_rate))) -pop_rate else NA_real_
   a_level <- function(v) {
+    v <- .range3(v)[["best"]]
     if (is.na(v)) return(0L)
     hit <- which(v >= .A_THRESH$A2[.LEVELS])
     if (length(hit)) 4L - hit[1] else 0L
   }
-  use_pop <- !is.na(pop_red) && (is.na(spatial) || a_level(pop_red) >= a_level(spatial))
+  use_pop <- !is.na(pop_red) && (is.na(.range3(spatial)[["best"]]) || a_level(pop_red) >= a_level(spatial))
   reduction <- if (use_pop) pop_red else spatial
 
   indication <- list(
     reduction = reduction,
-    reduction_basis = if (use_pop) "b" else "c",
-    reduction_source = if (use_pop) "opportunistic NDOP counts (minimum observed)" else
-      "raw AOO/EOO change between windows (not effort-corrected)",
+    reduction_basis = if (use_pop) "b" else spatial_basis,
+    reduction_source = if (use_pop) "opportunistic NDOP counts (minimum observed)" else spatial_source,
+    data_tier = if (has_te) te$tier else NA_character_,
     clusters = num(clusters),
-    decline = c(i = declining(eoo_change), ii = declining(aoo_change),
+    # B(b)(i), (ii): with a trend estimate, a decline only where its whole
+    # interval says so (trend_estimate()); otherwise the raw change.
+    decline = c(i = if (has_te) te$decline_eoo else declining(eoo_change),
+                ii = if (has_te) te$decline_aoo else declining(aoo_change),
                 iv = declining(num(locs_change)),
                 v = if (evaluate_pop) declining(pop_rate) else NA),
     fluctuation = c(iv = fluct),
-    mature = total,
+    # The census range (calculate_pop_metrics()): most recent counts, with
+    # the latest year and the per-locality maxima as bounds.
+    mature = if (is.na(total)) NA_real_ else c(min = num(pm$total_mature_min), best = total,
+                                               max = num(pm$total_mature_max)),
+    mature_decline_estimated = evaluate_pop && isTRUE(pm$decline_estimated),
     mature_decline = pop_rate,
     mature_decline_years = num(pm$decline_period_years),
     largest_subpop = biggest,

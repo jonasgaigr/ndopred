@@ -8,7 +8,9 @@ taxon_metrics(
   occ,
   config,
   display_grid_size = 2000,
-  mature_terms = get_mature_terms()
+  mature_terms = get_mature_terms(),
+  effort = NULL,
+  taxon = NA_character_
 )
 }
 \arguments{
@@ -19,6 +21,11 @@ taxon_metrics(
 \item{display_grid_size}{Numeric. Cell size in metres for \code{aoo_display}.}
 
 \item{mature_terms}{Passed to \code{\link[=calculate_pop_metrics]{calculate_pop_metrics()}}.}
+
+\item{effort}{Optional effort layer for the taxon's group
+(\code{\link[=ndop_effort]{ndop_effort()}}), for data tiers T1 and T2.}
+
+\item{taxon}{Optional taxon name as in NDOP (for T2).}
 }
 \value{
 A list of metrics plus \code{issues}, a named list giving the reason
@@ -43,6 +50,14 @@ two different grids.
 \item \code{aoo_display} is the current window on \code{display_grid_size}, for maps
 and display only; it never reaches the criteria.
 }
+}
+
+\section{Trends}{
+
+\code{aoo_change} and \code{eoo_change} are the raw changes of \code{\link[=calculate_trend]{calculate_trend()}}
+(EOO by alpha-hull), kept for display. The trend the engine uses is
+\code{trend_estimate} (\code{\link[=trend_estimate]{trend_estimate()}}): the data tier and the estimate it
+allows, with its interval and start-year sensitivity.
 }
 
 \seealso{

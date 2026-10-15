@@ -60,6 +60,7 @@
 #'   filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
 #'   cent) of the global population in the region are Not Applicable. `NA`
 #'   (default) applies no filter; the regional Red List authority decides.
+#' @param trend Settings of the trend module, from [trend_settings()].
 #' @return An object of class `ndopred_config`.
 #' @seealso [assess_criteria()], [categorise()], [assess_taxon()]
 #' @examples
@@ -86,7 +87,8 @@ ndopred_config <- function(reference_year,
                            d2_aoo_km2 = 20,
                            d2_locations = 5,
                            colonizer_years = 10,
-                           regional_filter_share = NA) {
+                           regional_filter_share = NA,
+                           trend = trend_settings()) {
   if (missing(reference_year) || length(reference_year) != 1 ||
       is.na(suppressWarnings(as.numeric(reference_year)))) {
     stop("`reference_year` is required: ndopred no longer reads the system ",
@@ -148,6 +150,7 @@ ndopred_config <- function(reference_year,
         colonizer_years = colonizer_years,
         regional_filter_share = regional_filter_share
       ),
+      trend = trend,
       versions = list(
         ndopred = as.character(utils::packageVersion("ndopred")),
         criteria = "IUCN Red List Categories and Criteria v3.1, 2nd ed. (2012)",
@@ -184,7 +187,8 @@ print.ndopred_config <- function(x, ...) {
   out <- do.call(ndopred_config, c(
     list(reference_year = cfg$reference_year, recent_start = rs, recent_end = w$recent_end,
          comp_start = rs - shift, comp_end = w$recent_end - shift,
-         generation_length = gl, generation_length_source = src),
+         generation_length = gl, generation_length_source = src,
+         trend = if (is.null(cfg$trend)) trend_settings() else cfg$trend),
     cfg$conventions
   ))
   out$trend_shift_derived <- cfg$trend_shift_derived

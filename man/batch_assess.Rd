@@ -13,6 +13,7 @@ batch_assess(
   comp_end = NULL,
   snapshot_dir = NULL,
   evidence = NULL,
+  effort_dir = NULL,
   ...
 )
 }
@@ -35,6 +36,9 @@ an RDS snapshot, so the run can be repeated exactly; see
 table or the path of an evidence file (see \link{evidence}). Each taxon uses
 its own rows; the final category columns report the checked final
 category and its approval.}
+
+\item{effort_dir}{Optional folder of effort layers (\code{\link[=ndop_effort]{ndop_effort()}}) for
+the data tiers T1 and T2; see \code{\link[=trend_estimate]{trend_estimate()}}.}
 
 \item{...}{Passed to \code{\link[=assess_species]{assess_species()}}: \code{evaluate_pop}, expert evidence
 and configuration.}

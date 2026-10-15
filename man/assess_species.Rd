@@ -14,6 +14,7 @@ assess_species(
   snapshot_dir = NULL,
   snapshot = NULL,
   group = NA_character_,
+  effort_dir = NULL,
   ...
 )
 }
@@ -40,6 +41,10 @@ instead of downloading.}
 
 \item{group}{Optional taxonomic group, used for the generation length
 when the records carry no \code{KAT_TAX}.}
+
+\item{effort_dir}{Optional folder of effort layers (\code{\link[=ndop_effort]{ndop_effort()}}):
+the layer of the taxon's NDOP group, when present, gives data tiers T1
+and T2 (\code{\link[=trend_estimate]{trend_estimate()}}).}
 
 \item{...}{Expert evidence (\code{evidence}: an evidence table or file, see
 \link{evidence}; or the older loose arguments \code{d2_threat}, \code{threat_locations},

@@ -93,6 +93,9 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #'   the trend. `NULL` moves the current window back by the criterion A
 #'   period: 10 years, or three generations when longer (see
 #'   [ndopred_config()]).
+#' @param effort_dir Optional folder of effort layers ([ndop_effort()]):
+#'   the layer of the taxon's NDOP group, when present, gives data tiers T1
+#'   and T2 ([trend_estimate()]).
 #' @param group Optional taxonomic group, used for the generation length
 #'   when the records carry no `KAT_TAX`.
 #' @param evaluate_pop Logical. Use NDOP counts as indications for A(b),
@@ -127,7 +130,7 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #' @export
 assess_species <- function(sp, recent_start, recent_end, comp_start = NULL, comp_end = NULL,
                            evaluate_pop = FALSE, snapshot_dir = NULL, snapshot = NULL,
-                           group = NA_character_, ...) {
+                           group = NA_character_, effort_dir = NULL, ...) {
   args <- list(...)
   if (is.character(args$evidence) && length(args$evidence) == 1) args$evidence <- read_evidence(args$evidence)
   occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
@@ -142,6 +145,10 @@ assess_species <- function(sp, recent_start, recent_end, comp_start = NULL, comp
     recent_start = recent_start, recent_end = recent_end,
     comp_start = comp_start, comp_end = comp_end
   )
+  effort <- if (is.null(effort_dir)) NULL else {
+    grp <- .taxon_group(occ)
+    effort_layer(if (is.na(grp)) group else grp, effort_dir)
+  }
   assess_taxon(occ, sp, config, evaluate_pop = evaluate_pop,
-               evidence = .evidence_from_args(args))$result
+               evidence = .evidence_from_args(args), effort = effort)$result
 }

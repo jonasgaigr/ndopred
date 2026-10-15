@@ -21,7 +21,8 @@ ndopred_config(
   d2_aoo_km2 = 20,
   d2_locations = 5,
   colonizer_years = 10,
-  regional_filter_share = NA
+  regional_filter_share = NA,
+  trend = trend_settings()
 )
 }
 \arguments{
@@ -87,6 +88,8 @@ years".}
 filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
 cent) of the global population in the region are Not Applicable. \code{NA}
 (default) applies no filter; the regional Red List authority decides.}
+
+\item{trend}{Settings of the trend module, from \code{\link[=trend_settings]{trend_settings()}}.}
 }
 \value{
 An object of class \code{ndopred_config}.

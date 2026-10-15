@@ -85,6 +85,77 @@ calculate_eoo <- function(occurrence_data, year_start = NULL, date_col = "DATUM_
   if (is.finite(a) && a > 0) a else NA_real_
 }
 
+# Alpha-hull area (km2) of a coordinate matrix in metres (Guidelines 4.9,
+# Figure 4.5): Delaunay-triangulate the points, measure every edge, delete
+# the edges longer than `alpha` times the mean edge length (the
+# "discontinuity distance") and sum the areas of the triangles left. NA if
+# fewer than three distinct, non-collinear points.
+.alpha_hull_km2 <- function(xy, alpha = 2) {
+  xy <- unique(xy[stats::complete.cases(xy), , drop = FALSE])
+  if (nrow(xy) < 3) return(NA_real_)
+  # Collinear points give no triangles (and a warning): no hull.
+  tri <- suppressWarnings(sf::st_collection_extract(sf::st_triangulate(sf::st_sfc(sf::st_multipoint(xy))), "POLYGON"))
+  if (!length(tri)) return(NA_real_)
+  co <- sf::st_coordinates(tri)
+  first <- which(!duplicated(co[, "L2"]))      # each ring: 3 corners and the closing point
+  ax <- co[first, 1]; ay <- co[first, 2]
+  bx <- co[first + 1, 1]; by <- co[first + 1, 2]
+  cx <- co[first + 2, 1]; cy <- co[first + 2, 2]
+  len <- cbind(sqrt((ax - bx)^2 + (ay - by)^2), sqrt((bx - cx)^2 + (by - cy)^2),
+               sqrt((cx - ax)^2 + (cy - ay)^2))
+  # The mean over distinct edges (an inner edge belongs to two triangles).
+  key <- function(px, py, qx, qy) {
+    p <- paste(px, py)
+    q <- paste(qx, qy)
+    ifelse(p < q, paste(p, q), paste(q, p))
+  }
+  keys <- c(key(ax, ay, bx, by), key(bx, by, cx, cy), key(cx, cy, ax, ay))
+  limit <- alpha * mean(as.vector(len)[!duplicated(keys)])
+  keep <- rowSums(len > limit) == 0
+  if (!any(keep)) return(NA_real_)
+  area <- sum(abs(ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))[keep]) / 2 / 1e6
+  if (is.finite(area) && area > 0) area else NA_real_
+}
+
+#' Extent of Occurrence as an Alpha-Hull, for Change Over Time
+#'
+#' Guidelines v16 §4.9: the minimum convex polygon is the measure for the
+#' criterion B1 thresholds, but because of its bias and sensitivity to
+#' sampling effort it is "less suitable as a method for comparing two or
+#' more temporal estimates of EOO", for which "a method such as the
+#' \eqn{\alpha}-hull" is recommended. The points are Delaunay-triangulated,
+#' edges longer than `alpha` times the mean edge length are deleted, and the
+#' remaining triangles are summed. "An \eqn{\alpha} value of 2 is a good
+#' starting point."
+#'
+#' @param occurrence_data An `sf` object of points in a metric CRS.
+#' @param alpha Numeric. The multiple of the mean edge length beyond which
+#'   edges are removed (default 2).
+#' @param thin Numeric or `NULL`. Cell size in metres: the hull is built on
+#'   one point per occupied cell, so that it follows the range rather than
+#'   the density of recording (default 2000). `NULL` uses every point.
+#' @return Area in km2, or `NA` with fewer than three non-collinear points.
+#' @seealso [calculate_eoo()] for the B1 measure, [calculate_trend()]
+#' @examples
+#' pts <- sf::st_as_sf(data.frame(x = c(0, 1000, 0, 1000, 50000, 51000),
+#'                                y = c(0, 0, 1000, 1000, 0, 1000)),
+#'                     coords = c("x", "y"), crs = 3035)
+#' calculate_eoo_alpha(pts)        # two patches, the gap between them left out
+#' calculate_eoo(pts)$area_km2     # the convex hull spans the gap
+#' @export
+calculate_eoo_alpha <- function(occurrence_data, alpha = 2, thin = 2000) {
+  if (is.null(occurrence_data) || !nrow(occurrence_data)) return(NA_real_)
+  if (inherits(occurrence_data, "sf")) {
+    occurrence_data <- occurrence_data[!sf::st_is_empty(occurrence_data), ]
+    if (!nrow(occurrence_data)) return(NA_real_)
+    xy <- sf::st_coordinates(sf::st_centroid(sf::st_geometry(occurrence_data)))[, 1:2, drop = FALSE]
+  } else {
+    xy <- as.matrix(occurrence_data[, 1:2])
+  }
+  if (!is.null(thin)) xy <- .thin_cells(xy, thin)
+  .alpha_hull_km2(xy, alpha)
+}
+
 .eoo_bounds <- function(occ, precision = NULL, geometries = NULL) {
   if (nrow(occ) == 0) return(list(min = NA_real_, max = NA_real_))
   xy <- sf::st_coordinates(occ)[, 1:2, drop = FALSE]

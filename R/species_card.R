@@ -96,17 +96,21 @@ species_card <- function(x, file = NULL) {
 
   # Parameters with their bounds.
   w <- cfg$windows
+  te <- m$trend_estimate
   par <- data.frame(
     parameter = c("EOO (km2)", "AOO, 2 x 2 km (km2)", "5 km clusters (indication of locations)",
-                  "AOO change between windows (%)", "EOO change between windows (%)",
+                  "AOO change between windows (%, raw)", "EOO change between windows (%, alpha-hull)",
+                  "Data tier (review Table 5)", "Trend estimate (%)",
                   "Current window", "Comparison window", "Generation length (years)",
                   "Records: total / current window / excluded"),
     best = c(val(r$EOO_km2), val(r$AOO_km2), val(r$Locations), val(m$aoo_change, 1),
-             val(m$eoo_change, 1), paste(w$recent_start, w$recent_end, sep = "-"),
+             val(m$eoo_change, 1), val(r$Data_Tier), val(r$Trend_Estimate),
+             paste(w$recent_start, w$recent_end, sep = "-"),
              paste(w$comp_start, w$comp_end, sep = "-"), val(cfg$generation_length),
              paste(val(m$n_records), val(m$n_current), val(m$n_excluded), sep = " / ")),
     range = c(paste(val(r$EOO_km2_min), val(r$EOO_km2_max), sep = " - "),
-              paste(val(r$AOO_km2_min), val(r$AOO_km2_max), sep = " - "), "", "", "", "", "",
+              paste(val(r$AOO_km2_min), val(r$AOO_km2_max), sep = " - "), "", "",
+              "", if (is.null(te)) "" else val(te$tier_reason), val(r$Trend_Sensitivity), "", "",
               val(cfg$generation_length_source), ""),
     stringsAsFactors = FALSE
   )

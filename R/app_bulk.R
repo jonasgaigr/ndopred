@@ -34,6 +34,16 @@ bulk_ui <- function() fluidPage(
         "Snapshots hold exact coordinates and observer names: keep the folder",
         "out of shared repositories."
       ))),
+      h5("Trends (data tiers T0-T3)"),
+      checkboxInput("use_effort", "Use group effort layers from the snapshot folder (T1, T2)", value = TRUE),
+      checkboxInput("download_effort", "Download missing effort layers (slow: hours for large groups)", value = FALSE),
+      checkboxInput("occupancy_model", "Fit occupancy models where the data allow (T2; slow)", value = FALSE),
+      textAreaInput("monitoring_projects", "Standardized monitoring projects (T3), one NDOP PROJEKT per line:",
+                    value = "", rows = 2),
+      p(tags$small(paste(
+        "Without an effort layer a trend is a T0 diagnostic: the raw change with its start-year",
+        "range. ndop_effort() builds a layer per group; see trend_estimate()."
+      ))),
       numericInput("cell_size", "Display grid for maps (km):", value = 2, min = 1),
       p(tags$small(paste(
         "Criteria B2 and D2 always use AOO on the 2 x 2 km reference grid",
@@ -111,7 +121,11 @@ bulk_ui <- function() fluidPage(
   regional_criteria = "Krit\u00e9ria (region\u00e1ln\u00ed)",
   regional_step = "Region\u00e1ln\u00ed krok",
   global = "Glob\u00e1ln\u00ed kategorie",
-  global_share = "Pod\u00edl glob\u00e1ln\u00ed populace (%)"
+  global_share = "Pod\u00edl glob\u00e1ln\u00ed populace (%)",
+  data_tier = "\u00darove\u0148 dat (T0-T3)",
+  trend_estimate = "Odhad trendu (%)",
+  trend_source = "Zdroj trendu",
+  trend_sensitivity = "Citlivost trendu na za\u010d\u00e1tek obdob\u00ed"
 )
 
 .SUPPORT_CS <- c(
@@ -162,7 +176,11 @@ bulk_ui <- function() fluidPage(
     regional_criteria = r$Regional_Criteria,
     regional_step = r$Regional_Step,
     global = r$Global_Category,
-    global_share = r$Global_Population_Share
+    global_share = r$Global_Population_Share,
+    data_tier = r$Data_Tier,
+    trend_estimate = r$Trend_Estimate,
+    trend_source = r$Trend_Source,
+    trend_sensitivity = r$Trend_Sensitivity
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -259,6 +277,32 @@ bulk_server <- function(input, output, session) {
         log_msg(paste0("Evidence: ", nrow(ev_all), " entries for ", length(unique(ev_all$taxon)), " taxa."))
       }
     }
+    projects_text <- if (is.null(input$monitoring_projects)) "" else input$monitoring_projects
+    projects <- trimws(unlist(strsplit(projects_text, "[\r\n]+")))
+    trend_cfg <- trend_settings(occupancy_model = isTRUE(input$occupancy_model),
+                                monitoring_projects = projects[nzchar(projects)])
+    # Effort layers per group, loaded (or downloaded) once per run.
+    efforts <- list()
+    effort_for <- function(occ, group_hint) {
+      if (!isTRUE(input$use_effort)) return(NULL)
+      grp <- .taxon_group(occ)
+      if (is.na(grp)) grp <- group_hint
+      if (is.na(grp) || !nzchar(grp)) return(NULL)
+      if (!grp %in% names(efforts)) {
+        dir <- if (!is.null(input$snapshot_dir) && nzchar(input$snapshot_dir)) input$snapshot_dir else default_snapshot_dir()
+        eff <- tryCatch(effort_layer(grp, dir), error = function(e) NULL)
+        if (is.null(eff) && isTRUE(input$download_effort)) {
+          log_msg(paste("Downloading the effort layer for", grp, "(this can take long)"))
+          eff <- tryCatch(ndop_effort(grp, years = c(min(ref_year - 30, ref_year - win - 15), ref_year), dir = dir),
+                          error = function(e) {
+                            log_msg(paste("Effort layer for", grp, "failed:", conditionMessage(e)))
+                            NULL
+                          })
+        }
+        efforts[[grp]] <<- if (is.null(eff)) FALSE else eff
+      }
+      if (isFALSE(efforts[[grp]])) NULL else efforts[[grp]]
+    }
     taxon_config <- function(occ, group_hint, sp) {
       gl <- if (is.null(gl_table)) {
         list(years = 1, source = "default 1 year: table not read")
@@ -272,7 +316,8 @@ bulk_server <- function(input, output, session) {
       }
       ndopred_config(reference_year = ref_year, window = win,
                      trend_shift = max(shift, 3 * gl$years),
-                     generation_length = gl$years, generation_length_source = gl$source)
+                     generation_length = gl$years, generation_length_source = gl$source,
+                     trend = trend_cfg)
     }
     w <- config$windows
 
@@ -353,6 +398,7 @@ bulk_server <- function(input, output, session) {
           taxon <- tryCatch(
             ndopred::assess_taxon(occ_raw, sp, cfg_sp, evaluate_pop = FALSE,
                                   evidence = if (is.null(ev_all)) list() else ev_all,
+                                  effort = effort_for(occ_raw, meta$group),
                                   display_grid_size = grid_size_m),
             error = function(e) {
               log_msg(paste("ERROR in automated category for", sp, ":", conditionMessage(e)))

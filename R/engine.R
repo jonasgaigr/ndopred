@@ -127,12 +127,14 @@
   if (is.na(v)) r[["best"]] else v
 }
 
-# A quantity from evidence (a min/best/max range), else from the indication.
+# A quantity from evidence, else from the indication; either may be a
+# min/best/max range (e.g. a confidence interval or start-year
+# sensitivity), whose ends serve the low and high scenarios.
 .pick <- function(ev, ind, scenario, worse = "max") {
   r <- .range3(ev)
-  ind <- suppressWarnings(as.numeric(ind)[1])
   if (!is.na(r[["best"]])) return(list(value = .at(r, scenario, worse), support = "evidence", range = r))
-  if (!is.na(ind)) return(list(value = ind, support = "indication", range = NULL))
+  ri <- .range3(ind)
+  if (!is.na(ri[["best"]])) return(list(value = .at(ri, scenario, worse), support = "indication", range = ri))
   list(value = NA_real_, support = "none", range = NULL)
 }
 
@@ -225,6 +227,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
     reduction = NA_real_, reduction_basis = NA_character_,
     reduction_source = NA_character_, clusters = NA_real_,
     mature = NA_real_, mature_decline = NA_real_, mature_decline_years = NA_real_,
+    mature_decline_estimated = FALSE, data_tier = NA_character_,
     largest_subpop = NA_real_, prop_largest = NA_real_
   ), indication[setdiff(names(indication), c("decline", "fluctuation"))])
   ind$decline <- merge_flags(flags_b, indication$decline)
@@ -377,7 +380,11 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
     if (pv$N$value >= .C_POP[[L]]) next
     period <- min(.C1_CAP, max(.C1_YEARS[[L]], .C1_GENS[[L]] * gl))
     dec_c1 <- .decline_over(pv$rate$value, pv$years, period)
-    c1 <- !is.na(dec_c1) && dec_c1 >= .C1_DECLINE[[L]]
+    # Guidelines Table 3.1: C1 needs an estimated decline. An indication
+    # qualifies only if it is an estimate (a consistent-effort series, T3);
+    # evidence below that quality is dropped by evidence_for_engine().
+    rate_ok <- pv$rate$support == "evidence" || isTRUE(inp$indication$mature_decline_estimated)
+    c1 <- rate_ok && !is.na(dec_c1) && dec_c1 >= .C1_DECLINE[[L]]
     declining <- .resolve(pv$declining, scenario)
     ai <- !is.na(pv$subpop$value) && pv$subpop$value <= .C2_SUBPOP[[L]]
     aii <- !is.na(pv$share$value) && pv$share$value >= .C2_SHARE[[L]]

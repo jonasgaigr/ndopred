@@ -413,3 +413,38 @@ test_that("GAP-05b: the batch reduction window follows generation length (closed
   suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 10))
   expect_false(identical(seen[[1]], seen[[2]]))
 })
+
+test_that("GAP-05c: past reductions (A2) are not capped at 100 years (closed in 0.9.0)", {
+  # Guidelines 5.2: "A maximum time cap is not applied to assessments based
+  # on past reductions". app.R caps the A window at 100 for every A type.
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  shiny::testServer(gap_app_dir(), {
+    session$setInputs(species_name = "Declining sp", window = 10,
+                      gen_length = 40, use_pop = FALSE, run_calc = 1)
+    expect_equal(raw_data()$a_window, 120)
+  })
+})
+
+test_that("GAP-09c: total mature individuals is not a sum of maxima from different years (closed in 0.9.0)", {
+  # Site A had 100 adults in 2016 and 10 in 2025; site B had 10 in 2025.
+  # The current count is 20; summing per-site maxima gives 110.
+  occ <- data.frame(ROK = c(2016, 2025, 2025), POCET = c(100, 10, 10),
+                    POCITANO = "adulti", NAZ_LOKAL = c("A", "A", "B"))
+  res <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
+  expect_equal(res$total_mature, 20)
+})
+
+test_that("GAP-09d: alternating survey coverage is not an extreme fluctuation (closed in 0.9.0)", {
+  # Three sites counted in odd years, one site in even years: the yearly
+  # total swings 30-fold because of which sites were visited (Guidelines 4.7:
+  # be "reasonably certain" the change is in the total population).
+  yrs <- 2016:2025
+  occ <- do.call(rbind, lapply(yrs, function(y) {
+    sites <- if (y %% 2 == 1) c("A", "B", "C") else "A"
+    data.frame(ROK = y, POCET = if (y %% 2 == 1) 100 else 10,
+               POCITANO = "adulti", NAZ_LOKAL = sites)
+  }))
+  res <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
+  expect_false(isTRUE(res$extreme_fluctuation))
+})

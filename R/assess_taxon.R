@@ -19,13 +19,22 @@
 #' @param config Object from [ndopred_config()].
 #' @param display_grid_size Numeric. Cell size in metres for `aoo_display`.
 #' @param mature_terms Passed to [calculate_pop_metrics()].
+#' @param effort Optional effort layer for the taxon's group
+#'   ([ndop_effort()]), for data tiers T1 and T2.
+#' @param taxon Optional taxon name as in NDOP (for T2).
+#' @section Trends:
+#' `aoo_change` and `eoo_change` are the raw changes of [calculate_trend()]
+#' (EOO by alpha-hull), kept for display. The trend the engine uses is
+#' `trend_estimate` ([trend_estimate()]): the data tier and the estimate it
+#' allows, with its interval and start-year sensitivity.
 #' @return A list of metrics plus `issues`, a named list giving the reason
 #'   for every value that could not be computed, and `failed` (a reason)
 #'   when no assessment is possible at all, e.g. after a failed download.
 #' @seealso [assess_taxon()]
 #' @export
 taxon_metrics <- function(occ, config, display_grid_size = 2000,
-                          mature_terms = get_mature_terms()) {
+                          mature_terms = get_mature_terms(), effort = NULL,
+                          taxon = NA_character_) {
   stopifnot(inherits(config, "ndopred_config"))
   w <- config$windows
   issues <- list()
@@ -67,7 +76,8 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
     clusters_new = NA_real_,
     aoo_old = NA_real_, eoo_old = NA_real_, clusters_old = NA_real_,
     aoo_change = NA_real_, eoo_change = NA_real_, locs_change = NA_real_,
-    trend = NULL, pop = NULL, windows = w, display_grid_size = display_grid_size,
+    trend = NULL, trend_estimate = NULL, pop = NULL, windows = w,
+    display_grid_size = display_grid_size,
     snapshot = if (is.null(snapshot$path)) NA_character_ else basename(snapshot$path)
   )
   if (!is.null(dl)) {
@@ -160,9 +170,16 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
   }
   out$locs_change <- pct(out$clusters_old, if (is.null(clusters_trend)) NA_real_ else clusters_trend)
 
+  te <- capture("trend", trend_estimate(occ, config, effort, taxon))
+  if (!is.null(te)) out$trend_estimate <- te
+
+  # Counts from standardized monitoring (T3) are a consistent-effort series:
+  # only they give an estimated decline (C1) and a fluctuation diagnosis.
+  t3 <- !is.null(te) && identical(te$tier, "T3")
+  pop_occ <- if (t3) occ[occ$PROJEKT %in% config$trend$monitoring_projects, , drop = FALSE] else occ
   pop <- capture("population", calculate_pop_metrics(
-    occ, window_years = w$trend_end - w$trend_start + 1, year_now = w$trend_end,
-    mature_terms = mature_terms
+    pop_occ, window_years = w$trend_end - w$trend_start + 1, year_now = w$trend_end,
+    mature_terms = mature_terms, consistent_effort = t3
   ))
   if (!is.null(pop)) {
     out$pop <- pop
@@ -192,6 +209,8 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
 #'   the engine's evidence list (see [assessment_inputs()]).
 #' @param display_grid_size Numeric. Cell size in metres of the display AOO.
 #' @param metrics Optional result of [taxon_metrics()], to reuse.
+#' @param effort Optional effort layer of the taxon's group ([ndop_effort()]),
+#'   for the trend tiers T1 and T2 ([trend_estimate()]).
 #' @return A list: `result` (one-row data frame, see [summarize_assessment()]
 #'   for the columns, plus `Reference_Year`, the generation length, the final
 #'   category columns and `issue_*` reason codes), `metrics`, `assessment`,
@@ -201,7 +220,8 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
 #' @seealso [assess_species()], [batch_assess()]
 #' @export
 assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
-                         evidence = list(), display_grid_size = 2000, metrics = NULL) {
+                         evidence = list(), display_grid_size = 2000, metrics = NULL,
+                         effort = NULL) {
   ex <- NULL
   notes <- character(0)
   if (is.data.frame(evidence)) {
@@ -228,7 +248,9 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
     if (recompute && !is.null(occ)) metrics <- NULL
     evidence <- ex$engine
   }
-  if (is.null(metrics)) metrics <- taxon_metrics(occ, config, display_grid_size)
+  if (is.null(metrics)) {
+    metrics <- taxon_metrics(occ, config, display_grid_size, effort = effort, taxon = species)
+  }
   if (!is.null(metrics$failed)) {
     # No proposal without data: an error is never turned into DD or NE.
     proposal <- .proposal(NA_character_, NA_character_, support = "none",
@@ -245,7 +267,8 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
       pop_metrics = metrics$pop, evaluate_pop = evaluate_pop,
       tolerance = config$conventions$decline_tolerance, evidence = evidence,
       eoo_km2_min = metrics$eoo_new_min, eoo_km2_max = metrics$eoo_new_max,
-      aoo_km2_min = metrics$aoo_new_min, aoo_km2_max = metrics$aoo_new_max
+      aoo_km2_min = metrics$aoo_new_min, aoo_km2_max = metrics$aoo_new_max,
+      trend_est = metrics$trend_estimate
     )
     assessment <- assess_criteria(inputs, config, evaluate_pop = evaluate_pop)
     proposal <- categorise(assessment)
@@ -264,6 +287,12 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
                      eoo_range = c(min = metrics$eoo_new_min, max = metrics$eoo_new_max),
                      aoo_range = c(min = metrics$aoo_new_min, max = metrics$aoo_new_max))
   row$Reference_Year <- config$reference_year
+  te <- metrics$trend_estimate
+  row$Data_Tier <- if (is.null(te)) NA_character_ else te$tier
+  row$Trend_Estimate <- if (is.null(te)) NA_character_ else .format_change(te$change, te$tier)
+  row$Trend_Source <- if (is.null(te)) NA_character_ else
+    paste(stats::na.omit(c(te$tier_reason, te$source)), collapse = "; ")
+  row$Trend_Sensitivity <- if (is.null(te)) NA_character_ else .format_sensitivity(te$sensitivity)
   row$Generation_Length <- config$generation_length
   row$Generation_Length_Source <- if (is.null(config$generation_length_source)) NA_character_ else
     config$generation_length_source
@@ -339,7 +368,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   keep <- intersect(names(args), c("generation_length", "generation_length_source", "trend_shift",
                                    "decline_tolerance", "nt_margin_a",
                                    "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations",
-                                   "colonizer_years", "regional_filter_share"))
+                                   "colonizer_years", "regional_filter_share", "trend"))
   cfg <- args[keep]
   if (!is.null(args$re_threshold_years)) cfg$re_candidate_years <- args$re_threshold_years
   do.call(ndopred_config, c(list(...), cfg))

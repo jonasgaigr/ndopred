@@ -33,6 +33,9 @@ ui <- fluidPage(
       h4("Assessment Settings"),
       checkboxInput("use_pop", "Use NDOP counts as indications (A2b, B b(v)/c(iv), C, D)", value = FALSE),
       p(tags$small("Auto-selected for vertebrates and plants when enough counted records carry a mature life stage.")),
+      checkboxInput("occupancy_model", "Fit an occupancy model where the data allow (T2; minutes)", value = FALSE),
+      textAreaInput("monitoring_projects", "Standardized monitoring projects (T3), one per line:", value = "", rows = 2),
+      p(tags$small("The group's effort layer (ndop_effort()) is read from the snapshot folder when present.")),
       hr(),
       h4("Expert view"),
       uiOutput("live_category_ui"),
@@ -126,9 +129,9 @@ server <- function(input, output, session) {
   })
 
   # IUCN Guidelines 4.4 / 5.2: criterion A is measured over 10 years or three
-  # generations, whichever is longer. (The 100-year cap applies to projected
-  # reductions only; removing it for past reductions is Phase 5 work.)
-  reduction_window_for <- function(gl) min(100, max(10, 3 * gl))
+  # generations, whichever is longer. The records give past reductions (A2),
+  # which Guidelines 5.2 does not cap; the 100-year cap is for projections.
+  reduction_window_for <- function(gl) max(10, 3 * gl)
 
   # The generation length typed in, else the value for the taxon's NDOP
   # group (generation_lengths(); AOPK placeholder of 1 year until refined).
@@ -145,7 +148,7 @@ server <- function(input, output, session) {
   output$window_note <- renderUI({
     d <- tryCatch(raw_data(), error = function(e) NULL)
     txt <- if (is.null(d)) {
-      "Criterion A reduction window: 10 years or 3 generations, whichever is longer (capped at 100)."
+      "Criterion A reduction window: 10 years or 3 generations, whichever is longer (past reductions are not capped)."
     } else paste0("Generation length ", d$config$generation_length, " years (",
                   d$config$generation_length_source, "); criterion A reduction window ",
                   d$a_window, " years.")
@@ -178,21 +181,30 @@ server <- function(input, output, session) {
       a_window <- reduction_window_for(gl$years)
       # AOPK, D5: the comparison window is the current one moved back by the
       # criterion A period (10 years unless three generations are longer).
+      projects <- trimws(unlist(strsplit(input$monitoring_projects %||% "", "[\r\n]+")))
+      trend_cfg <- ndopred::trend_settings(occupancy_model = isTRUE(input$occupancy_model),
+                                           monitoring_projects = projects[nzchar(projects)])
       config <- ndopred::ndopred_config(reference_year = reference_year(), window = b_window,
                                         trend_shift = a_window, generation_length = gl$years,
-                                        generation_length_source = gl$source)
-      incProgress(0.3, message = "Calculating metrics...")
+                                        generation_length_source = gl$source, trend = trend_cfg)
+      # The group's effort layer, for data tiers T1 and T2 (trend_estimate()).
+      effort <- NULL
+      if (!inherits(occ_raw, "error") && "KAT_TAX" %in% names(occ_raw) && nrow(occ_raw) > 0) {
+        grp <- names(sort(table(as.character(occ_raw$KAT_TAX)), decreasing = TRUE))[1]
+        effort <- tryCatch(ndopred::effort_layer(grp, ndopred::default_snapshot_dir()), error = function(e) NULL)
+      }
+      incProgress(0.3, message = "Calculating metrics and trends...")
       if (inherits(occ_raw, "error")) {
         metrics <- ndopred::taxon_metrics(NULL, config)
         metrics$issues$download <- conditionMessage(occ_raw)
         metrics$failed <- paste0("download failed: ", conditionMessage(occ_raw))
         occ_raw <- NULL
       } else {
-        metrics <- ndopred::taxon_metrics(occ_raw, config)
+        metrics <- ndopred::taxon_metrics(occ_raw, config, effort = effort, taxon = input$species_name)
       }
       occ_all <- if (is.null(occ_raw) || nrow(occ_raw) == 0) data.frame(ROK = numeric(0)) else occ_raw
 
-      list(metrics = metrics, config = config, occ = occ_raw, occ_all = occ_all,
+      list(metrics = metrics, config = config, occ = occ_raw, occ_all = occ_all, effort = effort,
            eoo = list(area_km2 = metrics$eoo_new), aoo = list(area_km2 = metrics$aoo_new),
            locs = metrics$clusters_new, trend = metrics$trend,
            pop = metrics$pop %||% list(),
@@ -399,7 +411,7 @@ server <- function(input, output, session) {
     a <- ndopred::assess_taxon(occ = data$occ, species = data$species, config = data$config,
                                evaluate_pop = isTRUE(input$use_pop),
                                evidence = if (is.data.frame(ev)) ev else list(),
-                               metrics = data$metrics)
+                               metrics = data$metrics, effort = data$effort)
     r <- a$result
     list(category = r$Category, criteria = r$Criteria, criteria_iucn = r$Criteria_IUCN,
          support = r$Support, needs = a$proposal$needs, range = r$Category_Range,
@@ -653,7 +665,23 @@ server <- function(input, output, session) {
       for (k in names(d$metrics$issues)) cat(k, ":", d$metrics$issues[[k]], "\n")
       cat("\n")
     }
-    cat("--- Spatial trend ---\n")
+    te <- d$metrics$trend_estimate
+    if (!is.null(te)) {
+      cat("--- Trend (review Table 5: data tiers) ---\n")
+      cat("Data tier:", te$tier, "-", te$tier_reason, "\n")
+      ch <- te$change
+      cat("Estimate:", if (is.null(ch) || is.na(ch[["best"]])) "-" else
+        sprintf("%+.0f %% (%+.0f to %+.0f)", ch[["best"]], ch[["min"]], ch[["max"]]), "\n")
+      cat("Source:", te$source, "\n")
+      cat("Continuing decline indicated: AOO", format(te$decline_aoo), "| EOO (alpha-hull)", format(te$decline_eoo), "\n")
+      if (!is.null(te$sensitivity$table)) {
+        cat("\nStart-year sensitivity (raw change, %):\n")
+        print(within(te$sensitivity$table, { comparison_start <- d$config$windows$comp_start + offset }), row.names = FALSE)
+      }
+      if (!is.null(te$t2$note)) cat("T2:", te$t2$note, "\n")
+      cat("\n")
+    }
+    cat("--- Raw spatial change (T0 diagnostic) ---\n")
     str(d$trend)
     cat("\n--- Population metrics (minimum observed counts) ---\n")
     str(d$pop)

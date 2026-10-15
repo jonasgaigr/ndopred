@@ -8,7 +8,8 @@ calculate_pop_metrics(
   occ_data,
   window_years = 10,
   year_now,
-  mature_terms = get_mature_terms()
+  mature_terms = get_mature_terms(),
+  consistent_effort = FALSE
 )
 }
 \arguments{
@@ -21,9 +22,18 @@ calculate_pop_metrics(
 
 \item{mature_terms}{Character vector of \code{POCITANO} values to treat as
 mature individuals. Defaults to \code{\link[=get_mature_terms]{get_mature_terms()}}.}
+
+\item{consistent_effort}{Logical. Whether the counts come from a
+consistent-effort series (standardized monitoring, data tier T3). Only
+then are extreme fluctuations diagnosed (Guidelines 4.7: be reasonably
+certain the change is in the population, not in recording) and is the
+decline rate an \emph{estimated} continuing decline usable for C1
+(Guidelines Table 3.1). Otherwise \code{extreme_fluctuation} is \code{NA} and
+\code{decline_estimated} is \code{FALSE}.}
 }
 \value{
-A list with \code{total_mature}, \code{decline_rate}, \code{max_subpop},
+A list with \code{total_mature} (and \code{total_mature_min},
+\code{total_mature_max}), \code{decline_rate}, \code{decline_estimated}, \code{max_subpop},
 \code{fluct_ratio}, \code{fluct_reversals}, \code{extreme_fluctuation},
 \code{decline_period_years}, \code{n_years}, \code{n_localities}, \code{n_records_counted},
 \code{n_records_used} and \code{ignored_terms}. Always check \code{n_records_used}
@@ -58,6 +68,15 @@ shortfall visible so it cannot silently shrink \code{total_mature}; pass
 \code{mature_terms} to override the vocabulary for a given taxon.
 }
 
+\section{The census}{
+
+\code{total_mature} is the sum over localities of each locality's most recent
+count in the window, not a sum of maxima from different years. Its range:
+\code{total_mature_min} counts only the latest year with counts,
+\code{total_mature_max} sums each locality's maximum in the window (Guidelines
+3.2, 4.3). \code{max_subpop} is the largest most-recent locality count.
+}
+
 \examples{
 # A locality censused for ten years, declining ~25\% a year.
 yrs <- 2016:2025
@@ -70,14 +89,15 @@ occ <- data.frame(
 pm <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
 pm$total_mature
 pm$decline_rate          # ~ -94\%, projected over the 10-year window
-pm$extreme_fluctuation   # FALSE: a monotonic crash is a reduction
+pm$extreme_fluctuation   # NA: opportunistic counts diagnose no fluctuation
 
-# A boom-bust series of the same magnitude IS an extreme fluctuation.
+# A boom-bust series of the same magnitude, from a consistent-effort
+# series, IS an extreme fluctuation.
 boom <- data.frame(
   ROK = yrs, POCITANO = "adulti", NAZ_LOKAL = "Site A",
   POCET = c(1000, 50, 900, 40, 1100, 60, 950, 45, 1050, 55)
 )
-calculate_pop_metrics(boom, year_now = 2025)$extreme_fluctuation
+calculate_pop_metrics(boom, year_now = 2025, consistent_effort = TRUE)$extreme_fluctuation
 
 # Unqualified life stages are skipped, and the shortfall is reported.
 mixed <- data.frame(

@@ -122,6 +122,19 @@ rownames(.EVIDENCE_FIELDS) <- NULL
 # Guidelines 3.1: the terms for how a value was obtained.
 .QUALIFIERS <- c("observed", "estimated", "projected", "inferred", "suspected")
 
+# Guidelines Table 3.1: the order of data quality ("Observed > Estimated
+# (past) = Projected (future) > Inferred > Suspected") and the minimum each
+# criterion accepts. Below it, "the specified criterion is considered not to
+# have been met".
+.QUALITY_RANK <- c(observed = 4, estimated = 3, projected = 3, inferred = 2, suspected = 1)
+.MIN_QUALITY <- c(
+  decline = "inferred",                 # B1b, B2b, C2
+  mature_individuals = "estimated",     # C, D
+  mature_decline = "estimated",         # C1
+  largest_subpopulation = "estimated",  # C2a(i)
+  criterion_e = "estimated"             # E
+)
+
 #' Expert Evidence: Fields, Templates, Import and Validation
 #'
 #' Expert evidence is one table with a row per piece of evidence (prompt
@@ -373,6 +386,17 @@ latest_evidence <- function(dir, taxon) {
 #' @export
 evidence_for_engine <- function(ev, taxon = NULL) {
   ev <- .active_evidence(validate_evidence(ev), taxon)
+  all_entries <- ev
+  # Entries below the minimum quality of their criterion are documented but
+  # not used (Guidelines Table 3.1).
+  q <- tolower(ev$qualifier)
+  minq <- unname(.MIN_QUALITY[ev$field])
+  low <- !is.na(minq) & nzchar(q) & .QUALITY_RANK[q] < .QUALITY_RANK[minq]
+  low[is.na(low)] <- FALSE
+  quality_checks <- sprintf("%s%s is %s, below the minimum quality %s (Guidelines Table 3.1): not used",
+                            ev$field[low], ifelse(nzchar(ev$subfield[low]), paste0(" (", ev$subfield[low], ")"), ""),
+                            q[low], minq[low])
+  ev <- ev[!low, , drop = FALSE]
   # The entry in force for a field (and subfield), or NULL.
   one <- function(field, sub = NULL) {
     keep <- ev$field == field
@@ -382,7 +406,7 @@ evidence_for_engine <- function(ev, taxon = NULL) {
   }
   rng <- function(row) if (is.null(row)) NA_real_ else .range3(c(min = row$min, best = row$best, max = row$max))
   flag <- function(row) if (is.null(row)) NA else .as_flag(row$value)
-  checks <- character(0)
+  checks <- quality_checks
   engine <- list()
 
   no_threat <- one("no_plausible_threat")
@@ -484,7 +508,7 @@ evidence_for_engine <- function(ev, taxon = NULL) {
     ),
     regional = .regional_from_evidence(ev, one, rng),
     checks = checks,
-    entries = ev
+    entries = all_entries
   )
 }
 

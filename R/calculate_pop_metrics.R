@@ -30,7 +30,21 @@
 #'   (required; the system clock is never read).
 #' @param mature_terms Character vector of `POCITANO` values to treat as
 #'   mature individuals. Defaults to [get_mature_terms()].
-#' @return A list with `total_mature`, `decline_rate`, `max_subpop`,
+#' @param consistent_effort Logical. Whether the counts come from a
+#'   consistent-effort series (standardized monitoring, data tier T3). Only
+#'   then are extreme fluctuations diagnosed (Guidelines 4.7: be reasonably
+#'   certain the change is in the population, not in recording) and is the
+#'   decline rate an *estimated* continuing decline usable for C1
+#'   (Guidelines Table 3.1). Otherwise `extreme_fluctuation` is `NA` and
+#'   `decline_estimated` is `FALSE`.
+#' @section The census:
+#' `total_mature` is the sum over localities of each locality's most recent
+#' count in the window, not a sum of maxima from different years. Its range:
+#' `total_mature_min` counts only the latest year with counts,
+#' `total_mature_max` sums each locality's maximum in the window (Guidelines
+#' 3.2, 4.3). `max_subpop` is the largest most-recent locality count.
+#' @return A list with `total_mature` (and `total_mature_min`,
+#'   `total_mature_max`), `decline_rate`, `decline_estimated`, `max_subpop`,
 #'   `fluct_ratio`, `fluct_reversals`, `extreme_fluctuation`,
 #'   `decline_period_years`, `n_years`, `n_localities`, `n_records_counted`,
 #'   `n_records_used` and `ignored_terms`. Always check `n_records_used`
@@ -53,14 +67,15 @@
 #' pm <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
 #' pm$total_mature
 #' pm$decline_rate          # ~ -94%, projected over the 10-year window
-#' pm$extreme_fluctuation   # FALSE: a monotonic crash is a reduction
+#' pm$extreme_fluctuation   # NA: opportunistic counts diagnose no fluctuation
 #'
-#' # A boom-bust series of the same magnitude IS an extreme fluctuation.
+#' # A boom-bust series of the same magnitude, from a consistent-effort
+#' # series, IS an extreme fluctuation.
 #' boom <- data.frame(
 #'   ROK = yrs, POCITANO = "adulti", NAZ_LOKAL = "Site A",
 #'   POCET = c(1000, 50, 900, 40, 1100, 60, 950, 45, 1050, 55)
 #' )
-#' calculate_pop_metrics(boom, year_now = 2025)$extreme_fluctuation
+#' calculate_pop_metrics(boom, year_now = 2025, consistent_effort = TRUE)$extreme_fluctuation
 #'
 #' # Unqualified life stages are skipped, and the shortfall is reported.
 #' mixed <- data.frame(
@@ -73,15 +88,17 @@
 #' @export
 calculate_pop_metrics <- function(occ_data, window_years = 10,
                                   year_now,
-                                  mature_terms = get_mature_terms()) {
+                                  mature_terms = get_mature_terms(),
+                                  consistent_effort = FALSE) {
   if (missing(year_now) || is.null(year_now) || is.na(year_now)) {
     stop("`year_now` (the reference year) is required.", call. = FALSE)
   }
 
   empty_result <- function(reason = NA_character_) {
-    list(total_mature = NA_real_, decline_rate = NA_real_, max_subpop = NA_real_,
+    list(total_mature = NA_real_, total_mature_min = NA_real_, total_mature_max = NA_real_,
+         decline_rate = NA_real_, decline_estimated = FALSE, max_subpop = NA_real_,
          fluct_ratio = NA_real_, fluct_reversals = NA_integer_,
-         extreme_fluctuation = FALSE, decline_period_years = window_years,
+         extreme_fluctuation = NA, decline_period_years = window_years,
          n_years = 0L, n_localities = 0L, n_records_counted = 0L,
          n_records_used = 0L, ignored_terms = integer(0), note = reason)
   }
@@ -180,16 +197,21 @@ calculate_pop_metrics <- function(occ_data, window_years = 10,
       max_local_count = pmax((.data$max_m + .data$max_f), .data$max_gen)
     )
 
-  # 4. Metric: minimum observed count of mature individuals
-  loc_maxima <- loc_year_summary %>%
+  # 4. Minimum observed count of mature individuals: each locality's most
+  # recent count, not maxima from different years summed (Guidelines 4.3).
+  loc_counts <- loc_year_summary %>%
     dplyr::group_by(.data$LOKALITA) %>%
-    dplyr::summarise(best_count = max(.data$max_local_count, na.rm = TRUE),
+    dplyr::summarise(latest = .data$max_local_count[which.max(.data$ROK)],
+                     peak = max(.data$max_local_count, na.rm = TRUE),
                      .groups = "drop")
+  last_year <- max(loc_year_summary$ROK)
 
-  total_mature <- sum(loc_maxima$best_count, na.rm = TRUE)
+  total_mature <- sum(loc_counts$latest, na.rm = TRUE)
+  total_mature_min <- sum(loc_year_summary$max_local_count[loc_year_summary$ROK == last_year])
+  total_mature_max <- sum(loc_counts$peak, na.rm = TRUE)
 
   # 5. Metric: largest single-locality count (subpopulation surrogate)
-  max_subpop <- max(loc_maxima$best_count, na.rm = TRUE)
+  max_subpop <- max(loc_counts$latest, na.rm = TRUE)
 
   # 6. Yearly totals underpinning trend and fluctuation
   yearly_totals <- loc_year_summary %>%
@@ -233,9 +255,11 @@ calculate_pop_metrics <- function(occ_data, window_years = 10,
   # fluctuation unless there is evidence for this". A bare max/min ratio --
   # the previous test -- labels any steep monotonic decline (and any gap in
   # recording effort) an extreme fluctuation, so reversals are required too.
+  # Opportunistic counts change with recording effort, so they diagnose
+  # nothing: only a consistent-effort series does (Guidelines 4.7).
   fluct_ratio <- NA_real_
   fluct_reversals <- NA_integer_
-  extreme_fluctuation <- FALSE
+  extreme_fluctuation <- NA
   if (n_years >= 3) {
     min_val <- min(yearly_totals$total_year)
     max_val <- max(yearly_totals$total_year)
@@ -245,23 +269,30 @@ calculate_pop_metrics <- function(occ_data, window_years = 10,
     signs <- signs[signs != 0]
     fluct_reversals <- if (length(signs) > 1) sum(diff(signs) != 0) else 0L
 
-    extreme_fluctuation <- isTRUE(fluct_ratio >= 10) &&
-      fluct_reversals >= 2 && n_years >= 5
+    if (consistent_effort) {
+      extreme_fluctuation <- isTRUE(fluct_ratio >= 10) &&
+        fluct_reversals >= 2 && n_years >= 5
+    }
   }
 
   return(list(
     total_mature = total_mature,
+    total_mature_min = total_mature_min,
+    total_mature_max = total_mature_max,
     decline_rate = decline_rate,
+    # Guidelines Table 3.1: C1 needs an estimated decline.
+    decline_estimated = consistent_effort && !is.na(decline_rate),
     max_subpop = max_subpop,
     fluct_ratio = if (is.finite(fluct_ratio)) round(fluct_ratio, 1) else fluct_ratio,
     fluct_reversals = as.integer(fluct_reversals),
     extreme_fluctuation = extreme_fluctuation,
     decline_period_years = decline_period_years,
     n_years = as.integer(n_years),
-    n_localities = nrow(loc_maxima),
+    n_localities = nrow(loc_counts),
     n_records_counted = n_records_counted,
     n_records_used = nrow(clean_pop),
     ignored_terms = ignored_terms,
-    note = NA_character_
+    note = if (consistent_effort) NA_character_ else
+      "opportunistic counts: extreme fluctuations not diagnosed, decline not an estimate (Guidelines 4.7, Table 3.1)"
   ))
 }

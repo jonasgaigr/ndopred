@@ -161,7 +161,7 @@ test_that("Decline is exponential, projected over the window, and floored", {
 test_that("A monotonic crash is a reduction, not an extreme fluctuation", {
   yrs <- 2016:2025
   df <- pop_frame(yrs, round(1000 * 0.7^(seq_along(yrs) - 1)))
-  res <- calculate_pop_metrics(df, window_years = 10, year_now = 2025)
+  res <- calculate_pop_metrics(df, window_years = 10, year_now = 2025, consistent_effort = TRUE)
   expect_gt(res$fluct_ratio, 10)     # the old max/min test would fire here
   expect_equal(res$fluct_reversals, 0)
   expect_false(res$extreme_fluctuation)
@@ -170,10 +170,14 @@ test_that("A monotonic crash is a reduction, not an extreme fluctuation", {
 test_that("A genuine boom-bust series is diagnosed as extreme fluctuation", {
   yrs <- 2016:2025
   df <- pop_frame(yrs, c(1000, 50, 900, 40, 1100, 60, 950, 45, 1050, 55))
-  res <- calculate_pop_metrics(df, window_years = 10, year_now = 2025)
+  res <- calculate_pop_metrics(df, window_years = 10, year_now = 2025, consistent_effort = TRUE)
   expect_gt(res$fluct_ratio, 10)
   expect_gte(res$fluct_reversals, 2)
   expect_true(res$extreme_fluctuation)
+  # From opportunistic counts the same series diagnoses nothing (Guidelines 4.7).
+  opp <- calculate_pop_metrics(df, window_years = 10, year_now = 2025)
+  expect_true(is.na(opp$extreme_fluctuation))
+  expect_false(opp$decline_estimated)
 })
 
 test_that("Pairs count as two mature individuals and sexes are summed", {

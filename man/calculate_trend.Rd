@@ -12,7 +12,8 @@ calculate_trend(
   recent_end = NULL,
   comp_start = NULL,
   comp_end = NULL,
-  grid_size = 2000
+  grid_size = 2000,
+  alpha = 2
 )
 }
 \arguments{
@@ -29,13 +30,19 @@ read.}
 Explicit window bounds; override the derived windows when supplied.}
 
 \item{grid_size}{Numeric. AOO cell size in metres (default 2000).}
+
+\item{alpha}{Numeric. The alpha of the alpha-hull used for the change in
+EOO (Guidelines 4.9; default 2), see \code{\link[=calculate_eoo_alpha]{calculate_eoo_alpha()}}.}
 }
 \value{
 A list with the window definitions, AOO and EOO for both periods,
 \code{percent_change} (AOO, retained for backward compatibility),
-\code{aoo_percent_change}, \code{eoo_percent_change} and the record
-counts underlying each period. A change is \code{NA} when the earlier
-period has no records to compare against.
+\code{aoo_percent_change}, \code{eoo_percent_change} (from alpha-hulls),
+\code{eoo_mcp_percent_change} (from the convex hulls, a diagnostic) and
+the record counts underlying each period. A change is \code{NA} when the
+earlier period has no records to compare against. These are raw
+changes: recording effort is not accounted for (data tier T0; see
+\code{\link[=data_tier]{data_tier()}}).
 }
 \description{
 Compares AOO and EOO between a recent window and an earlier comparison

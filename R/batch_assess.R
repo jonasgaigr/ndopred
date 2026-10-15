@@ -17,6 +17,8 @@
 #' @param recent_end,recent_start Numeric. The current window.
 #' @param comp_end,comp_start Numeric or `NULL`. The comparison window;
 #'   `NULL` derives it per taxon from the generation length.
+#' @param effort_dir Optional folder of effort layers ([ndop_effort()]) for
+#'   the data tiers T1 and T2; see [trend_estimate()].
 #' @param evidence Optional expert evidence for any of the taxa: an evidence
 #'   table or the path of an evidence file (see [evidence]). Each taxon uses
 #'   its own rows; the final category columns report the checked final
@@ -50,6 +52,7 @@ batch_assess <- function(species_list,
                          comp_end = NULL,
                          snapshot_dir = NULL,
                          evidence = NULL,
+                         effort_dir = NULL,
                          ...) {
   if (missing(reference_year)) {
     stop("`reference_year` is required: ndopred no longer reads the system clock.",
@@ -65,7 +68,7 @@ batch_assess <- function(species_list,
       assess_species(sp, recent_start = recent_start, recent_end = recent_end,
                      comp_start = comp_start, comp_end = comp_end,
                      reference_year = reference_year, snapshot_dir = snapshot_dir,
-                     evidence = evidence, ...),
+                     evidence = evidence, effort_dir = effort_dir, ...),
       error = function(e) {
         message(paste("Error processing", sp, ":", conditionMessage(e)))
         failed <- .proposal(NA_character_, NA_character_, support = "none",

@@ -272,13 +272,20 @@ print.ndopred_proposal <- function(x, ...) {
   # Criterion A
   src <- if (is.na(ind_src)) "the records" else ind_src
   out <- c(out, .needs_a_unknown(W))
+  # What the reduction still needs depends on the data tier behind it
+  # (trend_estimate()): T0/T1 are diagnostics, T2 an occupancy trend whose
+  # link to the population must be shown (review 7.3), T3 an index to confirm.
+  tier <- inp$indication$data_tier
+  a_need <- switch(if (is.null(tier) || is.na(tier)) "T0" else tier,
+                   T3 = "an estimate from standardized monitoring - confirm it as evidence",
+                   T2 = "a trend in occupancy - document its link to the population (basis c)",
+                   "needs an effort-corrected or monitored estimate")
   if (!is.null(parts$A) && W$A$support == "indication") {
-    out <- c(out, sprintf("%s: reduction from %s - needs an effort-corrected or monitored estimate",
-                          paste(W$A$types, collapse = "+"), src))
+    out <- c(out, sprintf("%s: reduction from %s - %s", paste(W$A$types, collapse = "+"), src, a_need))
   } else if (is.na(W$A$level) && W$A$support == "indication" && prop_rank < .rank("VU")) {
     # A non-threatened proposal that rests on "no reduction" from the same
     # proxy is no better evidenced than a threatened one.
-    out <- c(out, sprintf("A: no qualifying reduction indicated by %s - needs an effort-corrected or monitored estimate", src))
+    out <- c(out, sprintf("A: no qualifying reduction indicated by %s - %s", src, a_need))
   }
 
   # Criterion B: indications behind a B listing, and unknowns that could
