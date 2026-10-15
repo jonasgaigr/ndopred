@@ -4,20 +4,29 @@
 \alias{add_year_column}
 \title{Add a Standardised 'year' Column to Occurrence Data}
 \usage{
-add_year_column(data, date_col = "DATUM_OD")
+add_year_column(data, date_col = "DATUM_OD", end_col = "DATUM_DO")
 }
 \arguments{
 \item{data}{Data frame or sf object of occurrences.}
 
 \item{date_col}{Character. Name of the date column to fall back on.}
+
+\item{end_col}{Character. Name of the end-date column.}
 }
 \value{
-The input with a numeric \code{year} column added (or refreshed).
+The input with numeric \code{year}, \code{year_min} and
+\code{year_max} columns added (or refreshed).
 }
 \description{
 Prefers an existing \code{ROK} column, falling back to parsing
 \code{DATUM_OD}. Used by the temporal filters in \code{calculate_eoo()},
 \code{calculate_aoo()} and \code{calculate_locations()} so that all three
 agree on which records belong to a given window.
+}
+\details{
+Also adds the record's date range, \code{year_min} and \code{year_max}:
+NDOP records are dated from \code{DATUM_OD} to \code{DATUM_DO}, and a
+record spanning several years belongs to a time window only if the whole
+range lies inside it (see \code{filter_years()}).
 }
 \keyword{internal}

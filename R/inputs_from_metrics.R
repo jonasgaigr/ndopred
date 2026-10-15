@@ -4,7 +4,9 @@
 # two cannot read the same numbers differently.
 .inputs_from_metrics <- function(eoo_km2, aoo_km2, n_records, n_current, year_last,
                                  aoo_change, eoo_change, locs_change, clusters,
-                                 pop_metrics, evaluate_pop, tolerance, evidence = list()) {
+                                 pop_metrics, evaluate_pop, tolerance, evidence = list(),
+                                 eoo_km2_min = NA, eoo_km2_max = NA,
+                                 aoo_km2_min = NA, aoo_km2_max = NA) {
   num <- function(x) {
     v <- suppressWarnings(as.numeric(x))
     if (length(v) == 0) NA_real_ else v[1]
@@ -61,19 +63,30 @@
   )
   assessment_inputs(eoo_km2 = eoo_km2, aoo_km2 = aoo_km2, n_records = n_records,
                     n_current = n_current, year_last = year_last,
-                    indication = indication, evidence = evidence)
+                    indication = indication, evidence = evidence,
+                    eoo_km2_min = eoo_km2_min, eoo_km2_max = eoo_km2_max,
+                    aoo_km2_min = aoo_km2_min, aoo_km2_max = aoo_km2_max)
 }
 
 # One-row result shared by summarize_assessment(), assess_taxon(),
 # assess_species() and batch_assess().
-.result_row <- function(species, proposal, eoo_km2, aoo_km2, locations, trend_perc) {
+.result_row <- function(species, proposal, eoo_km2, aoo_km2, locations, trend_perc,
+                        eoo_range = NULL, aoo_range = NULL) {
   na_or <- function(x, f) if (is.null(x) || length(x) == 0 || is.na(x[1])) NA_real_ else f(x[1])
+  r2 <- function(v) round(v, 2)
+  bound <- function(rng, k, fallback) if (is.null(rng)) na_or(fallback, r2) else na_or(rng[[k]], r2)
   data.frame(
     Species = species,
     Category = proposal$category,
     Criteria = proposal$criteria,
-    EOO_km2 = na_or(eoo_km2, function(v) round(v, 2)),
-    AOO_km2 = na_or(aoo_km2, function(v) round(v, 2)),
+    EOO_km2 = na_or(eoo_km2, r2),
+    AOO_km2 = na_or(aoo_km2, r2),
+    # Bounds from positional uncertainty (Guidelines 3.2, 4.10.8): observed
+    # AOO is itself a lower bound on the true AOO.
+    EOO_km2_min = bound(eoo_range, "min", eoo_km2),
+    EOO_km2_max = bound(eoo_range, "max", eoo_km2),
+    AOO_km2_min = bound(aoo_range, "min", aoo_km2),
+    AOO_km2_max = bound(aoo_range, "max", aoo_km2),
     Locations = na_or(locations, as.numeric),
     Trend_Perc = na_or(trend_perc, function(v) round(v, 1)),
     Criteria_IUCN = proposal$criteria_iucn,

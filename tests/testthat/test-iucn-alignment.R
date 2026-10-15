@@ -308,3 +308,80 @@ test_that("GAP-14: README install instructions point at the real repository", {
   skip_if_not(file.exists(readme), "README not available (installed package)")
   expect_false(any(grepl("yourusername", readLines(readme, warn = FALSE))))
 })
+
+# ----------------------------------------------------------- GAP-10: AOO
+
+test_that("GAP-10a: positional precision gives AOO a range", {
+  # Guidelines 3.2 / 4.10.8: AOO needs a plausible range. A record with 3 km
+  # positional error cannot be placed in one 2 x 2 km cell with certainty.
+  mk <- function(x, prec) sf::st_as_sf(
+    data.frame(x = x, y = 2900500, CXPRESNOST = prec),
+    coords = c("x", "y"), crs = 3035)
+  # Two records 2.5 km apart: two cells, but with 3 km error both could sit
+  # in one cell.
+  exact <- calculate_aoo(mk(c(4600500, 4603000), 0))
+  loose <- calculate_aoo(mk(c(4600500, 4603000), 3000))
+  expect_equal(c(exact$area_km2_min, exact$area_km2_max), c(exact$area_km2, exact$area_km2))
+  expect_lt(loose$area_km2_min, loose$area_km2)
+  # Two records at one spot: one cell, but with 3 km error two cells.
+  same <- calculate_aoo(mk(c(4600500, 4600500), 3000))
+  expect_gt(same$area_km2_max, same$area_km2)
+})
+
+test_that("GAP-10b: record geometries (lines/polygons) are requested, not just X/Y", {
+  seen <- NULL
+  testthat::local_mocked_bindings(
+    ndop_download = function(...) { seen <<- list(...); NULL },
+    .package = "rndop"
+  )
+  suppressMessages(get_assessment_data("Any sp"))
+  expect_true(!is.null(seen$locations) && seen$locations > 0)
+})
+
+test_that("GAP-10d: observed AOO is reported as a lower bound with a range", {
+  res <- gap_assess(eoo = list(area_km2 = 4000), aoo = list(area_km2 = 400))
+  expect_true(any(grepl("aoo.*(min|lower|max|upper)", names(res$result),
+                        ignore.case = TRUE)))
+})
+
+# ---------------------------------------------- GAP-11: records are deleted
+
+test_that("GAP-11a: no record is deleted; exclusions are flags", {
+  testthat::local_mocked_bindings(ndop_download = function(...) gap_raw(),
+                                  .package = "rndop")
+  res <- get_assessment_data("Bombina bombina")
+  expect_equal(nrow(res) + 0, nrow(gap_raw()) + 0)
+})
+
+test_that("GAP-11b: negative findings are kept as non-detections", {
+  testthat::local_mocked_bindings(ndop_download = function(...) gap_raw(),
+                                  .package = "rndop")
+  res <- get_assessment_data("Bombina bombina")
+  expect_true(2 %in% res$ID_NALEZ)
+})
+
+test_that("GAP-11c: a record validated as erroneous is flagged or excluded", {
+  # VALIDACE = "chybný záznam" (erroneous record) is not read at all.
+  testthat::local_mocked_bindings(ndop_download = function(...) gap_raw(),
+                                  .package = "rndop")
+  res <- get_assessment_data("Bombina bombina")
+  expect_true(!(3 %in% res$ID_NALEZ) || "exclusion_reason" %in% names(res))
+})
+
+test_that("GAP-11d: records of a different taxon (hybrid) are flagged or excluded", {
+  # rndop matches names with an unanchored grep: "Bombina bombina" also pulls
+  # "Bombina bombina x variegata" (confirmed on the live ndop_list()).
+  testthat::local_mocked_bindings(ndop_download = function(...) gap_raw(),
+                                  .package = "rndop")
+  res <- get_assessment_data("Bombina bombina")
+  expect_true(!(7 %in% res$ID_NALEZ) || "exclusion_reason" %in% names(res))
+})
+
+test_that("GAP-11e: a record dated as a range carries its date precision", {
+  # DATUM_OD 1990-01-01, DATUM_DO 2015-12-31 is filed under 1990 only.
+  testthat::local_mocked_bindings(ndop_download = function(...) gap_raw(),
+                                  .package = "rndop")
+  res <- get_assessment_data("Bombina bombina")
+  expect_true(any(grepl("date_prec|year_min|year_max|DATUM_DO", names(res))))
+  expect_true(any(grepl("date_prec|year_min|year_max", names(add_year_column(res)))))
+})

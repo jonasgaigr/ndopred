@@ -140,13 +140,17 @@ summarize_assessment <- function(species, eoo, aoo, trend, locations, pop_metric
     aoo_change = aoo_trend, eoo_change = eoo_change,
     locs_change = num(locations_trend), clusters = num(locations),
     pop_metrics = pop_metrics, evaluate_pop = evaluate_pop,
-    tolerance = cfg$conventions$decline_tolerance, evidence = ev
+    tolerance = cfg$conventions$decline_tolerance, evidence = ev,
+    eoo_km2_min = reconcile_eoo_aoo(num(eoo$area_km2_min), num(aoo$area_km2_min)),
+    eoo_km2_max = reconcile_eoo_aoo(num(eoo$area_km2_max), num(aoo$area_km2_max)),
+    aoo_km2_min = num(aoo$area_km2_min), aoo_km2_max = num(aoo$area_km2_max)
   )
   assessment <- assess_criteria(inputs, cfg, evaluate_pop = evaluate_pop)
   proposal <- categorise(assessment)
 
   list(
-    result = .result_row(species, proposal, eoo_val, aoo_val, num(locations), aoo_trend),
+    result = .result_row(species, proposal, eoo_val, aoo_val, num(locations), aoo_trend,
+                         eoo_range = inputs$eoo_range, aoo_range = inputs$aoo_range),
     details = .legacy_details(assessment, proposal),
     assessment = c(assessment, list(proposal = proposal))
   )

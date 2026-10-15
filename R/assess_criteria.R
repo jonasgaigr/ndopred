@@ -92,6 +92,10 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #' @param comp_start,comp_end Numeric. The comparison window for the trend.
 #' @param evaluate_pop Logical. Use NDOP counts as indications for A(b),
 #'   B(b)(v), B(c)(iv), C and D.
+#' @param snapshot_dir Optional folder to store the NDOP download in (see
+#'   [ndop_snapshot()], [default_snapshot_dir()]).
+#' @param snapshot Optional stored snapshot (object or path) to assess
+#'   instead of downloading.
 #' @param ... Expert evidence (`d2_threat`, `threat_locations`,
 #'   `severely_fragmented`, `habitat_decline`, `a_criteria`, `evidence`) and
 #'   configuration (`generation_length`, `decline_tolerance`,
@@ -116,7 +120,7 @@ assess_criterion_d2 <- function(aoo_km2, locations, plausible_threat = NA) {
 #' }
 #' @export
 assess_species <- function(sp, recent_start, recent_end, comp_start, comp_end,
-                           evaluate_pop = FALSE, ...) {
+                           evaluate_pop = FALSE, snapshot_dir = NULL, snapshot = NULL, ...) {
   args <- list(...)
   config <- .config_from_args(
     args,
@@ -124,7 +128,7 @@ assess_species <- function(sp, recent_start, recent_end, comp_start, comp_end,
     recent_start = recent_start, recent_end = recent_end,
     comp_start = comp_start, comp_end = comp_end
   )
-  occ <- get_assessment_data(sp)
+  occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
   assess_taxon(occ, sp, config, evaluate_pop = evaluate_pop,
                evidence = .evidence_from_args(args))$result
 }

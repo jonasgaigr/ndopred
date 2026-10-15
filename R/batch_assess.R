@@ -12,6 +12,9 @@
 #'   not read the system clock).
 #' @param recent_end,recent_start Numeric. The current window.
 #' @param comp_end,comp_start Numeric. The comparison window.
+#' @param snapshot_dir Optional folder in which every download is stored as
+#'   an RDS snapshot, so the run can be repeated exactly; see
+#'   [default_snapshot_dir()]. The file name is in the `Snapshot` column.
 #' @param ... Passed to [assess_species()]: `evaluate_pop`, expert evidence
 #'   and configuration.
 #' @return A data frame with one row per input taxon.
@@ -36,6 +39,7 @@ batch_assess <- function(species_list,
                          recent_start = recent_end - 9,
                          comp_end = recent_start - 1,
                          comp_start = comp_end - 9,
+                         snapshot_dir = NULL,
                          ...) {
   if (missing(reference_year)) {
     stop("`reference_year` is required: ndopred no longer reads the system clock.",
@@ -51,7 +55,7 @@ batch_assess <- function(species_list,
     tryCatch(
       assess_species(sp, recent_start = recent_start, recent_end = recent_end,
                      comp_start = comp_start, comp_end = comp_end,
-                     reference_year = reference_year, ...),
+                     reference_year = reference_year, snapshot_dir = snapshot_dir, ...),
       error = function(e) {
         message(paste("Error processing", sp, ":", conditionMessage(e)))
         failed <- .proposal(NA_character_, NA_character_, support = "none",

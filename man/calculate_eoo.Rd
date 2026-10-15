@@ -8,7 +8,9 @@ calculate_eoo(
   occurrence_data,
   year_start = NULL,
   date_col = "DATUM_OD",
-  year_end = NULL
+  year_end = NULL,
+  precision = NULL,
+  geometries = NULL
 )
 }
 \arguments{
@@ -19,12 +21,18 @@ calculate_eoo(
 \item{date_col}{Character. The name of the date column (default is "DATUM_OD").}
 
 \item{year_end}{Numeric. Only records up to and including this year.}
+
+\item{precision}{Numeric vector of positional precision in metres, or
+\code{NULL} to read \code{precision_m} / \code{CXPRESNOST} (0 = exact).}
+
+\item{geometries}{Optional \code{sf} layer of record polygons and lines keyed by
+\code{ID_LOKAL} (see \code{\link[=calculate_aoo]{calculate_aoo()}}).}
 }
 \value{
 A list with \code{area_km2} (\code{NA} when fewer than 3 points are
 available, or when the hull is degenerate; callers should reconcile
-against AOO via \code{\link{reconcile_eoo_aoo}}) and \code{geom}, the
-hull as an \code{sf} geometry.
+against AOO via \code{\link{reconcile_eoo_aoo}}), \code{area_km2_min},
+\code{area_km2_max}, and \code{geom}, the hull as an \code{sf} geometry.
 }
 \description{
 Minimum convex polygon over the occurrence points, per IUCN Guidelines
@@ -32,6 +40,14 @@ Minimum convex polygon over the occurrence points, per IUCN Guidelines
 excluding discontinuities or disjunctions from EOO for criterion B1, which
 is why no outlier trimming is applied here.
 }
+\section{Bounds}{
+
+\code{area_km2_min} leaves out records less precise than 2 km and retained
+less-credible records (\code{flag_less_credible}); \code{area_km2_max} is the hull of
+every record's precision disc and polygon (Guidelines §3.2, §4.9). Both are
+\code{NA} where fewer than three positions remain.
+}
+
 \examples{
 pts <- sf::st_as_sf(
   data.frame(

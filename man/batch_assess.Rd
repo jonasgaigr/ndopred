@@ -11,6 +11,7 @@ batch_assess(
   recent_start = recent_end - 9,
   comp_end = recent_start - 1,
   comp_start = comp_end - 9,
+  snapshot_dir = NULL,
   ...
 )
 }
@@ -23,6 +24,10 @@ not read the system clock).}
 \item{recent_end, recent_start}{Numeric. The current window.}
 
 \item{comp_end, comp_start}{Numeric. The comparison window.}
+
+\item{snapshot_dir}{Optional folder in which every download is stored as
+an RDS snapshot, so the run can be repeated exactly; see
+\code{\link[=default_snapshot_dir]{default_snapshot_dir()}}. The file name is in the \code{Snapshot} column.}
 
 \item{...}{Passed to \code{\link[=assess_species]{assess_species()}}: \code{evaluate_pop}, expert evidence
 and configuration.}

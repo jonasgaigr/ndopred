@@ -23,6 +23,13 @@ bulk_ui <- function() fluidPage(
         "The current window is the last N years up to the reference year; the",
         "comparison window is the N years immediately before it."
       ))),
+      checkboxInput("save_snapshots", "Store NDOP snapshots (RDS)", value = TRUE),
+      textInput("snapshot_dir", "Snapshot folder:", value = default_snapshot_dir()),
+      p(tags$small(paste(
+        "Each download is kept unchanged so the run can be repeated exactly.",
+        "Snapshots hold exact coordinates and observer names: keep the folder",
+        "out of shared repositories."
+      ))),
       numericInput("cell_size", "Display grid for maps (km):", value = 2, min = 1),
       p(tags$small(paste(
         "Criteria B2 and D2 always use AOO on the 2 x 2 km reference grid",
@@ -74,7 +81,14 @@ bulk_ui <- function() fluidPage(
   range = "Rozsah kategori\u00ed",
   flags = "P\u0159\u00edznaky",
   aoo_display = "AOO nov\u00fd, zvolen\u00e1 m\u0159\u00ed\u017eka (km2)",
-  reference_year = "Referen\u010dn\u00ed rok"
+  reference_year = "Referen\u010dn\u00ed rok",
+  aoo_new_min = "AOO nov\u00fd min (km2)",
+  aoo_new_max = "AOO nov\u00fd max (km2)",
+  eoo_new_min = "EOO nov\u00fd min (km2)",
+  eoo_new_max = "EOO nov\u00fd max (km2)",
+  n_excluded = "Z\u00e1znam\u016f vy\u0159azeno",
+  exclusions = "D\u016fvody vy\u0159azen\u00ed",
+  snapshot = "Snapshot NDOP"
 )
 
 .SUPPORT_CS <- c(
@@ -107,7 +121,14 @@ bulk_ui <- function() fluidPage(
     support = unname(.SUPPORT_CS[r$Support]),
     needs = r$Needs_Evidence, range = r$Category_Range, flags = r$Flags,
     aoo_display = m$aoo_display,
-    reference_year = r$Reference_Year
+    reference_year = r$Reference_Year,
+    aoo_new_min = m$aoo_new_min, aoo_new_max = m$aoo_new_max,
+    eoo_new_min = m$eoo_new_min, eoo_new_max = m$eoo_new_max,
+    n_excluded = m$n_excluded,
+    exclusions = if (length(m$exclusions)) {
+      paste(names(m$exclusions), m$exclusions, sep = ": ", collapse = "; ")
+    } else "",
+    snapshot = m$snapshot
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -231,7 +252,11 @@ bulk_server <- function(input, output, session) {
           } else NA_character_
         )
 
-        occ_raw <- tryCatch(ndopred::get_assessment_data(sp), error = function(e) e)
+        snap_dir <- if (isTRUE(input$save_snapshots) && !is.null(input$snapshot_dir) && nzchar(input$snapshot_dir)) {
+          input$snapshot_dir
+        } else NULL
+        occ_raw <- tryCatch(ndopred::get_assessment_data(sp, snapshot_dir = snap_dir),
+                            error = function(e) e)
         if (inherits(occ_raw, "error")) {
           log_msg(paste("Download failed for", sp, ":", conditionMessage(occ_raw)))
           metrics <- ndopred::taxon_metrics(NULL, config)

@@ -43,31 +43,52 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
     (after - before) / before * 100
   }
 
+  # Attributes do not survive subsetting, so read them first.
+  dl <- attr(occ, "download_error")
+  geoms <- attr(occ, "record_geometries")
+  snapshot <- attr(occ, "snapshot")
+  n_raw <- if (is.null(occ)) 0L else nrow(occ)
+  # Only included records count; excluded ones keep their row upstream
+  # (flag_records(); gap analysis, item 11).
+  if (n_raw > 0 && "include" %in% names(occ)) {
+    excluded <- occ$exclusion_reason[!occ$include]
+    occ <- suppressWarnings(occ[occ$include %in% TRUE, , drop = FALSE])
+  } else {
+    excluded <- character(0)
+  }
   n_records <- if (is.null(occ)) 0L else nrow(occ)
   out <- list(
-    n_records = n_records, n_current = 0L, n_comp = 0L, year_last = NA_real_,
-    aoo_new = NA_real_, cells_new = NA_real_, aoo_display = NA_real_,
-    eoo_new = NA_real_, clusters_new = NA_real_,
+    n_records = n_records, n_raw = n_raw, n_excluded = length(excluded),
+    exclusions = if (length(excluded)) sort(table(excluded), decreasing = TRUE) else integer(0),
+    n_current = 0L, n_comp = 0L, year_last = NA_real_,
+    aoo_new = NA_real_, aoo_new_min = NA_real_, aoo_new_max = NA_real_,
+    cells_new = NA_real_, aoo_display = NA_real_,
+    eoo_new = NA_real_, eoo_new_min = NA_real_, eoo_new_max = NA_real_,
+    clusters_new = NA_real_,
     aoo_old = NA_real_, eoo_old = NA_real_, clusters_old = NA_real_,
     aoo_change = NA_real_, eoo_change = NA_real_, locs_change = NA_real_,
-    trend = NULL, pop = NULL, windows = w, display_grid_size = display_grid_size
+    trend = NULL, pop = NULL, windows = w, display_grid_size = display_grid_size,
+    snapshot = if (is.null(snapshot$path)) NA_character_ else basename(snapshot$path)
   )
-  dl <- attr(occ, "download_error")
   if (!is.null(dl)) {
     note("download", dl)
     out$failed <- paste0("download failed: ", dl)
   }
   if (n_records == 0) {
-    note("records", if (is.null(dl)) "no usable NDOP records" else "download failed")
+    note("records", if (!is.null(dl)) "download failed" else if (n_raw > 0) {
+      sprintf("all %d records excluded (see exclusions)", n_raw)
+    } else "no usable NDOP records")
     out$issues <- issues
     return(out)
   }
 
   occ <- add_year_column(occ)
-  yl <- suppressWarnings(max(occ$year, na.rm = TRUE))
+  yl <- suppressWarnings(max(occ$year_max, na.rm = TRUE))
   out$year_last <- if (is.finite(yl)) yl else NA_real_
+  # A record belongs to a window only if its whole date range does.
   in_window <- function(a, b) {
-    suppressWarnings(occ[!is.na(occ$year) & occ$year >= a & occ$year <= b, , drop = FALSE])
+    keep <- !is.na(occ$year_min) & occ$year_min >= a & !is.na(occ$year_max) & occ$year_max <= b
+    suppressWarnings(occ[keep, , drop = FALSE])
   }
   recent <- in_window(w$recent_start, w$recent_end)
   comp <- in_window(w$comp_start, w$comp_end)
@@ -75,24 +96,31 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
   out$n_comp <- nrow(comp)
 
   if (nrow(recent) == 0) {
-    out$aoo_new <- 0
+    out$aoo_new <- out$aoo_new_min <- out$aoo_new_max <- 0
     out$cells_new <- 0
     out$aoo_display <- 0
     msg <- sprintf("no records in the current window %s-%s", w$recent_start, w$recent_end)
     note("eoo", msg)
     note("locations", msg)
   } else {
-    a <- capture("aoo", calculate_aoo(recent, grid_size = 2000))
+    a <- capture("aoo", calculate_aoo(recent, grid_size = 2000, geometries = geoms))
     if (!is.null(a)) {
       out$aoo_new <- a$area_km2
+      out$aoo_new_min <- a$area_km2_min
+      out$aoo_new_max <- a$area_km2_max
       out$cells_new <- a$n_cells
     }
-    e <- capture("eoo", calculate_eoo(recent))
+    e <- capture("eoo", calculate_eoo(recent, geometries = geoms))
     eoo <- if (is.null(e)) NA_real_ else e$area_km2
     if (is.null(e) || is.na(eoo)) {
       if (is.null(issues$eoo)) note("eoo", "hull not computable (fewer than 3 distinct points); AOO stands in (Guidelines 4.9)")
     }
     out$eoo_new <- reconcile_eoo_aoo(eoo, out$aoo_new)
+    # Each bound reconciled with the matching AOO bound (Guidelines 4.9).
+    out$eoo_new_min <- reconcile_eoo_aoo(if (is.null(e)) NA_real_ else e$area_km2_min, out$aoo_new_min)
+    out$eoo_new_max <- reconcile_eoo_aoo(if (is.null(e)) NA_real_ else e$area_km2_max, out$aoo_new_max)
+    if (!is.na(out$eoo_new_min) && !is.na(out$eoo_new)) out$eoo_new_min <- min(out$eoo_new_min, out$eoo_new)
+    if (!is.na(out$eoo_new_max) && !is.na(out$eoo_new)) out$eoo_new_max <- max(out$eoo_new_max, out$eoo_new)
     cl <- capture("locations", suppressWarnings(calculate_locations(recent)))
     if (!is.null(cl)) out$clusters_new <- cl
     if (isTRUE(all.equal(display_grid_size, 2000))) {
@@ -181,14 +209,20 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
       aoo_change = metrics$aoo_change, eoo_change = metrics$eoo_change,
       locs_change = metrics$locs_change, clusters = metrics$clusters_new,
       pop_metrics = metrics$pop, evaluate_pop = evaluate_pop,
-      tolerance = config$conventions$decline_tolerance, evidence = evidence
+      tolerance = config$conventions$decline_tolerance, evidence = evidence,
+      eoo_km2_min = metrics$eoo_new_min, eoo_km2_max = metrics$eoo_new_max,
+      aoo_km2_min = metrics$aoo_new_min, aoo_km2_max = metrics$aoo_new_max
     )
     assessment <- assess_criteria(inputs, config, evaluate_pop = evaluate_pop)
     proposal <- categorise(assessment)
   }
   row <- .result_row(species, proposal, metrics$eoo_new, metrics$aoo_new,
-                     metrics$clusters_new, metrics$aoo_change)
+                     metrics$clusters_new, metrics$aoo_change,
+                     eoo_range = c(min = metrics$eoo_new_min, max = metrics$eoo_new_max),
+                     aoo_range = c(min = metrics$aoo_new_min, max = metrics$aoo_new_max))
   row$Reference_Year <- config$reference_year
+  row$Records_Excluded <- if (is.null(metrics$n_excluded)) 0L else metrics$n_excluded
+  row$Snapshot <- if (is.null(metrics$snapshot)) NA_character_ else metrics$snapshot
   row <- cbind(row, .issue_columns(metrics$issues))
   list(result = row, metrics = metrics, assessment = assessment,
        proposal = proposal, config = config)

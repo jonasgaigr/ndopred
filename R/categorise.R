@@ -64,7 +64,7 @@ categorise <- function(assessment) {
   }
 
   cat_w <- .scenario_category(W)
-  cat_l <- cat_w
+  cat_l <- .scenario_category(S$low)
   cat_h <- .scenario_category(S$high)
 
   if (!.yes(inp$extant)) {

@@ -8,16 +8,18 @@
 #         estimate. NA means UNKNOWN and is never read as FALSE.
 #   ind - indication: TRUE / FALSE / NA from a record-based proxy (cluster
 #         count, raw window-to-window change, NDOP locality counts).
-# Every criterion is evaluated in two scenarios:
-#   working - the proposal and the low end of the plausible range:
-#             evidence where it exists, else the indication;
+# Every criterion is evaluated in three scenarios:
+#   working - the proposal: evidence where it exists, else the indication;
+#             best estimates of EOO and AOO;
+#   low     - the low end of the plausible range: conditions as in working,
+#             the largest plausible EOO and AOO;
 #   high    - the high end: evidence where it exists, else assumed TRUE
-#             (only where the taxon's own data meet the criterion's gate).
+#             (only where the taxon's own data meet the criterion's gate),
+#             and the smallest plausible EOO and AOO.
 # Whether a condition rests on evidence or on an indication is reported
-# separately (support, needs), not through the range. Parameter min/max
-# bounds widen the range from Phase 2 on (Guidelines 3.2).
+# separately (support, needs), not through the range (Guidelines 3.2).
 # .resolve() is the only place where an unknown is read as FALSE, and only
-# for the working scenario.
+# for the working and low scenarios.
 
 # ------------------------------------------------------------- thresholds
 
@@ -69,8 +71,15 @@
 .resolve <- function(x, scenario) {
   if (!is.na(x$ev)) return(x$ev)
   switch(scenario,
-         working = !is.na(x$ind) && x$ind,
+         working = ,
+         low = !is.na(x$ind) && x$ind,
          high = TRUE)
+}
+
+# EOO or AOO for a scenario: best, largest (low end) or smallest (high end).
+.area <- function(range, scenario) {
+  v <- switch(scenario, working = range[["best"]], low = range[["max"]], high = range[["min"]])
+  if (is.na(v)) range[["best"]] else v
 }
 
 .support <- function(x) {
@@ -136,6 +145,11 @@
 #' @param year_last Numeric. Year of the most recent record.
 #' @param indication Named list of record-based proxies; see Details.
 #' @param evidence Named list of expert evidence; see Details.
+#' @param eoo_km2_min,eoo_km2_max,aoo_km2_min,aoo_km2_max Numeric. Plausible
+#'   bounds of EOO and AOO, e.g. from positional precision (see
+#'   [calculate_aoo()]); missing bounds equal the best estimate. The low end
+#'   of the plausible range uses the largest areas, the high end the smallest
+#'   (Guidelines §3.2).
 #' @details
 #' `indication` entries: `reduction` (per cent decline, positive),
 #' `reduction_basis` ("b" or "c"), `reduction_source` (text), `clusters`
@@ -163,7 +177,9 @@
 #' @export
 assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
                               n_current = NA, year_last = NA,
-                              indication = list(), evidence = list()) {
+                              indication = list(), evidence = list(),
+                              eoo_km2_min = NA, eoo_km2_max = NA,
+                              aoo_km2_min = NA, aoo_km2_max = NA) {
   flags_b <- c(i = NA, ii = NA, iii = NA, iv = NA, v = NA)
   flags_c <- c(i = NA, ii = NA, iii = NA, iv = NA)
   merge_flags <- function(default, given) {
@@ -199,8 +215,17 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
   n_cur <- num(n_current)
   # TRUE: current records exist; FALSE: none; NA: unknown (AOO not computed).
   extant <- if (!is.na(n_cur)) n_cur > 0 else if (!is.na(aoo)) aoo > 0 else NA
+  # min / best / max of each area (Guidelines 3.2); a missing bound is the
+  # best estimate.
+  bounds <- function(best, lo, hi) {
+    b <- num(best)
+    c(min = if (is.na(num(lo))) b else min(num(lo), b, na.rm = TRUE), best = b,
+      max = if (is.na(num(hi))) b else max(num(hi), b, na.rm = TRUE))
+  }
   structure(list(
     eoo_km2 = num(eoo_km2), aoo_km2 = aoo, n_records = num(n_records),
+    eoo_range = bounds(eoo_km2, eoo_km2_min, eoo_km2_max),
+    aoo_range = bounds(aoo_km2, aoo_km2_min, aoo_km2_max),
     n_current = n_cur, year_last = num(year_last), extant = extant,
     indication = ind, evidence = ev, threat_undescribed = undescribed
   ), class = "ndopred_inputs")
@@ -255,7 +280,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
   c <- .sub_conds(inp$evidence$fluctuation, inp$indication$fluctuation)
   res <- list()
   for (sub in c("B1", "B2")) {
-    area <- if (sub == "B1") inp$eoo_km2 else inp$aoo_km2
+    area <- .area(if (sub == "B1") inp$eoo_range else inp$aoo_range, scenario)
     out <- list(evaluable = .yes(inp$extant) && !is.na(area), area = area, gate = NA_character_,
                 level = NA_character_, a = FALSE, b = character(0), c = character(0),
                 max_count = 0L, conds = list(b = b, c = c))
@@ -348,7 +373,8 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
   out <- list(met = FALSE, restricted = FALSE, by_aoo = FALSE, loc = NULL, threat = threat,
               candidate = FALSE)
   if (!.yes(inp$extant)) return(out)
-  by_aoo <- !is.na(inp$aoo_km2) && inp$aoo_km2 < conv$d2_aoo_km2
+  aoo_s <- .area(inp$aoo_range, scenario)
+  by_aoo <- !is.na(aoo_s) && aoo_s < conv$d2_aoo_km2
   loc_known <- !is.na(suppressWarnings(as.numeric(ev$threat_locations)))
   loc <- .cond(
     if (identical(threat, FALSE)) FALSE else if (loc_known) as.numeric(ev$threat_locations) <= conv$d2_locations else NA,
@@ -405,7 +431,7 @@ assessment_inputs <- function(eoo_km2 = NA, aoo_km2 = NA, n_records = NA,
 #' @export
 assess_criteria <- function(inputs, config, evaluate_pop = TRUE) {
   stopifnot(inherits(inputs, "ndopred_inputs"), inherits(config, "ndopred_config"))
-  scen <- c("working", "high")
+  scen <- c("working", "low", "high")
   scenarios <- lapply(scen, function(s) list(
     A = .eval_A(inputs, config, s),
     B = .eval_B(inputs, config, s),
@@ -455,7 +481,9 @@ assess_criteria <- function(inputs, config, evaluate_pop = TRUE) {
     B <- w$B[[sub]]
     for (L in .LEVELS) {
       gate <- if (B$evaluable) B$area < .B_AREA[[sub]][[L]] else NA
-      add(sub, "area", L, round(B$area, 2), paste0("< ", .B_AREA[[sub]][[L]], " km2"),
+      rng <- if (sub == "B1") inp$eoo_range else inp$aoo_range
+      add(sub, "area", L, sprintf("%s (%s-%s)", round(rng[["best"]], 2), round(rng[["min"]], 2), round(rng[["max"]], 2)),
+          paste0("< ", .B_AREA[[sub]][[L]], " km2"),
           "data", "NA", st(gate), if (B$evaluable) "data" else "none",
           "Criteria v3.1 V B; Guidelines v16 s4.9-4.10")
       if (!isFALSE(gate) && B$evaluable) {

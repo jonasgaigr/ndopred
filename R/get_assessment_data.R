@@ -1,123 +1,132 @@
-#' Get and Clean NDOP Data
+#' Get NDOP Records for Assessment, Flagged
 #'
-#' @param species_name Character. Scientific name to query.
-#' @param year_start Numeric. Optional filter for starting year.
-#' @return An sf object of cleaned occurrences. It always carries a
-#'   \code{filter_counts} attribute - a named list (\code{raw}, \code{coords},
-#'   \code{non_negative}, \code{has_katastr}, \code{verified}) recording how
-#'   many records survived each quality-control step, so a species that ends
-#'   up with zero usable records can be traced back to its cause (e.g. no NDOP
-#'   records at all, vs. records excluded for missing coordinates or low
-#'   verification status) instead of a single opaque "no records" outcome.
-#'
-#' @section Quality control:
-#' Records are dropped when they have no coordinates, are flagged as a
-#' negative finding (`NEGATIV == 1`), carry an empty cadastral unit, or have a
-#' verification status of 3 (dubious) or 9. A **missing** value in any of
-#' those fields means the field was never populated, not that the record
-#' failed the check, so `NA`s are kept throughout.
+#' Takes an NDOP snapshot ([ndop_snapshot()]) or reads a stored one, flags
+#' every record ([flag_records()]) and returns them as points. **No record
+#' is deleted**: excluded records keep their row with `include = FALSE` and
+#' an `exclusion_reason`, and the metrics use only `include == TRUE`.
 #'
 #' Coordinates are read as S-JTSK / Krovak East North (EPSG:5514), NDOP's
 #' native CRS, and transformed to ETRS89-LAEA (EPSG:3035) so that areas come
-#' out in equal-area metres.
+#' out in equal-area metres. Records without coordinates get an empty point.
+#'
+#' @param species_name Character. Scientific name exactly as in NDOP; records
+#'   of other taxa returned by the query are flagged (gap analysis, D13).
+#' @param year_start Numeric. Optional: keep only records from this year on.
+#' @param snapshot Optional `ndop_snapshot` object or the path to one. When
+#'   given, nothing is downloaded.
+#' @param snapshot_dir Optional folder. When given (and `snapshot` is not),
+#'   the download is stored there as an RDS snapshot; see
+#'   [default_snapshot_dir()].
+#' @param less_credible_share Passed to [flag_records()].
+#' @return An `sf` object with every record, the `flag_*` columns,
+#'   `exclusion_reason`, `include`, `year_min`, `year_max`, `precision_m` and
+#'   `geom_type`. Attributes:
+#'   \describe{
+#'     \item{`filter_counts`}{Records left after each successive test
+#'       (`raw`, `coords`, `non_negative`, `has_katastr`, `verified`) and
+#'       `included`.}
+#'     \item{`exclusions`}{A count of records per exclusion reason.}
+#'     \item{`record_geometries`}{The record points, lines and polygons
+#'       (EPSG:3035) keyed by `ID_LOKAL`, used for precision-aware AOO.}
+#'     \item{`snapshot`}{The snapshot's metadata (query, download time,
+#'       versions, file).}
+#'     \item{`download_error`}{The error message, if the download failed.}
+#'   }
 #'
 #' @section Credentials:
 #' NDOP requires a login. Set `NDOP_USER` and `NDOP_PWD` in `~/.Renviron`, or
-#' call `rndop::isop_login()` once. Without them the download fails and an
-#' empty result is returned with `filter_counts$raw == 0`.
+#' call `rndop::isop_login()` once. A failed download returns no records and
+#' sets the `download_error` attribute.
 #'
-#' @seealso [calculate_eoo()], [calculate_aoo()], [assess_species()]
+#' @seealso [flag_records()], [ndop_snapshot()], [taxon_metrics()]
 #' @examples
 #' \dontrun{
-#' occ <- get_assessment_data("Lucanus cervus")
-#' nrow(occ)
-#' attr(occ, "filter_counts")   # how many records survived each QC step
+#' occ <- get_assessment_data("Lucanus cervus", snapshot_dir = default_snapshot_dir())
+#' table(occ$include)
+#' attr(occ, "exclusions")
 #'
-#' # Only the last ten years
-#' recent <- get_assessment_data("Lucanus cervus", year_start = 2016)
+#' # Rerun later on exactly the same records
+#' occ2 <- get_assessment_data("Lucanus cervus",
+#'                             snapshot = attr(occ, "snapshot")$path)
 #' }
 #' @export
-get_assessment_data <- function(species_name, year_start = NULL) {
+get_assessment_data <- function(species_name, year_start = NULL, snapshot = NULL,
+                                snapshot_dir = NULL, less_credible_share = 0.10) {
 
   empty_sf <- function() {
-    # An empty coordinate set makes sf::st_transform() compute a bounding box
-    # over zero points, which emits benign but noisy min/max warnings - this
-    # is an expected, common outcome (a species simply has no usable
-    # records), not something worth surfacing to the user.
+    # An empty coordinate set makes sf compute a bounding box over zero
+    # points, which emits benign min/max warnings.
     suppressWarnings(
-      sf::st_as_sf(data.frame(X = numeric(0), Y = numeric(0), DATUM_OD = character(0)),
+      sf::st_as_sf(data.frame(X = numeric(0), Y = numeric(0), DATUM_OD = character(0),
+                              include = logical(0)),
                    coords = c("X", "Y"), crs = 5514) %>%
         sf::st_transform(3035)
     )
   }
 
-  # 1. Download. A failure (server down, login refused) is recorded on the
-  # result rather than passed off as "no records": the two need different
-  # responses (gap_analysis.md, item 15).
-  download_error <- NULL
-  raw_data <- tryCatch({
-    rndop::ndop_download(species_name)
-  }, error = function(e) {
-    download_error <<- conditionMessage(e)
-    NULL
-  })
+  # 1. The snapshot: given, stored, or downloaded now.
+  snap <- if (inherits(snapshot, "ndop_snapshot")) {
+    snapshot
+  } else if (is.character(snapshot)) {
+    read_ndop_snapshot(snapshot)
+  } else {
+    ndop_snapshot(species_name, dir = snapshot_dir, save = !is.null(snapshot_dir))
+  }
+  raw_data <- snap$table
+  download_error <- snap$meta$download_error
 
-  # 2. Check if data actually exists before doing anything else
   if (is.null(raw_data) || !is.data.frame(raw_data) || nrow(raw_data) == 0) {
     message(paste(if (is.null(download_error)) "Zero records for:" else "Download failed for:",
                   species_name))
     result <- empty_sf()
     attr(result, "filter_counts") <- list(
-      raw = 0, coords = 0, non_negative = 0, has_katastr = 0, verified = 0
+      raw = 0, coords = 0, non_negative = 0, has_katastr = 0, verified = 0, included = 0
     )
+    attr(result, "snapshot") <- snap$meta
     if (!is.null(download_error)) attr(result, "download_error") <- download_error
     return(result)
   }
 
-  n_raw <- nrow(raw_data)
-
-  # 3. Clean and Transform, tracking survivors at each QC step for diagnostics.
-  # NEGATIV uses is.na(...) | ... == 0 rather than a bare `== 0`: a blank/NA
-  # value means the field was never populated (i.e. not flagged as a negative
-  # finding), not that the record's status is unknown, so it should not be
-  # silently dropped alongside genuine negative-finding records.
-  # The same reasoning applies to KATASTR and VEROH: a blank or NA value means
-  # the field was never populated, not that the record failed the check. In R
-  # both `KATASTR != ""` and `VEROH != 3` evaluate to NA for missing values,
-  # and dplyr::filter() drops NA rows - so the previous code silently
-  # discarded every record with an unrecorded cadastral unit or verification
-  # status, inconsistently with the deliberate NA handling for NEGATIV.
-  step_coords <- dplyr::filter(raw_data, !is.na(.data$X), !is.na(.data$Y))
-  step_negativ <- dplyr::filter(step_coords, is.na(.data$NEGATIV) | .data$NEGATIV == 0)
-  step_katastr <- dplyr::filter(step_negativ, is.na(.data$KATASTR) | .data$KATASTR != "")
-  step_veroh <- dplyr::filter(step_katastr, is.na(.data$VEROH) | (.data$VEROH != 3 & .data$VEROH != 9))
-
+  # 2. Flags, never deletion (gap analysis, item 11).
+  flagged <- flag_records(raw_data, species = species_name,
+                          less_credible_share = less_credible_share)
+  f <- flagged
+  verified_out <- f$flag_erroneous | (f$flag_less_credible & !attr(f, "less_credible_retained"))
+  coords_ok <- !f$flag_no_coords
   filter_counts <- list(
-    raw = n_raw,
-    coords = nrow(step_coords),
-    non_negative = nrow(step_negativ),
-    has_katastr = nrow(step_katastr),
-    verified = nrow(step_veroh)
+    raw = nrow(f),
+    coords = sum(coords_ok),
+    non_negative = sum(coords_ok & !f$flag_negative),
+    has_katastr = sum(coords_ok & !f$flag_negative & !f$flag_no_cadastre),
+    verified = sum(coords_ok & !f$flag_negative & !f$flag_no_cadastre & !verified_out),
+    included = sum(f$include)
   )
 
-  cleaned_sf <- step_veroh
-
-  # Handle case where filtering leaves 0 rows
-  if (nrow(cleaned_sf) == 0) {
-    result <- empty_sf()
-    attr(result, "filter_counts") <- filter_counts
-    return(result)
+  # 3. Record geometries, joined by ID_LOKAL (rndop's idx_nd_lok).
+  geoms <- .snapshot_geometries(snap$geometries)
+  flagged$geom_type <- NA_character_
+  if (!is.null(geoms) && "ID_LOKAL" %in% names(flagged)) {
+    types <- as.character(sf::st_geometry_type(geoms))
+    flagged$geom_type <- types[match(suppressWarnings(as.numeric(flagged$ID_LOKAL)), geoms$ID_LOKAL)]
   }
+  flagged$geom_type[is.na(flagged$geom_type) & coords_ok] <- "POINT"
 
-  cleaned_sf <- cleaned_sf %>%
-    sf::st_as_sf(coords = c("X", "Y"), crs = 5514) %>%
-    sf::st_transform(crs = 3035)
+  # Records without coordinates get an empty point rather than being dropped.
+  cleaned_sf <- suppressWarnings(
+    sf::st_as_sf(flagged, coords = c("X", "Y"), crs = 5514, na.fail = FALSE,
+                 remove = FALSE) %>%
+      sf::st_transform(crs = 3035)
+  )
 
-  # 4. Date Filter (shared, format-tolerant year parsing - see extract_year())
+  # 4. Optional date filter (a subset the caller asked for).
   if (!is.null(year_start) && nrow(cleaned_sf) > 0) {
     cleaned_sf <- filter_years(cleaned_sf, year_start = year_start)
   }
 
   attr(cleaned_sf, "filter_counts") <- filter_counts
-  return(cleaned_sf)
+  attr(cleaned_sf, "exclusions") <- table(f$exclusion_reason[!f$include])
+  attr(cleaned_sf, "record_geometries") <- if (is.null(geoms)) NULL else sf::st_transform(geoms, 3035)
+  attr(cleaned_sf, "snapshot") <- snap$meta
+  attr(cleaned_sf, "less_credible_share") <- attr(f, "less_credible_share")
+  cleaned_sf
 }

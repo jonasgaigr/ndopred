@@ -11,7 +11,11 @@ assessment_inputs(
   n_current = NA,
   year_last = NA,
   indication = list(),
-  evidence = list()
+  evidence = list(),
+  eoo_km2_min = NA,
+  eoo_km2_max = NA,
+  aoo_km2_min = NA,
+  aoo_km2_max = NA
 )
 }
 \arguments{
@@ -29,6 +33,12 @@ taxon has no current records.}
 \item{indication}{Named list of record-based proxies; see Details.}
 
 \item{evidence}{Named list of expert evidence; see Details.}
+
+\item{eoo_km2_min, eoo_km2_max, aoo_km2_min, aoo_km2_max}{Numeric. Plausible
+bounds of EOO and AOO, e.g. from positional precision (see
+\code{\link[=calculate_aoo]{calculate_aoo()}}); missing bounds equal the best estimate. The low end
+of the plausible range uses the largest areas, the high end the smallest
+(Guidelines §3.2).}
 }
 \value{
 A list of class \code{ndopred_inputs}.

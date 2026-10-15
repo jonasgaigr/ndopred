@@ -11,6 +11,8 @@ assess_species(
   comp_start,
   comp_end,
   evaluate_pop = FALSE,
+  snapshot_dir = NULL,
+  snapshot = NULL,
   ...
 )
 }
@@ -25,6 +27,12 @@ passed in \code{...}.}
 
 \item{evaluate_pop}{Logical. Use NDOP counts as indications for A(b),
 B(b)(v), B(c)(iv), C and D.}
+
+\item{snapshot_dir}{Optional folder to store the NDOP download in (see
+\code{\link[=ndop_snapshot]{ndop_snapshot()}}, \code{\link[=default_snapshot_dir]{default_snapshot_dir()}}).}
+
+\item{snapshot}{Optional stored snapshot (object or path) to assess
+instead of downloading.}
 
 \item{...}{Expert evidence (\code{d2_threat}, \code{threat_locations},
 \code{severely_fragmented}, \code{habitat_decline}, \code{a_criteria}, \code{evidence}) and

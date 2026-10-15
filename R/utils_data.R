@@ -72,12 +72,28 @@ extract_year <- function(x) {
 #' \code{calculate_aoo()} and \code{calculate_locations()} so that all three
 #' agree on which records belong to a given window.
 #'
+#' Also adds the record's date range, \code{year_min} and \code{year_max}:
+#' NDOP records are dated from \code{DATUM_OD} to \code{DATUM_DO}, and a
+#' record spanning several years belongs to a time window only if the whole
+#' range lies inside it (see \code{filter_years()}).
+#'
 #' @param data Data frame or sf object of occurrences.
 #' @param date_col Character. Name of the date column to fall back on.
-#' @return The input with a numeric \code{year} column added (or refreshed).
+#' @param end_col Character. Name of the end-date column.
+#' @return The input with numeric \code{year}, \code{year_min} and
+#'   \code{year_max} columns added (or refreshed).
 #' @keywords internal
-add_year_column <- function(data, date_col = "DATUM_OD") {
-  if ("year" %in% names(data) && is.numeric(data$year)) return(data)
+add_year_column <- function(data, date_col = "DATUM_OD", end_col = "DATUM_DO") {
+  add_range <- function(d) {
+    if (!"year_min" %in% names(d) || !is.numeric(d$year_min)) d$year_min <- d$year
+    if (!"year_max" %in% names(d) || !is.numeric(d$year_max)) {
+      ymax <- if (end_col %in% names(d)) extract_year(d[[end_col]]) else rep(NA_real_, nrow(d))
+      ymax[is.na(ymax)] <- d$year_min[is.na(ymax)]
+      d$year_max <- ymax
+    }
+    d
+  }
+  if ("year" %in% names(data) && is.numeric(data$year)) return(add_range(data))
 
   if ("ROK" %in% names(data)) {
     yr <- suppressWarnings(as.numeric(as.character(data$ROK)))
@@ -86,12 +102,12 @@ add_year_column <- function(data, date_col = "DATUM_OD") {
       yr[is.na(yr)] <- fallback[is.na(yr)]
     }
     data$year <- yr
-    return(data)
+    return(add_range(data))
   }
 
   if (date_col %in% names(data)) {
     data$year <- extract_year(data[[date_col]])
-    return(data)
+    return(add_range(data))
   }
 
   stop(paste0("Neither 'ROK' nor '", date_col, "' found in the dataset; ",
@@ -113,9 +129,10 @@ filter_years <- function(data, year_start = NULL, year_end = NULL,
 
   data <- add_year_column(data, date_col = date_col)
 
-  keep <- !is.na(data$year)
-  if (!is.null(year_start)) keep <- keep & data$year >= year_start
-  if (!is.null(year_end))   keep <- keep & data$year <= year_end
+  # A record belongs to the window only if its whole date range does.
+  keep <- !is.na(data$year_min) & !is.na(data$year_max)
+  if (!is.null(year_start)) keep <- keep & data$year_min >= year_start
+  if (!is.null(year_end))   keep <- keep & data$year_max <= year_end
 
   # Subsetting an sf object down to zero features recomputes a bounding box
   # over no points, which emits benign min/max warnings. A window with no

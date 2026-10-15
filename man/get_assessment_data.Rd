@@ -2,57 +2,76 @@
 % Please edit documentation in R/get_assessment_data.R
 \name{get_assessment_data}
 \alias{get_assessment_data}
-\title{Get and Clean NDOP Data}
+\title{Get NDOP Records for Assessment, Flagged}
 \usage{
-get_assessment_data(species_name, year_start = NULL)
+get_assessment_data(
+  species_name,
+  year_start = NULL,
+  snapshot = NULL,
+  snapshot_dir = NULL,
+  less_credible_share = 0.1
+)
 }
 \arguments{
-\item{species_name}{Character. Scientific name to query.}
+\item{species_name}{Character. Scientific name exactly as in NDOP; records
+of other taxa returned by the query are flagged (gap analysis, D13).}
 
-\item{year_start}{Numeric. Optional filter for starting year.}
+\item{year_start}{Numeric. Optional: keep only records from this year on.}
+
+\item{snapshot}{Optional \code{ndop_snapshot} object or the path to one. When
+given, nothing is downloaded.}
+
+\item{snapshot_dir}{Optional folder. When given (and \code{snapshot} is not),
+the download is stored there as an RDS snapshot; see
+\code{\link[=default_snapshot_dir]{default_snapshot_dir()}}.}
+
+\item{less_credible_share}{Passed to \code{\link[=flag_records]{flag_records()}}.}
 }
 \value{
-An sf object of cleaned occurrences. It always carries a
-\code{filter_counts} attribute - a named list (\code{raw}, \code{coords},
-\code{non_negative}, \code{has_katastr}, \code{verified}) recording how
-many records survived each quality-control step, so a species that ends
-up with zero usable records can be traced back to its cause (e.g. no NDOP
-records at all, vs. records excluded for missing coordinates or low
-verification status) instead of a single opaque "no records" outcome.
+An \code{sf} object with every record, the \verb{flag_*} columns,
+\code{exclusion_reason}, \code{include}, \code{year_min}, \code{year_max}, \code{precision_m} and
+\code{geom_type}. Attributes:
+\describe{
+\item{\code{filter_counts}}{Records left after each successive test
+(\code{raw}, \code{coords}, \code{non_negative}, \code{has_katastr}, \code{verified}) and
+\code{included}.}
+\item{\code{exclusions}}{A count of records per exclusion reason.}
+\item{\code{record_geometries}}{The record points, lines and polygons
+(EPSG:3035) keyed by \code{ID_LOKAL}, used for precision-aware AOO.}
+\item{\code{snapshot}}{The snapshot's metadata (query, download time,
+versions, file).}
+\item{\code{download_error}}{The error message, if the download failed.}
+}
 }
 \description{
-Get and Clean NDOP Data
+Takes an NDOP snapshot (\code{\link[=ndop_snapshot]{ndop_snapshot()}}) or reads a stored one, flags
+every record (\code{\link[=flag_records]{flag_records()}}) and returns them as points. \strong{No record
+is deleted}: excluded records keep their row with \code{include = FALSE} and
+an \code{exclusion_reason}, and the metrics use only \code{include == TRUE}.
 }
-\section{Quality control}{
-
-Records are dropped when they have no coordinates, are flagged as a
-negative finding (\code{NEGATIV == 1}), carry an empty cadastral unit, or have a
-verification status of 3 (dubious) or 9. A \strong{missing} value in any of
-those fields means the field was never populated, not that the record
-failed the check, so \code{NA}s are kept throughout.
-
+\details{
 Coordinates are read as S-JTSK / Krovak East North (EPSG:5514), NDOP's
 native CRS, and transformed to ETRS89-LAEA (EPSG:3035) so that areas come
-out in equal-area metres.
+out in equal-area metres. Records without coordinates get an empty point.
 }
-
 \section{Credentials}{
 
 NDOP requires a login. Set \code{NDOP_USER} and \code{NDOP_PWD} in \verb{~/.Renviron}, or
-call \code{rndop::isop_login()} once. Without them the download fails and an
-empty result is returned with \code{filter_counts$raw == 0}.
+call \code{rndop::isop_login()} once. A failed download returns no records and
+sets the \code{download_error} attribute.
 }
 
 \examples{
 \dontrun{
-occ <- get_assessment_data("Lucanus cervus")
-nrow(occ)
-attr(occ, "filter_counts")   # how many records survived each QC step
+occ <- get_assessment_data("Lucanus cervus", snapshot_dir = default_snapshot_dir())
+table(occ$include)
+attr(occ, "exclusions")
 
-# Only the last ten years
-recent <- get_assessment_data("Lucanus cervus", year_start = 2016)
+# Rerun later on exactly the same records
+occ2 <- get_assessment_data("Lucanus cervus",
+                            snapshot = attr(occ, "snapshot")$path)
 }
 }
 \seealso{
-\code{\link[=calculate_eoo]{calculate_eoo()}}, \code{\link[=calculate_aoo]{calculate_aoo()}}, \code{\link[=assess_species]{assess_species()}}
+\code{\link[=flag_records]{flag_records()}}, \code{\link[=ndop_snapshot]{ndop_snapshot()}}, \code{\link[=taxon_metrics]{taxon_metrics()}}
 }

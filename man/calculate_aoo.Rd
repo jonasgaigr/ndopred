@@ -11,7 +11,9 @@ calculate_aoo(
   date_col = "DATUM_OD",
   n_shifts = 4,
   year_end = NULL,
-  origin = NULL
+  origin = NULL,
+  precision = NULL,
+  geometries = NULL
 )
 }
 \arguments{
@@ -40,17 +42,45 @@ verbatim. Required when comparing AOO between two time periods: the
 minimising origin generally differs between periods, so independently
 minimised estimates are not comparable and would manufacture spurious
 trends (see IUCN Guidelines section 4.9 on comparing temporal estimates).}
+
+\item{precision}{Numeric vector of positional precision in metres, one per
+record, or \code{NULL} to read the \code{precision_m} or \code{CXPRESNOST} column (0
+means an exact position; gap analysis, decision D3).}
+
+\item{geometries}{Optional \code{sf} layer of record polygons and lines with an
+\code{ID_LOKAL} column (from \code{attr(occ, "record_geometries")}). Records whose
+\code{ID_LOKAL} has one are placed by that geometry instead of a precision
+disc.}
 }
 \value{
-A list with \code{area_km2}, \code{n_cells}, \code{origin} (the grid
-origin actually used, for reuse in a paired period) and \code{geom} (an
-\code{sf} polygon layer of the occupied cells, for mapping).
+A list with \code{area_km2}, \code{n_cells}, \code{area_km2_min},
+\code{area_km2_max}, \code{n_cells_min}, \code{n_cells_max},
+\code{n_uncertain} (records whose position spans more than one cell),
+\code{origin} (the grid origin actually used, for reuse in a paired
+period) and \code{geom} (an \code{sf} polygon layer of the occupied
+cells, for mapping).
 }
 \description{
 Counts occupied cells of a uniform grid, per IUCN Guidelines (v16, 2024)
 section 4.10.2, equation 4.1: \code{AOO = no. occupied cells x area of an
 individual cell}.
 }
+\section{Positional uncertainty}{
+
+\code{area_km2} places every record in the cell containing its point. A record
+whose precision disc (or polygon) reaches into other cells could lie in
+any of them, so two bounds are added at the same grid origin (Guidelines
+§3.2, §4.10.8):
+\itemize{
+\item \code{area_km2_min}: uncertain records are put in a cell already occupied
+whenever they can reach one;
+\item \code{area_km2_max}: each uncertain record takes a cell no other record
+holds whenever it can reach one.
+These bound the \emph{observed} AOO only. For an under-recorded taxon the true
+AOO can be larger still (§4.10.8).
+}
+}
+
 \examples{
 pts <- sf::st_as_sf(
   data.frame(

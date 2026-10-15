@@ -68,6 +68,14 @@ plot_iucn <- function(species_name, occ_data = NULL,
   # 1. Use provided data or download if missing
   occ_all <- if (!is.null(occ_data)) occ_data else get_assessment_data(species_name)
 
+  # Only the records the assessment uses (flag_records()), with a position.
+  if (!is.null(occ_all) && nrow(occ_all) > 0 && "include" %in% names(occ_all)) {
+    occ_all <- suppressWarnings(occ_all[occ_all$include %in% TRUE, ])
+  }
+  if (!is.null(occ_all) && nrow(occ_all) > 0 && inherits(occ_all, "sf")) {
+    occ_all <- suppressWarnings(occ_all[!sf::st_is_empty(occ_all), ])
+  }
+
   if (is.null(occ_all) || nrow(occ_all) == 0) return(NULL)
 
   # 2. Add Status column based on the assessment windows

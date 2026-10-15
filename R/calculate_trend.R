@@ -82,12 +82,14 @@ calculate_trend <- function(occurrence_data,
 
   occurrence_data <- add_year_column(occurrence_data)
 
-  p1_data <- occurrence_data[!is.na(occurrence_data$year) &
-                               occurrence_data$year >= comp_start &
-                               occurrence_data$year <= comp_end, , drop = FALSE]
-  p2_data <- occurrence_data[!is.na(occurrence_data$year) &
-                               occurrence_data$year >= recent_start &
-                               occurrence_data$year <= recent_end, , drop = FALSE]
+  # A record belongs to a window only if its whole date range does.
+  in_window <- function(a, b) {
+    keep <- !is.na(occurrence_data$year_min) & occurrence_data$year_min >= a &
+      !is.na(occurrence_data$year_max) & occurrence_data$year_max <= b
+    occurrence_data[keep, , drop = FALSE]
+  }
+  p1_data <- in_window(comp_start, comp_end)
+  p2_data <- in_window(recent_start, recent_end)
 
   # Shared grid origin, minimised over the pooled points of both windows.
   # Pooling two possibly-empty sf subsets recomputes a bounding box over zero
