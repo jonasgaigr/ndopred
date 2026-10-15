@@ -226,7 +226,7 @@ test_that("Final categories outside A-E are checked too", {
   expect_true(any(grepl("RE needs documented surveys", re$issues)))
   expect_true(any(grepl("records exist in the current window", re$issues)))
   na <- final_of(evidence_of(ev_row("final_category", "NA", justification = "x"), approval()))
-  expect_true(any(grepl("NA needs eligibility evidence", na$issues)))
+  expect_true(any(grepl("NA needs a step-one reason", na$issues)))
   na_ok <- final_of(evidence_of(ev_row("origin", "introduced"),
                                 ev_row("final_category", "NA", justification = "x"), approval()))
   expect_length(na_ok$issues, 0)

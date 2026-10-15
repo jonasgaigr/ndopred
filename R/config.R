@@ -52,6 +52,14 @@
 #'   D2: AOO "typically less than 20 km2" or "typically five or fewer"
 #'   locations (Criteria v3.1 V, VU D2). Guidelines §8: indicators, not
 #'   strict thresholds.
+#' @param colonizer_years Numeric. *Convention.* Consecutive years of
+#'   reproduction in the region before a colonizing taxon is assessed;
+#'   Regional Guidelines v4.0 IV.2: "typically for at least 10 consecutive
+#'   years".
+#' @param regional_filter_share Numeric or `NA`. *Convention.* The optional
+#'   filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
+#'   cent) of the global population in the region are Not Applicable. `NA`
+#'   (default) applies no filter; the regional Red List authority decides.
 #' @return An object of class `ndopred_config`.
 #' @seealso [assess_criteria()], [categorise()], [assess_taxon()]
 #' @examples
@@ -76,7 +84,9 @@ ndopred_config <- function(reference_year,
                            nt_margin_c = 2000,
                            re_candidate_years = 50,
                            d2_aoo_km2 = 20,
-                           d2_locations = 5) {
+                           d2_locations = 5,
+                           colonizer_years = 10,
+                           regional_filter_share = NA) {
   if (missing(reference_year) || length(reference_year) != 1 ||
       is.na(suppressWarnings(as.numeric(reference_year)))) {
     stop("`reference_year` is required: ndopred no longer reads the system ",
@@ -134,7 +144,9 @@ ndopred_config <- function(reference_year,
         nt_margin_c = nt_margin_c,
         re_candidate_years = re_candidate_years,
         d2_aoo_km2 = d2_aoo_km2,
-        d2_locations = d2_locations
+        d2_locations = d2_locations,
+        colonizer_years = colonizer_years,
+        regional_filter_share = regional_filter_share
       ),
       versions = list(
         ndopred = as.character(utils::packageVersion("ndopred")),

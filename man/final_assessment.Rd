@@ -15,10 +15,12 @@ final_assessment(assessment, proposal, ex)
 }
 \value{
 A list of class \code{ndopred_final}: \code{category} (the final category
-when approved, else \code{NA}), \code{claimed}, \code{criteria}, \code{status} ("no final
-category", "awaiting approval", "approved" or "approved; inconsistent
-with the evidence"), \code{issues}, \code{notes}, \code{evidence_only} (category and
-criteria the evidence and data support alone) and \code{approvals}.
+when approved, else \code{NA}), \code{display} (the same with the degree sign when
+the regional step adjusted it), \code{claimed}, \code{criteria}, \code{status} ("no
+final category", "awaiting approval", "approved" or "approved;
+inconsistent with the evidence"), \code{issues}, \code{notes}, \code{evidence_only}
+(category, criteria and regional category the evidence and data support
+alone) and \code{approvals}.
 }
 \description{
 The proposal is the engine's; the final category is the assessor's, and
@@ -40,11 +42,16 @@ v3.1 B; Guidelines §2.3).
 not meet at that category.
 \item A category below a threatened category the evidence meets.
 \item DD where the evidence meets a threatened category (§10.3).
-\item RE without documented surveys, or with current records (Regional
-Guidelines III.14; §11.3); EX and EW at national level.
-\item NA without eligibility evidence (introduced, or a vagrant or
-visitor; Regional Guidelines).
+\item RE without documented surveys, with current records, or with the
+last record before 1500 AD (Regional Guidelines III.14; §11.3); EX and
+EW at national level.
+\item NA without a step-one reason, or another category for a taxon
+step one makes Not Applicable (Regional Guidelines IV.2).
 }
+The comparison includes the regional step: what the evidence supports is
+adjusted by the step-three answers (\code{\link[=regional_assessment]{regional_assessment()}}), so a final
+category one step below it after a documented rescue effect is
+consistent, and is shown with the degree sign (VU\eqn{^\circ}).
 }
 
 \seealso{

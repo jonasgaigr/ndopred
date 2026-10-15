@@ -37,7 +37,7 @@
                 "", "", "",
                 "", "conservationist|taxonomist"),
   values = c("native|introduced|reintroduced|uncertain",
-             "resident|breeding|visitor|vagrant|uncertain", "",
+             "resident|breeding|visitor|vagrant|occasional_breeder|uncertain", "",
              "", "",
              "", "",
              "", "", "",
@@ -58,8 +58,9 @@
           "Guidelines 8.3", "Guidelines 9", "Guidelines 11.3; Regional Guidelines III.14",
           "Guidelines 2.3, 10", "AOPK decision D9"),
   description = c(
-    "Native, introduced, reintroduced or uncertain (eligibility; used in Phase 4).",
-    "Resident, breeding, visitor, vagrant or uncertain (eligibility; used in Phase 4).",
+    "Native, introduced, reintroduced or uncertain (regional step one; introduced taxa are NA).",
+    paste("Resident or breeding, visitor, vagrant, occasional breeder that regularly becomes",
+          "regionally extinct, or uncertain (regional step one; vagrants and occasional breeders are NA)."),
     "Taxonomic concept, synonyms, identification issues.",
     "Exclude one NDOP record (record_id = ID_NALEZ); subfield gives the reason.",
     "Use one NDOP record that the automatic flags excluded (record_id = ID_NALEZ).",
@@ -89,6 +90,30 @@
   ),
   stringsAsFactors = FALSE
 )
+
+# The regional step (Regional Guidelines v4.0, hereafter RG): step one
+# eligibility, step three adjustment, and the fields published beside the
+# regional category (RG V.4).
+.EVIDENCE_FIELDS <- rbind(.EVIDENCE_FIELDS, data.frame(
+  field = c("reproduction_since", "global_population_share", "global_category",
+            "regional_step3", "regional_steps"),
+  type = c("number", "number", "category", "category", "number"),
+  subfields = c("", "", "", "3a|3b|3c|3d|3e|3f", ""),
+  values = c("", "", "EX|EW|CR|EN|VU|NT|LC|DD|NE", "yes|likely|no|unlikely|unknown", ""),
+  ref = c("RG IV.2", "RG IV.2, V.4", "RG V.4, V.5", "RG IV.4, Figure 3, Table 1", "RG IV.4"),
+  description = c(
+    "First year of established reproduction in the region (best); a colonizer is assessed after 10 consecutive years.",
+    "Share of the global population in the region, per cent (min/best/max).",
+    "The global IUCN Red List category; basis = its criteria (e.g. VU D1); sources = the Red List version.",
+    paste("Step three, the answer to question 3a-3f (subfield): yes, likely, no, unlikely or unknown.",
+          "Breeding: 3a immigration, 3b immigration decreasing, 3c sink; visiting: 3d, 3e, 3f."),
+    "Categories to move in step three (best): normally 1; 2 for expanding edge-of-range populations or small, non-isolated regions."
+  ),
+  stringsAsFactors = FALSE
+))
+# The final category and its approval come last in templates.
+.EVIDENCE_FIELDS <- .EVIDENCE_FIELDS[order(.EVIDENCE_FIELDS$field %in% c("final_category", "approval")), ]
+rownames(.EVIDENCE_FIELDS) <- NULL
 
 .EVIDENCE_COLUMNS <- c("taxon", "field", "subfield", "value", "min", "best", "max",
                        "qualifier", "basis", "record_id", "author", "date",
@@ -245,6 +270,10 @@ validate_evidence <- function(ev) {
         if (def$field == "prop_largest_subpopulation" && (rr[["min"]] < 0 || rr[["max"]] > 1)) bad(i, "a share between 0 and 1")
         if (def$field == "reduction" && (rr[["min"]] < 0 || rr[["max"]] > 100)) bad(i, "a reduction between 0 and 100 per cent")
         if (def$field %in% c("generation_length", "mature_decline_years") && rr[["min"]] <= 0) bad(i, "must be positive")
+        if (def$field == "regional_steps" && (rr[["best"]] < 1 || rr[["best"]] != round(rr[["best"]]))) {
+          bad(i, "a whole number of categories, at least 1")
+        }
+        if (def$field == "global_population_share" && (rr[["min"]] < 0 || rr[["max"]] > 100)) bad(i, "a share between 0 and 100 per cent")
       }
     }
     if (def$field == "threat_locations" && !tolower(ev$basis[i]) %in% c("all", "a", "b", "c", "d")) {
@@ -439,13 +468,21 @@ evidence_for_engine <- function(ev, taxon = NULL) {
     category = fin$value, criteria = fin$basis, justification = fin$justification,
     author = fin$author, date = fin$date
   )
+  steps <- one("regional_steps")
+  if (!is.null(steps) && rng(steps)[["best"]] > 2) {
+    checks <- c(checks, "step three moves more than two categories, appropriate only in extremely rare cases (RG IV.4)")
+  }
   list(
     engine = engine, records = records, config = config, final = final,
     approvals = ev[ev$field == "approval", c("author", "subfield", "value", "date", "justification"), drop = FALSE],
     surveys = ev[ev$field == "survey", c("value", "author", "date", "sources"), drop = FALSE],
-    eligibility = list(origin = if (is.null(one("origin"))) NA_character_ else one("origin")$value,
-                       occurrence_status = if (is.null(one("occurrence_status"))) NA_character_ else
-                         one("occurrence_status")$value),
+    eligibility = list(
+      origin = if (is.null(one("origin"))) NA_character_ else one("origin")$value,
+      occurrence_status = if (is.null(one("occurrence_status"))) NA_character_ else one("occurrence_status")$value,
+      reproduction_since = if (is.null(one("reproduction_since"))) NA_real_ else rng(one("reproduction_since"))[["best"]],
+      global_share = if (is.null(one("global_population_share"))) NA_real_ else rng(one("global_population_share"))[["best"]]
+    ),
+    regional = .regional_from_evidence(ev, one, rng),
     checks = checks,
     entries = ev
   )
@@ -498,4 +535,20 @@ apply_record_evidence <- function(occ, records) {
   }
   attr(occ, "expert_record_notes") <- notes
   occ
+}
+
+# The regional step's entries: answers to 3a-3f, the number of steps, the
+# global category and the share of the global population.
+.regional_from_evidence <- function(ev, one, rng) {
+  q <- ev[ev$field == "regional_step3", , drop = FALSE]
+  steps <- one("regional_steps")
+  glob <- one("global_category")
+  share <- one("global_population_share")
+  list(
+    answers = if (nrow(q)) stats::setNames(q$value, q$subfield) else character(0),
+    steps = if (is.null(steps)) 1 else rng(steps)[["best"]],
+    global = list(category = if (is.null(glob)) NA_character_ else glob$value,
+                  criteria = if (is.null(glob) || !nzchar(glob$basis)) NA_character_ else glob$basis),
+    global_share = if (is.null(share)) NA_real_ else rng(share)[["best"]]
+  )
 }

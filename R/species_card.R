@@ -1,7 +1,8 @@
 #' Species Card: One Assessment on One Page
 #'
 #' A self-contained HTML page documenting an assessment (prompt section 8;
-#' review section 8): the proposal and its plausible range, the final
+#' review section 8): the proposal and its plausible range, the regional step
+#' (eligibility, adjustment, global category and share), the final
 #' category with its approvals and checks, the parameters with their
 #' bounds, every criterion and subcriterion with the rule applied and
 #' whether evidence or an indication decided it, the expert evidence with
@@ -76,6 +77,22 @@ species_card <- function(x, file = NULL) {
       h$h3("Notes"), items(fin$notes)
     )
   }
+
+  # The regional step (Regional Guidelines v4.0).
+  reg <- x$regional
+  regional <- if (is.null(reg)) NULL else section(
+    "Regional step",
+    table_of(data.frame(
+      item = c("Step one (eligibility, RG IV.2)", "Population", "Step three (RG IV.4)",
+               "Regional category", "Global category", "Share of the global population (%)"),
+      value = c(reg$eligibility$reason, reg$eligibility$population,
+                paste(reg$adjustment$trail, collapse = "; "),
+                trimws(paste(reg$display, reg$criteria)),
+                val(paste(stats::na.omit(c(reg$global$category, reg$global$criteria)), collapse = " ")),
+                reg$global_share),
+      stringsAsFactors = FALSE
+    ))
+  )
 
   # Parameters with their bounds.
   w <- cfg$windows
@@ -166,7 +183,7 @@ species_card <- function(x, file = NULL) {
     h$head(h$meta(charset = "utf-8"), h$title(paste("Species card:", r$Species)), h$style(css)),
     h$h1(h$em(r$Species)),
     h$p(sprintf("Czech national Red List assessment, reference year %s.", cfg$reference_year)),
-    proposal, final, params, criteria, evidence, records, open, run
+    proposal, regional, final, params, criteria, evidence, records, open, run
   )
   if (!is.null(file)) htmltools::save_html(page, file)
   invisible(page)

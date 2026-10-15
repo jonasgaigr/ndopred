@@ -397,3 +397,19 @@ test_that("GAP-11e: a record dated as a range carries its date precision", {
   expect_true(any(grepl("date_prec|year_min|year_max|DATUM_DO", names(res))))
   expect_true(any(grepl("date_prec|year_min|year_max", names(add_year_column(res)))))
 })
+
+test_that("GAP-05b: the batch reduction window follows generation length (closed in 0.6.0)", {
+  # Criteria v3.1 A: "10 years or three generations, whichever is longer".
+  local_mock_ndop()
+  seen <- list()
+  local_mocked_bindings(
+    calculate_trend = function(occ, ...) {
+      seen[[length(seen) + 1]] <<- list(...)
+      list(percent_change = 0, eoo_percent_change = 0)
+    },
+    .package = "ndopred"
+  )
+  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 1))
+  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 10))
+  expect_false(identical(seen[[1]], seen[[2]]))
+})

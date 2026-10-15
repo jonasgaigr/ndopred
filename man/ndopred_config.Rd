@@ -19,7 +19,9 @@ ndopred_config(
   nt_margin_c = 2000,
   re_candidate_years = 50,
   d2_aoo_km2 = 20,
-  d2_locations = 5
+  d2_locations = 5,
+  colonizer_years = 10,
+  regional_filter_share = NA
 )
 }
 \arguments{
@@ -75,6 +77,16 @@ the regional Red List authority; RE itself needs documented surveys.}
 D2: AOO "typically less than 20 km2" or "typically five or fewer"
 locations (Criteria v3.1 V, VU D2). Guidelines §8: indicators, not
 strict thresholds.}
+
+\item{colonizer_years}{Numeric. \emph{Convention.} Consecutive years of
+reproduction in the region before a colonizing taxon is assessed;
+Regional Guidelines v4.0 IV.2: "typically for at least 10 consecutive
+years".}
+
+\item{regional_filter_share}{Numeric or \code{NA}. \emph{Convention.} The optional
+filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
+cent) of the global population in the region are Not Applicable. \code{NA}
+(default) applies no filter; the regional Red List authority decides.}
 }
 \value{
 An object of class \code{ndopred_config}.

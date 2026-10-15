@@ -250,6 +250,15 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
     assessment <- assess_criteria(inputs, config, evaluate_pop = evaluate_pop)
     proposal <- categorise(assessment)
   }
+  # The regional step (Regional Guidelines v4.0): step one may make the
+  # taxon Not Applicable; step three adjusts the category from step two.
+  regional <- if (is.na(proposal$category)) NULL else
+    regional_assessment(proposal$category, proposal$criteria_iucn, ex, config)
+  if (!is.null(regional) && !regional$eligibility$eligible) {
+    proposal <- .proposal("NA", paste0("Not applicable: ", regional$eligibility$reason),
+                          support = "evidence", range = "NA",
+                          flags = "not assessed: step one of the regional procedure")
+  }
   row <- .result_row(species, proposal, metrics$eoo_new, metrics$aoo_new,
                      metrics$clusters_new, metrics$aoo_change,
                      eoo_range = c(min = metrics$eoo_new_min, max = metrics$eoo_new_max),
@@ -260,7 +269,16 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
     config$generation_length_source
   final <- if (!is.null(ex) && !is.null(assessment)) final_assessment(assessment, proposal, ex) else NULL
   if (!is.null(final)) final$notes <- c(final$notes, notes)
-  row$Final_Category <- if (is.null(final)) NA_character_ else final$category
+  opt <- function(x) if (is.null(x) || !length(x) || is.na(x[1]) || !nzchar(x[1])) NA_character_ else x[1]
+  row$Regional_Category <- if (is.null(regional)) NA_character_ else regional$display
+  row$Regional_Criteria <- if (is.null(regional)) NA_character_ else opt(regional$criteria)
+  row$Regional_Step <- if (is.null(regional)) NA_character_ else
+    paste(c(regional$eligibility$reason, regional$adjustment$trail), collapse = "; ")
+  row$Global_Category <- if (is.null(regional)) NA_character_ else
+    opt(trimws(paste(c(regional$global$category, regional$global$criteria)[
+      !is.na(c(regional$global$category, regional$global$criteria))], collapse = " ")))
+  row$Global_Population_Share <- if (is.null(regional)) NA_character_ else regional$global_share
+  row$Final_Category <- if (is.null(final)) NA_character_ else final$display
   row$Final_Claimed <- if (is.null(final)) NA_character_ else final$claimed
   row$Final_Status <- if (is.null(final)) NA_character_ else final$status
   row$Final_Issues <- if (is.null(final)) NA_character_ else paste(final$issues, collapse = "; ")
@@ -269,7 +287,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   row <- cbind(row, .issue_columns(metrics$issues))
   list(result = row, metrics = metrics, assessment = assessment,
        proposal = proposal, config = config, final = final, evidence = ex,
-       records = .record_list(occ))
+       regional = regional, records = .record_list(occ))
 }
 
 # The records behind an assessment, for the species card: IDs, dates and
@@ -320,7 +338,8 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
 .config_from_args <- function(args, ...) {
   keep <- intersect(names(args), c("generation_length", "generation_length_source", "trend_shift",
                                    "decline_tolerance", "nt_margin_a",
-                                   "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations"))
+                                   "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations",
+                                   "colonizer_years", "regional_filter_share"))
   cfg <- args[keep]
   if (!is.null(args$re_threshold_years)) cfg$re_candidate_years <- args$re_threshold_years
   do.call(ndopred_config, c(list(...), cfg))

@@ -17,22 +17,6 @@ skip_if_not(identical(Sys.getenv("NDOPRED_GAP_TESTS"), "true"),
 # Fixtures are in helper-gap-fixtures.R; closed gaps have moved to
 # test-iucn-alignment.R.
 
-test_that("GAP-05b: the batch reduction window follows generation length", {
-  # Criteria v3.1 A: "10 years or three generations, whichever is longer".
-  local_mock_ndop()
-  seen <- list()
-  local_mocked_bindings(
-    calculate_trend = function(occ, ...) {
-      seen[[length(seen) + 1]] <<- list(...)
-      list(percent_change = 0, eoo_percent_change = 0)
-    },
-    .package = "ndopred"
-  )
-  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 1))
-  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 10))
-  expect_false(identical(seen[[1]], seen[[2]]))
-})
-
 test_that("GAP-05c: past reductions (A2) are not capped at 100 years", {
   # Guidelines 5.2: "A maximum time cap is not applied to assessments based
   # on past reductions". app.R caps the A window at 100 for every A type.
@@ -67,13 +51,3 @@ test_that("GAP-09d: alternating survey coverage is not an extreme fluctuation", 
   res <- calculate_pop_metrics(occ, window_years = 10, year_now = 2025)
   expect_false(isTRUE(res$extreme_fluctuation))
 })
-
-# --------------------------------------------------------- GAP-12: regional
-
-test_that("GAP-12: regional eligibility and adjustment exist", {
-  # Regional Guidelines v4.0 IV.2-IV.4: eligibility before (NA for
-  # introduced/vagrant taxa), regional adjustment after.
-  f <- names(formals(summarize_assessment))
-  expect_true(any(grepl("eligib|native|regional|rescue", f)))
-})
-

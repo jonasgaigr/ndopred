@@ -18,6 +18,7 @@ test_that("The species card documents the proposal, final category, evidence and
   html <- paste(readLines(f, encoding = "UTF-8", warn = FALSE), collapse = "\n")
   for (k in c(sp, "Proposal (ndopred)", "Final category", "B. Approver", "building on the only site",
               "expert: misidentification", "Criteria and the rules applied", "Open questions",
+              "Regional step", "eligibility not documented",
               "Guidelines for Using the IUCN Red List Categories and Criteria v16")) {
     expect_match(html, k, fixed = TRUE)
   }

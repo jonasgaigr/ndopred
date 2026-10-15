@@ -17,7 +17,8 @@ when given.
 }
 \description{
 A self-contained HTML page documenting an assessment (prompt section 8;
-review section 8): the proposal and its plausible range, the final
+review section 8): the proposal and its plausible range, the regional step
+(eligibility, adjustment, global category and share), the final
 category with its approvals and checks, the parameters with their
 bounds, every criterion and subcriterion with the rule applied and
 whether evidence or an indication decided it, the expert evidence with
