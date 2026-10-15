@@ -1,3 +1,72 @@
+# ndopred 0.7.0
+
+Phase 3 of the IUCN alignment (`methodology/gap_analysis.md`): the evidence
+layer, the final category with its approval, the species card and the
+expert app.
+
+## Evidence
+
+* New evidence schema: one table, a row per piece of evidence, with author,
+  date, justification, sources, `min`/`best`/`max` and a qualifier.
+  `evidence_fields()`, `evidence_template()` (CSV or XLSX), `read_evidence()`
+  and `validate_evidence()` (every problem reported with its row),
+  `write_evidence()` (a new dated version each time, never overwriting) and
+  `latest_evidence()`.
+* `evidence_for_engine()` turns evidence into the engine's inputs, record
+  flags and config overrides; `apply_record_evidence()` excludes or re-includes
+  records by `ID_NALEZ` without deleting anything.
+* Rules: locations state their basis, either the whole range or a Guidelines
+  §4.11 option, where (a) means the location subcriteria are not met; A1
+  needs reversible, understood and ceased causes, otherwise A2; the threat
+  must be described in words (§8).
+* The engine accepts evidence numbers as ranges, `c(min = , best = , max = )`.
+  The proposal uses the best estimate; the plausible range uses the ends.
+* `assess_taxon()`, `assess_species()` and `batch_assess()` take an evidence
+  table (or file) for any number of taxa. A generation length or current
+  window given as evidence adjusts the taxon's config.
+
+## Final category and approval (D9)
+
+* New `final_assessment()`. It checks the assessor's final category against
+  what the evidence and measured data support without the record-based
+  indications: a threatened category above that (e.g. EN under B with one of
+  a/b/c evidenced), a named criterion not met, a category below a threatened
+  one the evidence meets, DD, RE, EX/EW and NA checks. The category is final
+  only with an approval dated on or after it. Result rows gain
+  `Final_Category`, `Final_Claimed`, `Final_Status` and `Final_Issues`.
+
+## Species card
+
+* New `species_card()`: one assessment on one HTML page, covering:
+  * the proposal and its range;
+  * the final category with approvals and checks;
+  * parameters with bounds;
+  * every criterion with the rule applied and what decided it;
+  * the evidence with its authors;
+  * the record IDs used and excluded;
+  * open questions and versions.
+
+  NDOP observer names and coordinates are not included.
+
+## Apps
+
+* Single-taxon app:
+  * every entry is recorded with the assessor's name, the date and a
+    justification and sources per panel;
+  * numbers take min/best/max, locations their §4.11 basis, and A1 its
+    causes;
+  * new **Records** tab: exclude or re-include records by ID, with excluded
+    records drawn as red crosses (`plot_iucn(show_excluded = TRUE)`);
+  * new **Final category** tab: live checks and approvals;
+  * evidence files are loaded (CSV or XLSX) and saved as CSV, or as a new
+    version in an evidence folder;
+  * species card download.
+
+  The unchecked "Force Category Override" and the "Finalize & Save" button,
+  which saved nothing, are gone. The panels no longer redraw while typing.
+* Bulk app: optional evidence file; new columns `Kategorie (finální)`,
+  `Stav finální kategorie` and `Nesoulad finální kategorie s doklady`.
+
 # ndopred 0.6.0
 
 AOPK decisions of 2026-10-15 on D8 (revised), D9 and generation lengths.

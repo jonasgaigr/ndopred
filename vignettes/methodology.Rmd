@@ -236,7 +236,48 @@ A taxon that was recorded in the comparison window but not in the current one is
 proposed under A2c from the indicated loss, with current occurrence listed as
 needing evidence (§11.2 prefers A2 for recent disappearances).
 
-# 11. Known limitations
+# 11. Expert evidence, the final category and approval
+
+Expert evidence is one table with a row per piece of evidence
+(`evidence_fields()` lists the fields; `evidence_template()` writes a CSV or
+XLSX to fill offline). Every row carries its author, date and justification,
+and recommended sources; numbers are `min`/`best`/`max` with a qualifier
+(observed, estimated, projected, inferred, suspected; §3.1). The latest entry
+for a field is the one in force, and `write_evidence()` stores each version as
+a new dated file.
+
+* **Conditions and numbers** go to the engine as evidence. A range widens the
+  plausible range: the low end takes the end that lowers the risk (more mature
+  individuals or locations, a smaller reduction), the high end the other
+  (§3.2). The proposal uses the best estimate.
+* **Locations** state their basis: the most serious plausible threat covers
+  the whole range, or one of the §4.11 options for unaffected parts. Option
+  (a) means "number of locations is not used", so the location subcriteria are
+  not met.
+* **A1** needs the causes to be reversible, understood and ceased; otherwise
+  the reduction is evaluated under A2.
+* **The threat** must be described in words (§8): a bare yes is refused.
+* **Records** are excluded or re-included by `ID_NALEZ`, with a reason. The
+  record keeps its row; negative findings and records without coordinates
+  cannot be used.
+
+**The final category** is the assessor's. `final_assessment()` checks it
+against what the evidence and the measured data support on their own,
+without the indications from the records. It flags a threatened category
+above that, a criterion named but not met, a category below a threatened one
+the evidence meets, DD where the evidence meets a threatened category
+(§10.3), RE without documented surveys (Regional Guidelines III.14; §11.3),
+EX or EW at national level, and NA without eligibility evidence. Group
+experts, conservationists and taxonomists trained in Red List assessment,
+approve it (AOPK decision D9); without an approval dated on or after it, the
+category is reported as awaiting approval, not as final.
+
+`species_card()` puts one assessment on one HTML page: proposal and range,
+final category with approvals and checks, parameters with bounds, every
+criterion with the rule applied and what decided it, the evidence with its
+authors, the record IDs used and excluded, open questions and the versions.
+
+# 12. Known limitations
 
 * NDOP is an opportunistic database. AOO, EOO and location counts depend on
   recording effort (§4.10.8), and counts are minimum observed values (§4.3).

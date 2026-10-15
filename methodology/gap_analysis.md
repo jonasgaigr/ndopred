@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phases 3–6 open (§8) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phases 4–6 open (§8) |
 
 ## 1. Summary
 
@@ -341,6 +341,19 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 - **Species card** (HTML/PDF): record IDs used, parameters, rules applied, evidence, author, versions and open questions.
 
 **Gap test turned green:** 04c in its structured form.
+
+**Status (2026-10-15): done, version 0.7.0.**
+- Evidence schema, CSV/XLSX templates, validation reporting every problem with its row, and versioned files: `evidence_fields()`, `evidence_template()`, `read_evidence()`, `validate_evidence()`, `write_evidence()`, `latest_evidence()`. Record entries are keyed by `ID_NALEZ` and become flags (`apply_record_evidence()`).
+- Evidence numbers are `min`/`best`/`max` ranges in the engine (§3.2): the proposal uses the best estimate, the plausible range the ends.
+- The §4.11 location options are part of the schema (`basis`: `all`, or a-d for unaffected parts; (a) means the location subcriteria are not met). This closes the location workflow deferred from Phase 2.
+- A1 needs reversible, understood and ceased causes, otherwise A2. A threat must be described in words: GAP-04c now also checks the schema.
+- `final_assessment()` checks the final category against what the evidence and measured data support without the indications, and applies D9: final only with an approval dated on or after it.
+- `species_card()` writes one HTML page per assessment; for a PDF, print it from a browser (no LaTeX or headless browser is assumed).
+- Single-taxon app rebuilt around the evidence table (assessor, justification and sources per panel; Records and Final category tabs; load and save; card). The bulk app takes one evidence file for any number of taxa.
+- Not done here:
+  - the qualifier is stored but not yet used by the engine (C1 "estimated" quality: Phase 5);
+  - eligibility and survey entries are stored for the regional step (Phase 4);
+  - the panels show the computed values and the rule per criterion in the Evidence table tab rather than inside each panel.
 
 ### Phase 4: regional step (item 12)
 

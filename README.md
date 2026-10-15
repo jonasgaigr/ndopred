@@ -209,6 +209,17 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | `assess_taxon()` | Records in, proposal out: what both apps and `batch_assess()` use |
 | `assess_species()`, `batch_assess()` | The pipeline for one or many taxa, headless |
 
+**Expert evidence and the final category**
+
+| Function | Purpose |
+|---|---|
+| `evidence_fields()`, `evidence_template()` | The fields an expert may give, and a CSV or XLSX template to fill offline |
+| `read_evidence()`, `validate_evidence()` | Import and check an evidence file; every problem is reported with its row |
+| `write_evidence()`, `latest_evidence()` | Store evidence as a new dated version, never overwriting; find the newest |
+| `evidence_for_engine()`, `apply_record_evidence()` | Turn evidence into engine inputs, record flags and config overrides |
+| `final_assessment()` | Check the final category against what the evidence supports, and its approval |
+| `species_card()` | One assessment on one HTML page |
+
 **Metrics**
 
 | Function | Purpose |
@@ -247,25 +258,39 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Snapshot NDOP` | The snapshot file the row was computed from (when snapshots are stored) |
 | `Nejistý návrh` | `ano` when the plausible range holds both a non-threatened and a threatened category (AOPK, D7) |
 | `Generační doba (roky)`, `Zdroj generační doby` | The generation length used and where it came from (the group table, by default) |
+| `Kategorie (finální)` | The assessor's final category, once approved (with an evidence file) |
+| `Stav finální kategorie` | `approved`, `approved; inconsistent with the evidence`, `awaiting approval` or `no final category` |
+| `Nesoulad finální kategorie s doklady` | Where the final category and the evidence disagree |
 | `issue_download` … `issue_population` | The reason for every empty value |
 
-The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it.
+The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it. An optional **evidence file** (one for any number of taxa) adds the experts' evidence, record flags and final categories; with evidence, the proposal in `Kategorie (automatická)` uses it.
 
 ---
 
 ## The single-species app
 
-Enter a name and the reference year, press **Run Assessment**. The *automated proposal* comes from the records alone. In **Expert Review**, every entry starts as *unknown*; whatever the assessor enters becomes evidence and replaces the indication for that condition:
+Enter a name and the reference year, press **Run Assessment**. The *automated proposal* comes from the records alone. Enter your name as the **assessor**: every entry is recorded with it, the date and the panel's justification and sources.
 
-- severe fragmentation (yes / no / unknown);
-- the most serious plausible threat (a description), or "no plausible threat";
-- threat-defined locations;
-- continuing decline and extreme fluctuations, confirmed or ruled out;
-- population figures;
-- an evidenced reduction with its A subcriterion and basis;
-- criterion E.
+- **Expert Review.** Every entry starts as *unknown*; whatever the assessor enters becomes evidence and replaces the indication for that condition: severe fragmentation; the most serious plausible threat (a description), or "no plausible threat"; threat-defined locations with the §4.11 basis; continuing decline and extreme fluctuations, confirmed or ruled out; population figures; a reduction with its A subcriterion, basis and, for A1, its causes; criterion E. Numbers take a best estimate and optionally a minimum and maximum, which widen the plausible range (§3.2).
+- **Records.** Exclude NDOP records by `ID_NALEZ` (misidentification, introduction, vagrant, duplicate, imprecise, other), or use records the automatic flags excluded. The map shows excluded records as red crosses.
+- **Final category.** The assessor's category, criteria and justification, checked live against what the evidence supports (e.g. "EN claimed under B with only one of (a), (b), (c) evidenced"), and the approvals by group experts (AOPK decision D9). It is final once approved on or after its date.
+- **Evidence table.** The evidence in force, and every criterion, subcriterion and level with its value, threshold, support and source.
 
-The **Expert view** updates live and equals the automated proposal until something is entered. The **Evidence table** tab shows every criterion, subcriterion and level with its value, threshold, support and source.
+The **Expert view** updates live and equals the automated proposal until something is entered. Evidence is loaded from and saved to a CSV (or loaded from XLSX); *Save as a new version* writes a dated file to the evidence folder (`Documents/ndop_evidence` by default) and never overwrites one. **Species card** downloads the assessment as one HTML page.
+
+## Expert evidence without the app
+
+```r
+evidence_template("Bombina bombina", file = "bombina_evidence.xlsx")   # fill it offline
+ev <- read_evidence("bombina_evidence.xlsx")      # every problem reported with its row
+res <- assess_taxon(get_assessment_data("Bombina bombina"), "Bombina bombina",
+                    ndopred_config(2026), evidence = ev)
+res$final                                         # final category, status, checks
+species_card(res, file = "bombina_card.html")
+batch_assess(taxa, reference_year = 2026, evidence = "all_groups_evidence.csv")
+```
+
+Each row names the taxon, the field (`evidence_fields()`), the value or `min`/`best`/`max`, the author, date (YYYY-MM-DD) and justification; sources are recommended (and required for criterion E). The latest entry for a field is the one in force. Evidence never edits NDOP data: record entries become flags, and computed values and evidence are shown side by side.
 
 ---
 
@@ -321,7 +346,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.5.0 (experimental). Proposals are a screening aid; the category is the assessor's decision.
+Version 0.7.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
 
 ## References
 
