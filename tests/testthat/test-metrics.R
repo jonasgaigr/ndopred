@@ -95,14 +95,14 @@ test_that("Trend reports EOO change separately from AOO change", {
   expect_false(identical(tr$eoo_percent_change, tr$aoo_percent_change))
 })
 
-test_that("Overlapping windows are flagged", {
+test_that("Overlapping windows are allowed and share their records (AOPK, D5)", {
   pts <- make_occ(c(4600000, 4610000, 4620000), c(2900000, 2900100, 2900200),
                   c(2005, 2015, 2020))
-  expect_warning(
-    calculate_trend(pts, recent_start = 2010, recent_end = 2026,
-                    comp_start = 2000, comp_end = 2016),
-    "overlap"
+  expect_no_warning(
+    tr <- calculate_trend(pts, recent_start = 2010, recent_end = 2026,
+                          comp_start = 2000, comp_end = 2016)
   )
+  expect_equal(c(tr$period_1_n, tr$period_2_n), c(2, 2))   # 2015 is in both
 })
 
 # --------------------------------------------------------- calculate_locations

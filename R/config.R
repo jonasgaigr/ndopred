@@ -12,15 +12,21 @@
 #'
 #' @param reference_year Numeric. The assessment year. The current window
 #'   ends in this year.
-#' @param window Numeric. Length in years of the current-distribution window
-#'   used for criterion B (EOO, AOO, locations). Guidelines v16 §4.9: EOO and
-#'   AOO describe the *current* distribution. Which window counts as
-#'   "current" is set per taxon group (gap analysis, decision D5).
-#' @param trend_window Numeric. Length in years of each of the two windows
-#'   compared for the spatial trend. Defaults to `window`.
+#' @param window Numeric. *Convention (AOPK, decision D5).* Length in years
+#'   of the current window, which ends in `reference_year`: EOO, AOO and
+#'   locations for criterion B, and the recent side of the trend. Guidelines
+#'   v16 §4.9: EOO and AOO describe the *current* distribution. The default
+#'   of 17 gives 2010-2026 for reference year 2026.
+#' @param trend_shift Numeric. *Convention (AOPK, decision D5).* The
+#'   comparison window for the trend is the current window moved this many
+#'   years back: 2000-2016 against 2010-2026 by default. The windows overlap
+#'   when `trend_shift < window`; their midpoints are `trend_shift` years
+#'   apart, matching the 10-year period of criterion A (Criteria v3.1 A2).
+#'   The shared years damp the measured change (see the vignette).
 #' @param recent_start,recent_end,comp_start,comp_end Numeric or `NULL`.
 #'   Explicit window bounds; override the windows derived from
-#'   `reference_year`, `window` and `trend_window`.
+#'   `reference_year`, `window` and `trend_shift`. The trend always compares
+#'   the comparison window with the current window.
 #' @param generation_length Numeric. Generation length in years (Criteria
 #'   v3.1 III.4; Guidelines §4.4). Scales the C1 periods.
 #' @param decline_tolerance Numeric, per cent. *Convention.* A measured
@@ -48,12 +54,15 @@
 #' cfg <- ndopred_config(reference_year = 2025)
 #' cfg$windows
 #'
+#' # AOPK defaults (D5): 2010-2026 against 2000-2016
+#' ndopred_config(2026)$windows
+#'
 #' # Explicit windows, e.g. 2016-2025 against 2006-2015
 #' ndopred_config(2025, recent_start = 2016, comp_start = 2006, comp_end = 2015)$windows
 #' @export
 ndopred_config <- function(reference_year,
-                           window = 10,
-                           trend_window = window,
+                           window = 17,
+                           trend_shift = 10,
                            recent_start = NULL, recent_end = NULL,
                            comp_start = NULL, comp_end = NULL,
                            generation_length = 1,
@@ -70,27 +79,39 @@ ndopred_config <- function(reference_year,
   }
   reference_year <- as.numeric(reference_year)
   window <- max(1, as.numeric(window))
-  trend_window <- max(1, as.numeric(trend_window))
+  trend_shift <- max(1, as.numeric(trend_shift))
   gl <- suppressWarnings(as.numeric(generation_length))
   if (length(gl) != 1 || is.na(gl) || gl <= 0) gl <- 1
 
   if (is.null(recent_end)) recent_end <- reference_year
   if (is.null(recent_start)) recent_start <- recent_end - window + 1
-  # The trend compares the last `trend_window` years with the equal-length
-  # window before them, unless explicit comparison bounds are given.
-  trend_start <- if (is.null(comp_end)) recent_end - trend_window + 1 else comp_end + 1
-  if (is.null(comp_end)) comp_end <- trend_start - 1
-  if (is.null(comp_start)) comp_start <- comp_end - trend_window + 1
+  # The trend compares the comparison window with the current window; by
+  # default the comparison window is the current one moved `trend_shift`
+  # years back (AOPK, D5).
+  if (is.null(comp_end)) comp_end <- recent_end - trend_shift
+  if (is.null(comp_start)) comp_start <- recent_start - trend_shift
+  if (comp_start > comp_end || recent_start > recent_end) {
+    stop("A window starts after it ends: current ", recent_start, "-", recent_end,
+         ", comparison ", comp_start, "-", comp_end, ".", call. = FALSE)
+  }
 
   structure(
     list(
       reference_year = reference_year,
       windows = list(
         recent_start = recent_start, recent_end = recent_end,
-        trend_start = trend_start, trend_end = recent_end,
+        trend_start = recent_start, trend_end = recent_end,
         comp_start = comp_start, comp_end = comp_end
       ),
       generation_length = gl,
+      # AOPK, decision D7: the proposal is the best estimate, the whole
+      # plausible range is reported (dispute tolerance 0, Guidelines §3.2.3)
+      # and a range on both sides of the threatened threshold is flagged.
+      attitude = list(
+        proposal = "best estimate",
+        dispute_tolerance = 0,
+        uncertain_when = "plausible range includes a non-threatened and a threatened category"
+      ),
       conventions = list(
         decline_tolerance = abs(decline_tolerance),
         nt_margin_a = nt_margin_a,
@@ -117,6 +138,7 @@ print.ndopred_config <- function(x, ...) {
   cat("  current window (B):", w$recent_start, "-", w$recent_end, "\n")
   cat("  trend:", w$comp_start, "-", w$comp_end, "vs", w$trend_start, "-", w$trend_end, "\n")
   cat("  generation length:", x$generation_length, "years\n")
+  cat("  proposal:", x$attitude$proposal, "- flagged uncertain when the", x$attitude$uncertain_when, "\n")
   cat("  conventions:", paste(names(x$conventions), unlist(x$conventions), sep = " = ", collapse = ", "), "\n")
   invisible(x)
 }

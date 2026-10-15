@@ -10,11 +10,16 @@
 #'   (Guidelines §2.3). All criteria met at that category are listed.
 #' * A best estimate of LC is proposed as NT when a criterion is nearly met
 #'   (`nt_margin_a`, B area threshold with one of three conditions,
-#'   `nt_margin_c`), or when the plausible range reaches VU or above
-#'   (Guidelines §10.1).
-#' * A range from LC to CR adds a DD flag (Guidelines §10.3). DD is proposed
-#'   only as a candidate for a taxon with records but none in the current
-#'   window and nothing else to go on.
+#'   `nt_margin_c`; Guidelines §10.1).
+#' * Uncertainty never moves the proposal (AOPK, decision D7). A proposal
+#'   whose plausible range holds both a non-threatened category (LC, NT) and
+#'   a threatened one (VU, EN, CR) is flagged **uncertain**. That is the case
+#'   in which Guidelines §10.1 says a taxon "can be classified as NT, unless
+#'   the best estimate is VU (or EN)", and §10.4 leaves the choice to the
+#'   assessor's risk tolerance.
+#' * A range from LC to CR adds a DD flag (Guidelines §10.1, §10.4). DD is
+#'   proposed only as a candidate for a taxon with records but none in the
+#'   current window and nothing else to go on.
 #' * A taxon with no current records whose last record is older than
 #'   `re_candidate_years` is proposed as an RE *candidate*, with surveys
 #'   listed as needed (Regional Guidelines v4.0 III.14; Guidelines §11.3).
@@ -35,7 +40,9 @@
 #'   \item{`needs`}{Character vector: what still needs evidence, each item
 #'     starting with its subcriterion, e.g. `"B(a): ..."`.}
 #'   \item{`range`}{Plausible range, e.g. `"LC-EN"`.}
-#'   \item{`flags`}{Character vector of candidate flags.}
+#'   \item{`uncertain`}{`TRUE` when the range holds both a non-threatened
+#'     and a threatened category.}
+#'   \item{`flags`}{Character vector of flags: uncertainty and candidates.}
 #' }
 #' @seealso [assess_criteria()]
 #' @references IUCN Standards and Petitions Committee (2024) Guidelines v16,
@@ -46,8 +53,9 @@
 #' inp <- assessment_inputs(eoo_km2 = 1700, aoo_km2 = 84, n_records = 40,
 #'                          n_current = 12, year_last = 2025)
 #' p <- categorise(assess_criteria(inp, ndopred_config(2025)))
-#' p$category   # "NT": the plausible range reaches EN (Guidelines 10.1)
-#' p$range
+#' p$category   # "LC": nothing behind B is known
+#' p$range      # "LC-EN": unevidenced B conditions could give EN
+#' p$uncertain  # TRUE, and p$flags says NT may be chosen (Guidelines 10.1)
 #' p$needs
 #' @export
 categorise <- function(assessment) {
@@ -94,20 +102,33 @@ categorise <- function(assessment) {
     }
   }
 
+  # The best estimate, and NT only where a criterion is nearly met. A range
+  # alone does not move the proposal: choosing NT or DD on uncertainty is the
+  # assessor's call (AOPK, D7; Guidelines §10.1, §10.4).
   proposal <- cat_w
   nt_reasons <- character(0)
   if (proposal == "LC") {
     nt_reasons <- .near_reasons(W, cfg)
-    if (!length(nt_reasons) && .rank(cat_h) >= .rank("VU")) {
-      nt_reasons <- sprintf("plausible range LC-%s (Guidelines 10.1)", cat_h)
-    }
     if (length(nt_reasons)) proposal <- "NT"
   }
 
   parts <- if (.rank(proposal) >= .rank("VU")) .parts_at(W, proposal) else list()
   needs <- .needs(assessment, proposal, parts)
+
+  hi <- .max_cat(c(cat_h, proposal))
+  lo <- if (.rank(cat_l) <= .rank(proposal)) cat_l else proposal
+  # Uncertain: the plausible range holds a non-threatened and a threatened
+  # category, the case Guidelines §10.1 and §10.4 leave to risk tolerance.
+  uncertain <- .rank(lo) < .rank("VU") && .rank(hi) >= .rank("VU")
   flags <- character(0)
-  if (cat_l == "LC" && cat_h == "CR") flags <- c(flags, "DD candidate (plausible range LC-CR, Guidelines 10.3)")
+  if (uncertain) {
+    flags <- c(flags, sprintf("Uncertain: plausible range %s-%s%s", lo, hi,
+                              switch(proposal,
+                                     LC = " - NT may be chosen (Guidelines 10.1)",
+                                     NT = " (Guidelines 10.1)",
+                                     " (Guidelines 3.2.4)")))
+  }
+  if (cat_l == "LC" && cat_h == "CR") flags <- c(flags, "DD candidate (plausible range LC-CR, Guidelines 10.1, 10.4)")
   if (W$D2$candidate) flags <- c(flags, "D2 candidate")
 
   legacy <- if (length(parts)) {
@@ -120,25 +141,25 @@ categorise <- function(assessment) {
   }
   if (!nzchar(legacy)) legacy <- "None"
 
-  hi <- .max_cat(c(cat_h, proposal))
-  lo <- if (.rank(cat_l) <= .rank(proposal)) cat_l else proposal
   .proposal(
     proposal, legacy,
     iucn = .iucn_string(parts),
     support = if (length(needs)) "indication" else "evidence",
     needs = needs,
     range = if (lo == hi) lo else paste0(lo, "-", hi),
-    flags = flags, nt = nt_reasons, low = cat_l, high = cat_h, parts = parts
+    flags = flags, nt = nt_reasons, low = cat_l, high = cat_h, parts = parts,
+    uncertain = uncertain
   )
 }
 
 .proposal <- function(category, criteria, iucn = "", support = "indication",
                       needs = character(0), range = category, flags = character(0),
                       nt = character(0), low = NA_character_, high = NA_character_,
-                      parts = list(), re = FALSE) {
+                      parts = list(), re = FALSE, uncertain = FALSE) {
   structure(list(
     category = category, criteria = criteria, criteria_iucn = iucn,
     support = support, needs = unique(needs), range = range,
+    uncertain = uncertain,
     flags = unique(flags), nt_reasons = unique(nt), low = low, high = high,
     parts = parts, re_candidate = re
   ), class = "ndopred_proposal")
@@ -148,7 +169,7 @@ categorise <- function(assessment) {
 print.ndopred_proposal <- function(x, ...) {
   cat("Proposed:", x$category, if (nzchar(x$criteria_iucn)) x$criteria_iucn, "\n")
   cat("Criteria (established format):", x$criteria, "\n")
-  cat("Support:", x$support, "| range:", x$range, "\n")
+  cat("Support:", x$support, "| range:", x$range, if (identical(x$uncertain, TRUE)) "| UNCERTAIN", "\n")
   if (length(x$flags)) cat("Flags:", paste(x$flags, collapse = "; "), "\n")
   if (length(x$needs)) cat("Needs evidence:\n", paste0("  - ", x$needs, collapse = "\n"), "\n")
   invisible(x)

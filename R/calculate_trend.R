@@ -75,10 +75,8 @@ calculate_trend <- function(occurrence_data,
   if (is.null(comp_end))     comp_end     <- recent_start - 1
   if (is.null(comp_start))   comp_start   <- comp_end - window_years + 1
 
-  if (recent_start <= comp_end) {
-    warning("Recent and comparison windows overlap; the measured change will ",
-            "be damped towards zero.", call. = FALSE)
-  }
+  # Overlapping windows are allowed (the AOPK default, decision D5); the
+  # records of the shared years count in both, which damps the change.
 
   occurrence_data <- add_year_column(occurrence_data)
 

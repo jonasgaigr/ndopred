@@ -121,16 +121,21 @@ test_that("Kleene logic: UNKNOWN is neither TRUE nor FALSE", {
   expect_false(ndopred:::.resolve(ndopred:::.cond(FALSE, TRUE), "high"))  # evidence wins
 })
 
-test_that("Unknown B conditions make a restricted taxon NT with a range, never LC", {
+test_that("Unknown B conditions leave a restricted taxon LC, flagged uncertain (D7)", {
+  # The best estimate is proposed; the range across the threatened threshold
+  # is flagged, and NT is left to the assessor (Guidelines 10.1, 10.4).
   p <- propose(eoo_km2 = 1700, aoo_km2 = 84)
-  expect_equal(p$category, "NT")
+  expect_equal(p$category, "LC")
   expect_equal(p$range, "LC-EN")
+  expect_true(p$uncertain)
+  expect_true(any(grepl("^Uncertain: plausible range LC-EN - NT may be chosen", p$flags)))
   expect_true(any(grepl("^B\\(a\\)", p$needs)))
   # The same taxon with all three conditions, and any reduction, evidenced
   # absent is LC, and nothing is left to evidence.
   q <- propose(eoo_km2 = 1700, aoo_km2 = 84, evidence = with_nothing(reduction = 0))
   expect_equal(q$category, "LC")
   expect_equal(q$support, "evidence")
+  expect_false(q$uncertain)
   # With the reduction unknown, criterion A is the one thing still needed.
   r <- propose(eoo_km2 = 1700, aoo_km2 = 84, evidence = nothing)
   expect_equal(r$category, "LC")
@@ -260,4 +265,40 @@ test_that("The evidence table cites a source for every rule", {
   expect_true(all(nzchar(tab$ref)))
   expect_true(all(grepl("Criteria v3.1|Guidelines v16", tab$ref)))
   expect_setequal(unique(tab$criterion), c("A", "B1", "B2", "B", "C", "D", "E"))
+})
+
+# ------------------------------------------- AOPK decisions D5 and D7
+
+test_that("Default windows are AOPK's: 2010-2026 against 2000-2016 (D5)", {
+  w <- ndopred_config(2026)$windows
+  expect_equal(c(w$recent_start, w$recent_end), c(2010, 2026))
+  expect_equal(c(w$comp_start, w$comp_end), c(2000, 2016))
+  # The trend compares the comparison window with the whole current window.
+  expect_equal(c(w$trend_start, w$trend_end), c(2010, 2026))
+  # Explicit bounds still win; a window cannot end before it starts.
+  w2 <- ndopred_config(2025, recent_start = 2016, comp_start = 2006, comp_end = 2015)$windows
+  expect_equal(c(w2$comp_start, w2$comp_end, w2$trend_start), c(2006, 2015, 2016))
+  expect_error(ndopred_config(2026, comp_start = 2020, comp_end = 2010), "starts after it ends")
+})
+
+test_that("A threatened best estimate with LC in its range stays, flagged uncertain (D7)", {
+  # Best AOO 1,990 km2 meets VU B2; with positional error up to 2,010 km2 the
+  # area threshold may not be met, so LC is plausible too.
+  inp <- assessment_inputs(eoo_km2 = 30000, aoo_km2 = 1990, aoo_km2_min = 1950, aoo_km2_max = 2010,
+                           n_records = 200, n_current = 150, year_last = 2026,
+                           evidence = list(severely_fragmented = TRUE, decline = c(iii = TRUE)))
+  p <- categorise(assess_criteria(inp, cfg))
+  expect_equal(p$category, "VU")
+  expect_equal(p$criteria_iucn, "B2ab(iii)")
+  expect_equal(p$range, "LC-VU")
+  expect_true(p$uncertain)
+  expect_true(any(grepl("Uncertain: plausible range LC-VU (Guidelines 3.2.4)", p$flags, fixed = TRUE)))
+  # A range within the threatened categories is not flagged.
+  inp2 <- assessment_inputs(eoo_km2 = 30000, aoo_km2 = 520, aoo_km2_min = 480, aoo_km2_max = 560,
+                            n_records = 200, n_current = 150, year_last = 2026,
+                            evidence = list(severely_fragmented = TRUE, decline = c(iii = TRUE)))
+  q <- categorise(assess_criteria(inp2, cfg))
+  expect_equal(q$range, "VU-EN")
+  expect_false(q$uncertain)
+  expect_equal(ndopred_config(2026)$attitude$proposal, "best estimate")
 })

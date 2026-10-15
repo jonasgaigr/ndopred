@@ -71,9 +71,13 @@ test_that("GAP-04a: an unknown D2 threat is UNKNOWN, not LC", {
   expect_false(identical(assess_criterion_d2(aoo_km2 = 10, locations = 3), "LC"))
 })
 
-test_that("GAP-04b: a restricted taxon with no threat information is not LC", {
+test_that("GAP-04b: a restricted taxon with no threat information is never a silent LC", {
+  # AOPK, D7: the best estimate is proposed and the uncertainty flagged, with
+  # the D2 restriction and the missing threat called out.
   res <- gap_assess(eoo = list(area_km2 = 16), aoo = list(area_km2 = 16))
-  expect_false(identical(res$result$Category, "LC"))
+  expect_true(res$result$Uncertain)
+  expect_match(res$result$Flags, "D2 candidate")
+  expect_true(needs(res$result$Needs_Evidence, "D2"))
 })
 
 test_that("GAP-04c: VU D2 needs a specified threat, not a bare TRUE", {
@@ -163,12 +167,16 @@ test_that("GAP-08a: an LC proposal with an unknown trend says criterion A needs 
   expect_true(needs(res$result$Needs_Evidence, "\\bA[1-4]?\\b"))
 })
 
-test_that("GAP-08b: review taxon Y (EOO 1,700, AOO 84, nothing evidenced) is not LC", {
+test_that("GAP-08b: review taxon Y (EOO 1,700, AOO 84, nothing evidenced) is flagged, not closed", {
   # Review Table 6: "Z malého EOO/AOO NELZE sám odvodit EN; nutné doplnit
-  # evidenci" - and equally it cannot be closed as LC.
+  # evidenci". Nor can it be closed as a confident LC: under AOPK D7 the
+  # proposal is flagged uncertain, with the range and the evidence needed.
   res <- gap_assess(eoo = list(area_km2 = 1700), aoo = list(area_km2 = 84),
                     trend = list(percent_change = NA), locations = NA)
-  expect_false(identical(res$result$Category, "LC"))
+  expect_false(res$result$Category %in% c("VU", "EN", "CR"))
+  expect_true(res$result$Uncertain)
+  expect_match(res$result$Category_Range, "-EN$")
+  expect_true(needs(res$result$Needs_Evidence, "severe fragmentation or threat-defined locations"))
 })
 
 # ------------------------------------------------------------ GAP-09: C

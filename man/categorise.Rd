@@ -24,7 +24,9 @@ for RE/DD candidates, \code{"none"} for NE.}
 \item{\code{needs}}{Character vector: what still needs evidence, each item
 starting with its subcriterion, e.g. \code{"B(a): ..."}.}
 \item{\code{range}}{Plausible range, e.g. \code{"LC-EN"}.}
-\item{\code{flags}}{Character vector of candidate flags.}
+\item{\code{uncertain}}{\code{TRUE} when the range holds both a non-threatened
+and a threatened category.}
+\item{\code{flags}}{Character vector of flags: uncertainty and candidates.}
 }
 }
 \description{
@@ -40,11 +42,16 @@ decisions D10 and D11).
 (Guidelines §2.3). All criteria met at that category are listed.
 \item A best estimate of LC is proposed as NT when a criterion is nearly met
 (\code{nt_margin_a}, B area threshold with one of three conditions,
-\code{nt_margin_c}), or when the plausible range reaches VU or above
-(Guidelines §10.1).
-\item A range from LC to CR adds a DD flag (Guidelines §10.3). DD is proposed
-only as a candidate for a taxon with records but none in the current
-window and nothing else to go on.
+\code{nt_margin_c}; Guidelines §10.1).
+\item Uncertainty never moves the proposal (AOPK, decision D7). A proposal
+whose plausible range holds both a non-threatened category (LC, NT) and
+a threatened one (VU, EN, CR) is flagged \strong{uncertain}. That is the case
+in which Guidelines §10.1 says a taxon "can be classified as NT, unless
+the best estimate is VU (or EN)", and §10.4 leaves the choice to the
+assessor's risk tolerance.
+\item A range from LC to CR adds a DD flag (Guidelines §10.1, §10.4). DD is
+proposed only as a candidate for a taxon with records but none in the
+current window and nothing else to go on.
 \item A taxon with no current records whose last record is older than
 \code{re_candidate_years} is proposed as an RE \emph{candidate}, with surveys
 listed as needed (Regional Guidelines v4.0 III.14; Guidelines §11.3).
@@ -57,8 +64,9 @@ listed as needed (Regional Guidelines v4.0 III.14; Guidelines §11.3).
 inp <- assessment_inputs(eoo_km2 = 1700, aoo_km2 = 84, n_records = 40,
                          n_current = 12, year_last = 2025)
 p <- categorise(assess_criteria(inp, ndopred_config(2025)))
-p$category   # "NT": the plausible range reaches EN (Guidelines 10.1)
-p$range
+p$category   # "LC": nothing behind B is known
+p$range      # "LC-EN": unevidenced B conditions could give EN
+p$uncertain  # TRUE, and p$flags says NT may be chosen (Guidelines 10.1)
 p$needs
 }
 \references{

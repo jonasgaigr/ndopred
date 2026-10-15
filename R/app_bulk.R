@@ -18,10 +18,12 @@ bulk_ui <- function() fluidPage(
       # year shown here and records it in every row.
       numericInput("reference_year", "Reference year:",
                    value = as.numeric(format(Sys.Date(), "%Y")), min = 1900, step = 1),
-      numericInput("window", "Window Length (Years):", value = 10, min = 1),
+      numericInput("window", "Current window (years):", value = 17, min = 1),
+      numericInput("trend_shift", "Comparison window shifted back by (years):", value = 10, min = 1),
       p(tags$small(paste(
-        "The current window is the last N years up to the reference year; the",
-        "comparison window is the N years immediately before it."
+        "The current window is the last N years up to the reference year",
+        "(AOPK default: 17, i.e. 2010-2026 for 2026). The trend compares it with",
+        "the same window moved back (default 10 years: 2000-2016)."
       ))),
       checkboxInput("save_snapshots", "Store NDOP snapshots (RDS)", value = TRUE),
       textInput("snapshot_dir", "Snapshot folder:", value = default_snapshot_dir()),
@@ -88,7 +90,8 @@ bulk_ui <- function() fluidPage(
   eoo_new_max = "EOO nov\u00fd max (km2)",
   n_excluded = "Z\u00e1znam\u016f vy\u0159azeno",
   exclusions = "D\u016fvody vy\u0159azen\u00ed",
-  snapshot = "Snapshot NDOP"
+  snapshot = "Snapshot NDOP",
+  uncertain = "Nejist\u00fd n\u00e1vrh"
 )
 
 .SUPPORT_CS <- c(
@@ -128,7 +131,8 @@ bulk_ui <- function() fluidPage(
     exclusions = if (length(m$exclusions)) {
       paste(names(m$exclusions), m$exclusions, sep = ": ", collapse = "; ")
     } else "",
-    snapshot = m$snapshot
+    snapshot = m$snapshot,
+    uncertain = if (is.na(r$Uncertain)) NA_character_ else if (r$Uncertain) "ano" else "ne"
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -205,7 +209,9 @@ bulk_server <- function(input, output, session) {
     # testServer) the current year is used and logged, and the run records it.
     ref_year <- suppressWarnings(as.numeric(input$reference_year))
     if (length(ref_year) == 0 || is.na(ref_year)) ref_year <- as.numeric(format(Sys.Date(), "%Y"))
-    config <- ndopred_config(reference_year = ref_year, window = win)
+    shift <- suppressWarnings(as.numeric(input$trend_shift))
+    if (length(shift) == 0 || is.na(shift)) shift <- 10
+    config <- ndopred_config(reference_year = ref_year, window = win, trend_shift = shift)
     rv$config <- config
     w <- config$windows
 
@@ -302,7 +308,8 @@ bulk_server <- function(input, output, session) {
           tryCatch({
             p <- ndopred::plot_iucn(
               species_name = sp, occ_data = occ_raw,
-              window = win, year_now = config$reference_year,
+              recent_start = w$recent_start, recent_end = w$recent_end,
+              comp_start = w$comp_start, comp_end = w$comp_end,
               grid_size = grid_size_m
             )
             if (!is.null(p)) {
@@ -398,7 +405,8 @@ bulk_server <- function(input, output, session) {
 #' Alongside them: `Kritéria (IUCN zápis)` (IUCN Annex 2 notation),
 #' `Opora návrhu` (whether the proposal is evidenced or rests on indications
 #' from the records), `Nutno doložit` (what still needs evidence),
-#' `Rozsah kategorií` (plausible range), `Příznaky` (candidate flags) and
+#' `Rozsah kategorií` (plausible range), `Nejistý návrh` (the range holds a
+#' non-threatened and a threatened category), `Příznaky` (flags) and
 #' `issue_*` columns giving the reason for every empty value.
 #'
 #' @section Credentials:

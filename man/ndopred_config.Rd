@@ -6,8 +6,8 @@
 \usage{
 ndopred_config(
   reference_year,
-  window = 10,
-  trend_window = window,
+  window = 17,
+  trend_shift = 10,
   recent_start = NULL,
   recent_end = NULL,
   comp_start = NULL,
@@ -25,17 +25,23 @@ ndopred_config(
 \item{reference_year}{Numeric. The assessment year. The current window
 ends in this year.}
 
-\item{window}{Numeric. Length in years of the current-distribution window
-used for criterion B (EOO, AOO, locations). Guidelines v16 §4.9: EOO and
-AOO describe the \emph{current} distribution. Which window counts as
-"current" is set per taxon group (gap analysis, decision D5).}
+\item{window}{Numeric. \emph{Convention (AOPK, decision D5).} Length in years
+of the current window, which ends in \code{reference_year}: EOO, AOO and
+locations for criterion B, and the recent side of the trend. Guidelines
+v16 §4.9: EOO and AOO describe the \emph{current} distribution. The default
+of 17 gives 2010-2026 for reference year 2026.}
 
-\item{trend_window}{Numeric. Length in years of each of the two windows
-compared for the spatial trend. Defaults to \code{window}.}
+\item{trend_shift}{Numeric. \emph{Convention (AOPK, decision D5).} The
+comparison window for the trend is the current window moved this many
+years back: 2000-2016 against 2010-2026 by default. The windows overlap
+when \code{trend_shift < window}; their midpoints are \code{trend_shift} years
+apart, matching the 10-year period of criterion A (Criteria v3.1 A2).
+The shared years damp the measured change (see the vignette).}
 
 \item{recent_start, recent_end, comp_start, comp_end}{Numeric or \code{NULL}.
 Explicit window bounds; override the windows derived from
-\code{reference_year}, \code{window} and \code{trend_window}.}
+\code{reference_year}, \code{window} and \code{trend_shift}. The trend always compares
+the comparison window with the current window.}
 
 \item{generation_length}{Numeric. Generation length in years (Criteria
 v3.1 III.4; Guidelines §4.4). Scales the C1 periods.}
@@ -83,6 +89,9 @@ open, and outputs label them as such. Change them here, never in code.
 \examples{
 cfg <- ndopred_config(reference_year = 2025)
 cfg$windows
+
+# AOPK defaults (D5): 2010-2026 against 2000-2016
+ndopred_config(2026)$windows
 
 # Explicit windows, e.g. 2016-2025 against 2006-2015
 ndopred_config(2025, recent_start = 2016, comp_start = 2006, comp_end = 2015)$windows

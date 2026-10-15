@@ -100,3 +100,12 @@ test_that("A non-reference AOO grid is warned about in the log", {
   res <- run_bulk("Stable widespread sp", cell_size = 5)
   expect_true(any(grepl("4.10.3", res$log, fixed = TRUE)))
 })
+
+test_that("The export says whether the proposal is uncertain (D7)", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  df <- run_bulk(c("Restricted stable sp", "Stable widespread sp"))$results
+  expect_true(all(df$`Nejistý návrh` %in% c("ano", "ne")))
+  # Restricted, threat unknown: the range reaches the threatened categories.
+  expect_equal(df$`Nejistý návrh`[df$Druh == "Restricted stable sp"], "ano")
+})

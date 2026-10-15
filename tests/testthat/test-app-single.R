@@ -110,3 +110,17 @@ test_that("plot_iucn accepts the arguments both apps pass it", {
   expect_match(p$labels$subtitle, "2016-2025")
   expect_match(p$labels$subtitle, "2006-2015")
 })
+
+test_that("The map draws overlapping windows (AOPK, D5)", {
+  local_mock_ndop()
+  occ <- get_assessment_data("Declining sp")
+  local_mocked_bindings(gisco_get_countries = function(...) stop("offline"),
+                        .package = "giscoR")
+  w <- ndopred_config(2026)$windows
+  p <- plot_iucn("Declining sp", occ_data = occ,
+                 recent_start = w$recent_start, recent_end = w$recent_end,
+                 comp_start = w$comp_start, comp_end = w$comp_end)
+  expect_s3_class(p, "ggplot")
+  expect_match(p$labels$subtitle, "2010-2026")
+  expect_match(p$labels$subtitle, "2000-2016; only 2000-2009 grey", fixed = TRUE)
+})

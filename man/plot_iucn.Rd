@@ -21,10 +21,12 @@ plot_iucn(
 
 \item{occ_data}{An existing sf object (optional). If NULL, it will download.}
 
-\item{window}{Numeric. Length in years of each window. When supplied (and
-the explicit bounds below are not), the recent window is the last
+\item{window}{Numeric. Length in years of each window, used only when the
+explicit bounds below are not given: the recent window is the last
 \code{window} years up to \code{year_now} and the comparison window is the \code{window}
-years immediately before it - matching \code{\link[=calculate_trend]{calculate_trend()}}.}
+years immediately before it. The apps pass the bounds from
+\code{\link[=ndopred_config]{ndopred_config()}} instead, so the map shows the windows the assessment
+used.}
 
 \item{year_now}{Numeric. Final year of the recent window: the reference
 year. Required unless \code{recent_end} is given.}
@@ -49,7 +51,10 @@ AOO grids over the Czech border.
 \details{
 Recent records are drawn as filled black points with a red EOO hull and AOO
 grid; comparison records as grey points with a blue hull and grid;
-historical records as open circles. Both periods' AOO grids share one grid
+historical records as open circles. When the windows overlap (the AOPK
+default, 2000-2016 against 2010-2026), records from the shared years are
+drawn as recent, and the blue hull and grid still use every record of the
+comparison window. Both periods' AOO grids share one grid
 origin so the cells are directly comparable. The Czech border comes from
 \pkg{giscoR}; if that call fails the map is drawn without it.
 }

@@ -100,10 +100,11 @@ test_that("Restricted range with no threats is not Near Threatened", {
   expect_equal(res$result$Support, "evidence")
 })
 
-test_that("Restricted range with nothing evidenced is NT, not LC (Guidelines 10.1)", {
+test_that("Restricted range with nothing evidenced is flagged uncertain up to CR (D7)", {
   # The same taxon before anyone has looked: whether it is declining,
   # fragmented or threatened is unknown, so the plausible range reaches CR.
-  # Unknown is not "no", and missing data never yields LC.
+  # Unknown is not "no": the best estimate is proposed, flagged as uncertain
+  # (AOPK, D7), and NT or DD is left to the assessor (Guidelines 10.1, 10.4).
   res <- sa(
     species = "Tiny, unknown",
     eoo = list(area_km2 = 80), aoo = list(area_km2 = 8),
@@ -111,8 +112,10 @@ test_that("Restricted range with nothing evidenced is NT, not LC (Guidelines 10.
     pop_metrics = empty_pop(), evaluate_pop = FALSE,
     year_last = 2023, n_records = 50
   )
-  expect_equal(res$result$Category, "NT")
+  expect_equal(res$result$Category, "LC")
   expect_equal(res$result$Category_Range, "LC-CR")
+  expect_true(res$result$Uncertain)
+  expect_match(res$result$Flags, "NT may be chosen")
   expect_match(res$result$Flags, "DD candidate")
   expect_match(res$result$Needs_Evidence, "B(a)", fixed = TRUE)
 })
@@ -407,10 +410,11 @@ test_that("Small population NT is judged against the D1 threshold, not 10,000", 
   expect_equal(res_lc$result$Category, "LC")
 
   # ...but with the decline unknown and every counted individual in one
-  # locality, VU C2a(ii) is plausible, so the proposal is NT (10.1).
+  # locality, VU C2a(ii) is plausible: LC, flagged uncertain (D7; 10.1).
   res_unknown <- do.call(sa,
                          c(list(species = "9000?", pop_metrics = mk(9000)), args))
-  expect_equal(res_unknown$result$Category, "NT")
+  expect_equal(res_unknown$result$Category, "LC")
+  expect_true(res_unknown$result$Uncertain)
   expect_equal(res_unknown$result$Category_Range, "LC-VU")
   expect_match(res_unknown$result$Needs_Evidence, "C2: continuing decline")
 })

@@ -4,8 +4,9 @@
 #' taxon that fails keeps its row: the category is `NA` and an `issue_*`
 #' column says why, so no taxon silently drops out of the table.
 #'
-#' Windows default to the ten years ending in `reference_year`, compared with
-#' the ten years before them.
+#' Windows default to the AOPK convention (decision D5): the current window
+#' is the 17 years ending in `reference_year` (2010-2026 for 2026), compared
+#' with the same window ten years earlier (2000-2016). See [ndopred_config()].
 #'
 #' @param species_list Vector of scientific names.
 #' @param reference_year Numeric. The assessment year (required; ndopred does
@@ -28,7 +29,7 @@
 #' batch_assess(
 #'   c("Cypripedium calceolus", "Pulsatilla vernalis"),
 #'   reference_year = 2025, recent_start = 2016,
-#'   comp_end = 2015, comp_start = 2006,
+#'   comp_start = 2006, comp_end = 2015,
 #'   evaluate_pop = TRUE
 #' )
 #' }
@@ -36,18 +37,14 @@
 batch_assess <- function(species_list,
                          reference_year,
                          recent_end = reference_year,
-                         recent_start = recent_end - 9,
-                         comp_end = recent_start - 1,
-                         comp_start = comp_end - 9,
+                         recent_start = recent_end - 16,
+                         comp_start = recent_start - 10,
+                         comp_end = recent_end - 10,
                          snapshot_dir = NULL,
                          ...) {
   if (missing(reference_year)) {
     stop("`reference_year` is required: ndopred no longer reads the system clock.",
          call. = FALSE)
-  }
-  if (recent_start <= comp_end) {
-    warning("Recent and comparison windows overlap; measured change will be ",
-            "damped towards zero.", call. = FALSE)
   }
 
   rows <- lapply(species_list, function(sp) {

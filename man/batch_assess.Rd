@@ -8,9 +8,9 @@ batch_assess(
   species_list,
   reference_year,
   recent_end = reference_year,
-  recent_start = recent_end - 9,
-  comp_end = recent_start - 1,
-  comp_start = comp_end - 9,
+  recent_start = recent_end - 16,
+  comp_start = recent_start - 10,
+  comp_end = recent_end - 10,
   snapshot_dir = NULL,
   ...
 )
@@ -41,8 +41,9 @@ taxon that fails keeps its row: the category is \code{NA} and an \verb{issue_*}
 column says why, so no taxon silently drops out of the table.
 }
 \details{
-Windows default to the ten years ending in \code{reference_year}, compared with
-the ten years before them.
+Windows default to the AOPK convention (decision D5): the current window
+is the 17 years ending in \code{reference_year} (2010-2026 for 2026), compared
+with the same window ten years earlier (2000-2016). See \code{\link[=ndopred_config]{ndopred_config()}}.
 }
 \examples{
 \dontrun{
@@ -52,7 +53,7 @@ batch_assess(c("Lucanus cervus", "Bombina bombina"), reference_year = 2025)
 batch_assess(
   c("Cypripedium calceolus", "Pulsatilla vernalis"),
   reference_year = 2025, recent_start = 2016,
-  comp_end = 2015, comp_start = 2006,
+  comp_start = 2006, comp_end = 2015,
   evaluate_pop = TRUE
 )
 }

@@ -5,10 +5,12 @@
 #'
 #' @param species_name Character.
 #' @param occ_data An existing sf object (optional). If NULL, it will download.
-#' @param window Numeric. Length in years of each window. When supplied (and
-#'   the explicit bounds below are not), the recent window is the last
+#' @param window Numeric. Length in years of each window, used only when the
+#'   explicit bounds below are not given: the recent window is the last
 #'   `window` years up to `year_now` and the comparison window is the `window`
-#'   years immediately before it - matching [calculate_trend()].
+#'   years immediately before it. The apps pass the bounds from
+#'   [ndopred_config()] instead, so the map shows the windows the assessment
+#'   used.
 #' @param year_now Numeric. Final year of the recent window: the reference
 #'   year. Required unless `recent_end` is given.
 #' @param recent_start Numeric. Start year for recent data.
@@ -20,7 +22,10 @@
 #' @details
 #' Recent records are drawn as filled black points with a red EOO hull and AOO
 #' grid; comparison records as grey points with a blue hull and grid;
-#' historical records as open circles. Both periods' AOO grids share one grid
+#' historical records as open circles. When the windows overlap (the AOPK
+#' default, 2000-2016 against 2010-2026), records from the shared years are
+#' drawn as recent, and the blue hull and grid still use every record of the
+#' comparison window. Both periods' AOO grids share one grid
 #' origin so the cells are directly comparable. The Czech border comes from
 #' \pkg{giscoR}; if that call fails the map is drawn without it.
 #' @seealso [calculate_eoo()], [calculate_aoo()], [calculate_trend()]
@@ -62,7 +67,11 @@ plot_iucn <- function(species_name, occ_data = NULL,
   if (is.null(comp_start))   comp_start   <- comp_end - window + 1
 
   lbl_recent <- paste0("Recent (", recent_start, "-", recent_end, ")")
-  lbl_comp   <- paste0("Comparison (", comp_start, "-", comp_end, ")")
+  # Overlapping windows: points of the shared years are drawn as recent.
+  comp_only_end <- min(comp_end, recent_start - 1)
+  lbl_comp <- if (comp_only_end < comp_end) {
+    paste0("Comparison (", comp_start, "-", comp_end, "; only ", comp_start, "-", comp_only_end, " grey)")
+  } else paste0("Comparison (", comp_start, "-", comp_end, ")")
   lbl_hist   <- paste0("Historical (<", comp_start, ")")
 
   # 1. Use provided data or download if missing
@@ -84,7 +93,7 @@ plot_iucn <- function(species_name, occ_data = NULL,
     dplyr::mutate(
       Status = dplyr::case_when(
         !is.na(.data$year) & .data$year >= recent_start & .data$year <= recent_end ~ lbl_recent,
-        !is.na(.data$year) & .data$year >= comp_start & .data$year <= comp_end ~ lbl_comp,
+        !is.na(.data$year) & .data$year >= comp_start & .data$year <= comp_only_end ~ lbl_comp,
         TRUE ~ lbl_hist
       ),
       # Explicit factor levels control plotting order (historical bottom,
@@ -94,8 +103,12 @@ plot_iucn <- function(species_name, occ_data = NULL,
     dplyr::arrange(.data$Status)
 
   # 3. Filter datasets
-  occ_recent <- occ_all %>% dplyr::filter(.data$Status == lbl_recent)
-  occ_comp <- occ_all %>% dplyr::filter(.data$Status == lbl_comp)
+  # The hulls and grids use whole windows, as the assessment does.
+  in_window <- function(a, b) {
+    !is.na(occ_all$year_min) & occ_all$year_min >= a & !is.na(occ_all$year_max) & occ_all$year_max <= b
+  }
+  occ_recent <- occ_all[in_window(recent_start, recent_end), ]
+  occ_comp <- occ_all[in_window(comp_start, comp_end), ]
 
   # 4. Calculate Metrics safely, on a grid origin shared between the two
   # periods so the drawn AOO cells are directly comparable.

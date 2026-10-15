@@ -68,3 +68,14 @@ test_that("assess_criterion_a applies the A1 and A2 threshold sets", {
   # Unknown, not DD: DD is a decision about the whole assessment.
   expect_true(is.na(assess_criterion_a(list(percent_change = NA))))
 })
+
+test_that("batch_assess defaults to the AOPK windows (D5)", {
+  seen <- NULL
+  local_mocked_bindings(assess_species = function(sp, recent_start, recent_end,
+                                                  comp_start, comp_end, ...) {
+    seen <<- c(recent_start, recent_end, comp_start, comp_end)
+    data.frame(Species = sp)
+  })
+  suppressMessages(batch_assess("Any sp", reference_year = 2026))
+  expect_equal(seen, c(2010, 2026, 2000, 2016))
+})

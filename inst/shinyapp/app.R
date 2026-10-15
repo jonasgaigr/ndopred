@@ -19,8 +19,8 @@ ui <- fluidPage(
       textInput("species_name", "Species Name:", value = "Onthophagus medius"),
       numericInput("reference_year", "Reference year:",
                    value = as.numeric(format(Sys.Date(), "%Y")), min = 1900, step = 1),
-      numericInput("window", "Current-distribution window (years):", value = 10, min = 1),
-      p(tags$small("Criterion B (EOO, AOO, locations) uses this window: IUCN Guidelines 4.9 requires the *current* distribution.")),
+      numericInput("window", "Current-distribution window (years):", value = 17, min = 1),
+      p(tags$small("Criterion B (EOO, AOO, locations) uses this window: IUCN Guidelines 4.9 requires the *current* distribution. AOPK default: 17 years (2010-2026 for 2026).")),
       numericInput("gen_length", "Generation Length (Years):", value = 1, min = 0.1),
       uiOutput("window_note"),
 
@@ -71,20 +71,28 @@ server <- function(input, output, session) {
   output$window_note <- renderUI({
     tags$small(style = "color:#337ab7;", paste0(
       "Criterion A reduction window: ", reduction_window(),
-      " years (max of 10 years and 3 generations, capped at 100)."
+      " years (max of 10 years and 3 generations, capped at 100). The trend compares the",
+      " current window with the same window moved back by this many years."
     ))
   })
 
   rv <- reactiveValues(d2_candidate = FALSE)
 
+  # AOPK, D7: a range holding both non-threatened and threatened categories.
+  uncertain_note <- function(u) {
+    if (isTRUE(u)) " | UNCERTAIN: the range crosses the threatened threshold (Guidelines 10.1)" else ""
+  }
+
   raw_data <- eventReactive(input$run_calc, {
     req(input$species_name)
     withProgress(message = 'Accessing NDOP...', value = 0, {
       gl <- if (is.null(input$gen_length) || is.na(input$gen_length)) 1 else input$gen_length
-      b_window <- max(1, input$window %||% 10)
+      b_window <- max(1, input$window %||% 17)
       a_window <- reduction_window()
+      # AOPK, D5: the comparison window is the current one moved back by the
+      # criterion A period (10 years unless three generations are longer).
       config <- ndopred::ndopred_config(reference_year = reference_year(), window = b_window,
-                                        trend_window = a_window, generation_length = gl)
+                                        trend_shift = a_window, generation_length = gl)
 
       occ_raw <- tryCatch(ndopred::get_assessment_data(input$species_name), error = function(e) e)
       incProgress(0.3, message = "Calculating metrics...")
@@ -197,7 +205,7 @@ server <- function(input, output, session) {
     override <- input$manual_cat_override %||% "None"
     if (override != "None") {
       return(list(category = override, criteria = "Expert Override", criteria_iucn = "",
-                  support = "expert", needs = character(0), range = override))
+                  support = "expert", needs = character(0), range = override, uncertain = FALSE))
     }
     a <- ndopred::assess_taxon(species = data$species, config = data$config,
                                evaluate_pop = isTRUE(input$use_pop),
@@ -205,14 +213,16 @@ server <- function(input, output, session) {
     r <- a$result
     list(category = r$Category, criteria = r$Criteria, criteria_iucn = r$Criteria_IUCN,
          support = r$Support, needs = a$proposal$needs, range = r$Category_Range,
-         assessment = a)
+         uncertain = isTRUE(r$Uncertain), assessment = a)
   })
 
   output$map_plot <- renderPlot({
     d <- raw_data(); req(d)
     tryCatch(
-      ndopred::plot_iucn(d$species, occ_data = d$occ_all, window = d$b_window,
-                         year_now = d$year_now),
+      with(d$config$windows,
+           ndopred::plot_iucn(d$species, occ_data = d$occ_all,
+                              recent_start = recent_start, recent_end = recent_end,
+                              comp_start = comp_start, comp_end = comp_end)),
       error = function(e) { plot(1, 1, type = "n", axes = FALSE, xlab = "", ylab = ""); text(1, 1, paste("Map error:", conditionMessage(e))) }
     )
   })
@@ -259,7 +269,7 @@ server <- function(input, output, session) {
       div(style = "margin-bottom:15px; background:#f9f9f9; padding:10px; border-left: 5px solid #337ab7;",
           tags$small(strong("Automated proposal:")),
           h4(paste0(a$result$Category, ": ", a$result$Criteria), style = "margin-top:0; color:#337ab7;"),
-          p(tags$small(paste0("Support: ", a$result$Support, " | range: ", a$result$Category_Range)))),
+          p(tags$small(paste0("Support: ", a$result$Support, " | range: ", a$result$Category_Range, uncertain_note(a$result$Uncertain))))),
       p(tags$small("Every entry below starts as unknown. Entries are evidence: they replace the indication from the records for that condition.",
                    style = "color:#777;")),
       div(style = "margin-bottom:15px; border:1px solid #d6d6d6; padding:10px; background: #fff;",
@@ -313,7 +323,7 @@ server <- function(input, output, session) {
         h2(exp$category, style = "margin:0;"),
         p(tags$small(exp$criteria)),
         if (nzchar(exp$criteria_iucn %||% "")) p(tags$small(paste("IUCN:", exp$criteria_iucn))),
-        p(tags$small(paste0("Support: ", exp$support, " | range: ", exp$range))),
+        p(tags$small(paste0("Support: ", exp$support, " | range: ", exp$range, uncertain_note(exp$uncertain)))),
         needs_ui(exp$needs))
   })
 
@@ -324,7 +334,7 @@ server <- function(input, output, session) {
         h3(res$Category, style = "margin-top:0;"),
         p(strong("Criteria: "), res$Criteria),
         if (nzchar(res$Criteria_IUCN %||% "")) p(strong("IUCN: "), res$Criteria_IUCN),
-        p(strong("Support: "), res$Support, " | ", strong("range: "), res$Category_Range),
+        p(strong("Support: "), res$Support, " | ", strong("range: "), res$Category_Range, uncertain_note(res$Uncertain)),
         needs_ui(a$proposal$needs))
   })
 

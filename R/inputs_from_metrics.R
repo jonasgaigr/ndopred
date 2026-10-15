@@ -93,6 +93,8 @@
     Support = proposal$support,
     Needs_Evidence = paste(proposal$needs, collapse = "; "),
     Category_Range = if (is.na(proposal$range)) NA_character_ else proposal$range,
+    # AOPK, D7: the range holds a non-threatened and a threatened category.
+    Uncertain = if (is.na(proposal$category)) NA else identical(proposal$uncertain, TRUE),
     Flags = paste(proposal$flags, collapse = "; "),
     stringsAsFactors = FALSE
   )
