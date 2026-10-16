@@ -22,8 +22,8 @@
 #             strongly recommended)
 #
 # Usage (from a shell):
-#   Rscript pilot_validation.R --experts experts.csv [--out DIR]
-#       [--dir SNAPSHOT_DIR] [--year REFERENCE_YEAR] [--regions]
+#   Rscript pilot_validation.R --experts experts.csv --year REFERENCE_YEAR
+#       [--out DIR] [--dir SNAPSHOT_DIR] [--regions]
 #
 # --regions adds leave-one-region-out filters for the 14 regions (kraje,
 # NUTS 3) from giscoR, which downloads them once. Outputs in --out
@@ -44,7 +44,8 @@ experts_path <- opt("--experts", NA)
 if (is.na(experts_path)) stop("give the expert table: --experts experts.csv")
 out <- opt("--out", "pilot_validation")
 dir <- opt("--dir", default_snapshot_dir())
-year <- as.integer(opt("--year", format(Sys.Date(), "%Y")))
+year <- as.integer(opt("--year", NA))
+if (is.na(year)) stop("give the reference year: --year 2026")
 dir.create(out, showWarnings = FALSE, recursive = TRUE)
 write <- function(x, file) {
   utils::write.csv(x, file.path(out, file), row.names = FALSE, fileEncoding = "UTF-8")

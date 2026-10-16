@@ -6,13 +6,13 @@
 # to a CSV file. See ?compare_tools for what each column compares.
 #
 # Usage (from a shell):
-#   Rscript benchmark_tools.R [--out FILE] [--dir SNAPSHOT_DIR]
-#                             [--year REFERENCE_YEAR] [TAXON ...]
+#   Rscript benchmark_tools.R --year REFERENCE_YEAR [--out FILE]
+#                             [--dir SNAPSHOT_DIR] [TAXON ...]
 #
-# Defaults: --out benchmark_tools.csv, --dir default_snapshot_dir(),
-# --year the current year, and the pilot taxa below. The snapshots hold
-# exact coordinates and observer names: keep --dir outside the repository.
-# The CSV holds only areas and counts.
+# The reference year is required (ndopred never reads the clock). Defaults:
+# --out benchmark_tools.csv, --dir default_snapshot_dir() and the pilot
+# taxa below. The snapshots hold exact coordinates and observer names: keep
+# --dir outside the repository. The CSV holds only areas and counts.
 
 library(ndopred)
 
@@ -31,7 +31,8 @@ if (!length(taxa)) {
 }
 out <- opt("--out", "benchmark_tools.csv")
 dir <- opt("--dir", default_snapshot_dir())
-year <- as.integer(opt("--year", format(Sys.Date(), "%Y")))
+year <- as.integer(opt("--year", NA))
+if (is.na(year)) stop("give the reference year: --year 2026")
 cfg <- ndopred_config(reference_year = year)
 
 rows <- lapply(taxa, function(sp) {
