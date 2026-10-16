@@ -148,3 +148,16 @@ test_that("The export carries the regional columns", {
   expect_equal(df$`Kategorie (regionální)`, df$`Kategorie (automatická)`)   # no regional evidence
   expect_equal(df$`Podíl globální populace (%)`, "?")
 })
+
+test_that("every column of both exports is in the data dictionary, and no other", {
+  local_mock_ndop()
+  local_mocked_bindings(plot_iucn = function(...) NULL, .package = "ndopred")
+  d <- export_dictionary()
+  app <- names(run_bulk("Stable widespread sp")$results)
+  expect_setequal(app, d$app_column[nzchar(d$app_column)])
+  batch <- names(suppressMessages(batch_assess("Stable widespread sp", reference_year = 2025)))
+  expect_setequal(batch, d$batch_column[nzchar(d$batch_column)])
+  expect_true(all(nzchar(d$description)))
+  expect_true(all(d$layer %in% c("input", "run", "calculated", "indication", "parameter",
+                                 "evidence", "proposal", "approved", "diagnostic")))
+})
