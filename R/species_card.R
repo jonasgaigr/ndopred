@@ -53,9 +53,10 @@ species_card <- function(x, file = NULL) {
     "Proposal (ndopred)",
     h$p(h$span(class = "cat", p$category), " ", if (nzchar(p$criteria_iucn)) p$criteria_iucn),
     table_of(data.frame(
-      item = c("Criteria (established format)", "Support", "Plausible range", "Uncertain (D7)", "Flags"),
+      item = c("Criteria (established format)", "Support", "Plausible range", "Uncertain (D7)", "Flags",
+               "Expert queue"),
       value = c(p$criteria, p$support, p$range, if (isTRUE(p$uncertain)) "yes" else "no",
-                paste(p$flags, collapse = "; ")),
+                paste(p$flags, collapse = "; "), .triage(p)$label),
       stringsAsFactors = FALSE
     ))
   )

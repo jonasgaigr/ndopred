@@ -103,7 +103,7 @@ validate_against_experts <- function(proposals, experts,
 # Category codes without the degree sign of a regional adjustment or a
 # (PE)/(PEW) tag.
 .plain_category <- function(x) {
-  x <- trimws(gsub("°", "", as.character(x), fixed = TRUE))
+  x <- trimws(gsub("\u00b0", "", as.character(x), fixed = TRUE))
   x <- sub("[(].*$", "", x)
   x[!nzchar(x)] <- NA_character_
   x
