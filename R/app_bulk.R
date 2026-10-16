@@ -27,8 +27,8 @@ bulk_ui <- function() fluidPage(
         "generations where longer, but not before 2000 (time depth of NDOP data)."
       ))),
       radioButtons("gl_set", "Generation lengths:",
-                   choices = c("Placeholder: 1 year per NDOP group (AOPK, 2026-10-15)" = "placeholder",
-                               "Refined: species, genus, family, group (proposal)" = "refined"),
+                   choices = c("Refined: species, genus, family, group (AOPK, 2026-10-16)" = "refined",
+                               "Placeholder: 1 year per NDOP group (superseded)" = "placeholder"),
                    selected = generation_length_set()),
       checkboxInput("save_snapshots", "Store NDOP snapshots (RDS)", value = TRUE),
       textInput("snapshot_dir", "Snapshot folder:", value = default_snapshot_dir()),
@@ -311,8 +311,8 @@ bulk_server <- function(input, output, session) {
       if (isFALSE(efforts[[grp]])) NULL else efforts[[grp]]
     }
     gl_set <- if (is.null(input$gl_set) || !nzchar(input$gl_set)) generation_length_set() else input$gl_set
-    if (gl_set == "refined") {
-      log_msg("Generation lengths: refined set (proposal, not yet adopted by AOPK).")
+    if (gl_set == "placeholder") {
+      log_msg("Generation lengths: the superseded 1-year placeholder, not the refined set.")
     }
     taxon_config <- function(occ, group_hint, sp) {
       gl <- if (is.null(gl_table)) {

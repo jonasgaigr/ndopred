@@ -26,8 +26,8 @@ Latin or English name; matched case-insensitively.}
 
 \item{taxon}{Character. The taxon's name, used by the refined set only.}
 
-\item{set}{\code{"placeholder"} (the group table above) or \code{"refined"} (the
-proposal of \code{\link[=generation_lengths_refined]{generation_lengths_refined()}}). Defaults to
+\item{set}{\code{"refined"} (\code{\link[=generation_lengths_refined]{generation_lengths_refined()}}, the default) or
+\code{"placeholder"} (the group table above). Defaults to
 \code{\link[=generation_length_set]{generation_length_set()}}.}
 }
 \value{
@@ -59,9 +59,10 @@ criterion A uses 10 years until three generations exceed it, and C1 uses
 3, 5 and 10 years until one, two and three generations exceed them. Groups
 holding longer-lived taxa (most vertebrate groups, large bivalves, woody
 plants) are where the refinement matters. A value given for one taxon
-(single-taxon app, \code{generation_length} argument) always wins. The refined
-values proposed to replace the placeholder are in
-\code{\link[=generation_lengths_refined]{generation_lengths_refined()}} (opt-in, \code{set = "refined"}).
+(single-taxon app, \code{generation_length} argument) always wins. AOPK
+adopted the refined values of \code{\link[=generation_lengths_refined]{generation_lengths_refined()}} on
+2026-10-16 (gap analysis, D15); they are the default set, and this table
+is used only with \code{set = "placeholder"}.
 }
 
 \examples{

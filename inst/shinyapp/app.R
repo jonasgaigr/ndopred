@@ -24,11 +24,11 @@ ui <- fluidPage(
                    value = as.numeric(format(Sys.Date(), "%Y")), min = 1900, step = 1),
       numericInput("window", "Current-distribution window (years):", value = 17, min = 1),
       p(tags$small("Criterion B (EOO, AOO, locations) uses this window: IUCN Guidelines 4.9 requires the *current* distribution. AOPK default: 17 years (2010-2026 for 2026).")),
-      numericInput("gen_length", "Generation length (years; empty = NDOP group table):", value = NA, min = 0.1),
+      numericInput("gen_length", "Generation length (years; empty = the generation-length table):", value = NA, min = 0.1),
       textInput("gen_length_basis", "Basis for the generation length (if entered):"),
       radioButtons("gl_set", "Generation lengths when none is entered:",
-                   choices = c("Placeholder: 1 year per NDOP group (AOPK)" = "placeholder",
-                               "Refined: species, genus, family, group (proposal)" = "refined"),
+                   choices = c("Refined: species, genus, family, group (AOPK, 2026-10-16)" = "refined",
+                               "Placeholder: 1 year per NDOP group (superseded)" = "placeholder"),
                    selected = ndopred::generation_length_set()),
       uiOutput("window_note"),
 
@@ -137,9 +137,9 @@ server <- function(input, output, session) {
   # which Guidelines 5.2 does not cap; the 100-year cap is for projections.
   reduction_window_for <- function(gl) max(10, 3 * gl)
 
-  # The generation length typed in, else the value for the taxon: the NDOP
-  # group's (AOPK placeholder of 1 year), or with the refined set the
-  # species, genus, family or group value (generation_length_set()).
+  # The generation length typed in, else the value for the taxon from the
+  # refined set (species, genus, family or group; AOPK, D15), or the
+  # superseded 1-year placeholder when chosen (generation_length_set()).
   generation_length_used <- function(occ) {
     gl_in <- num_or_na(input$gen_length)
     if (!is.na(gl_in) && gl_in > 0) return(list(years = gl_in, source = "entered by the assessor"))

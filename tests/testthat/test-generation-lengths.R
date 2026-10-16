@@ -12,17 +12,18 @@ test_that("The table has one row per NDOP group, every value a placeholder of 1 
 })
 
 test_that("A group is found by its NDOP (Czech), Latin or English name", {
-  expect_equal(generation_length_for("Obojživelníci")$group, "Obojživelníci")
-  expect_equal(generation_length_for("amphibia")$group, "Obojživelníci")
-  expect_equal(generation_length_for("Amphibians")$group, "Obojživelníci")
-  hit <- generation_length_for("Brouci")
+  ph <- function(g) generation_length_for(g, set = "placeholder")
+  expect_equal(ph("Obojživelníci")$group, "Obojživelníci")
+  expect_equal(ph("amphibia")$group, "Obojživelníci")
+  expect_equal(ph("Amphibians")$group, "Obojživelníci")
+  hit <- ph("Brouci")
   expect_equal(hit$years, 1)
   expect_equal(hit$status, "placeholder")
   expect_match(hit$source, "group table: Brouci")
   # Not in the table, or unknown: 1 year, labelled as a default.
-  miss <- generation_length_for("Nonexistent group")
+  miss <- ph("Nonexistent group")
   expect_equal(c(miss$years, miss$status), c(1, "default"))
-  expect_equal(generation_length_for(NA)$status, "default")
+  expect_equal(ph(NA)$status, "default")
 })
 
 test_that("A longer generation length moves the comparison window back (Criteria A2)", {
@@ -93,20 +94,20 @@ test_that("The refined set looks a taxon up by species, genus, family, then grou
   expect_true(all(generation_lengths_refined()$species$generation_length_years > 0))
 })
 
-test_that("The placeholder set stays the default; the refined one is opt-in", {
+test_that("The refined set is the default (AOPK, D15); the placeholder can be chosen", {
   withr::local_options(ndopred.generation_lengths = NULL)
   withr::local_envvar(NDOPRED_GENERATION_LENGTH_SET = "")
-  expect_equal(generation_length_set(), "placeholder")
-  expect_equal(generation_length_for("Obojživelníci", taxon = "Bombina bombina")$years, 1)
-  old <- generation_length_set("refined")
-  expect_equal(old, "placeholder")
+  expect_equal(generation_length_set(), "refined")
   expect_equal(generation_length_for("Obojživelníci", taxon = "Bombina bombina")$level, "species")
+  old <- generation_length_set("placeholder")
+  expect_equal(old, "refined")
+  expect_equal(generation_length_for("Obojživelníci", taxon = "Bombina bombina")$years, 1)
   generation_length_set(old)
-  expect_equal(generation_length_set(), "placeholder")
+  expect_equal(generation_length_set(), "refined")
   # Without the option, the environment variable decides.
   options(ndopred.generation_lengths = NULL)
-  withr::local_envvar(NDOPRED_GENERATION_LENGTH_SET = "refined")
-  expect_equal(generation_length_set(), "refined")
+  withr::local_envvar(NDOPRED_GENERATION_LENGTH_SET = "placeholder")
+  expect_equal(generation_length_set(), "placeholder")
   expect_error(generation_length_set("other"))
 })
 
@@ -121,6 +122,11 @@ test_that("A taxon whose criterion A period outreaches the data gets a time-dept
 
 test_that("assess_species takes the generation length from the taxon's group", {
   local_mock_ndop()
+  # The default, refined set: the group row of the beetles.
+  ref <- assess_species("Declining sp", recent_start = 2010, recent_end = 2026)
+  expect_match(ref$Generation_Length_Source, "refined table, group: Brouci", fixed = TRUE)
+  # The placeholder set, with an edited table.
+  withr::local_options(ndopred.generation_lengths = "placeholder")
   tab <- generation_lengths()
   tab$generation_length_years[tab$kat_tax == "Brouci"] <- 5
   tab$status[tab$kat_tax == "Brouci"] <- "test value"

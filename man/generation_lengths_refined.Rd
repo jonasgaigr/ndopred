@@ -3,14 +3,14 @@
 \name{generation_lengths_refined}
 \alias{generation_lengths_refined}
 \alias{generation_length_set}
-\title{Refined Generation Lengths (Proposal)}
+\title{Refined Generation Lengths}
 \usage{
 generation_lengths_refined()
 
 generation_length_set(set)
 }
 \arguments{
-\item{set}{\code{"placeholder"} or \code{"refined"}.}
+\item{set}{\code{"refined"} or \code{"placeholder"}.}
 }
 \value{
 \code{generation_lengths_refined()}: a list with \code{species} (vertebrates
@@ -20,12 +20,14 @@ genus rows) and \code{genus_family} (genus to family by group).
 the session and the previous one returned invisibly.
 }
 \description{
-The proposed replacement for the 1-year placeholder of
-\code{\link[=generation_lengths]{generation_lengths()}}, built by \code{methodology/generation_lengths/build.R}
-(sources and method in the README there). Until AOPK adopts it, it is
-used only when asked for: \code{generation_length_set("refined")}, the
-\code{ndopred.generation_lengths} option, the \code{NDOPRED_GENERATION_LENGTH_SET}
-environment variable, or the choice in the bulk app.
+The generation lengths ndopred uses by default, built by
+\code{methodology/generation_lengths/build.R} (sources and method in the
+README there). They replace the 1-year placeholder of
+\code{\link[=generation_lengths]{generation_lengths()}}, adopted by AOPK on 2026-10-16 (gap analysis,
+D15). The placeholder can still be chosen: \code{generation_length_set("placeholder")},
+the \code{ndopred.generation_lengths} option, the
+\code{NDOPRED_GENERATION_LENGTH_SET} environment variable, or the choice in
+either app.
 }
 \details{
 A taxon is looked up in this order, within its NDOP group: the species

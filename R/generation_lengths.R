@@ -15,9 +15,10 @@
 #' 3, 5 and 10 years until one, two and three generations exceed them. Groups
 #' holding longer-lived taxa (most vertebrate groups, large bivalves, woody
 #' plants) are where the refinement matters. A value given for one taxon
-#' (single-taxon app, `generation_length` argument) always wins. The refined
-#' values proposed to replace the placeholder are in
-#' [generation_lengths_refined()] (opt-in, `set = "refined"`).
+#' (single-taxon app, `generation_length` argument) always wins. AOPK
+#' adopted the refined values of [generation_lengths_refined()] on
+#' 2026-10-16 (gap analysis, D15); they are the default set, and this table
+#' is used only with `set = "placeholder"`.
 #'
 #' @param path Path to a CSV with the same columns. Defaults to the
 #'   `NDOPRED_GENERATION_LENGTHS` environment variable, else the table shipped
@@ -58,8 +59,8 @@ generation_lengths <- function(path = Sys.getenv("NDOPRED_GENERATION_LENGTHS")) 
 #'   Latin or English name; matched case-insensitively.
 #' @param table The table, from `generation_lengths()`.
 #' @param taxon Character. The taxon's name, used by the refined set only.
-#' @param set `"placeholder"` (the group table above) or `"refined"` (the
-#'   proposal of [generation_lengths_refined()]). Defaults to
+#' @param set `"refined"` ([generation_lengths_refined()], the default) or
+#'   `"placeholder"` (the group table above). Defaults to
 #'   [generation_length_set()].
 #' @return `generation_length_for()`: a list with `years`, `group` (the
 #'   matched `KAT_TAX`), `status`, `source` and `level` (`"group"`, or for
@@ -90,14 +91,16 @@ generation_length_for <- function(group, table = generation_lengths(), taxon = N
   which(.gl_key(table$kat_tax) == g | .gl_key(table$group_lat) == g | .gl_key(table$group_en) == g)
 }
 
-#' Refined Generation Lengths (Proposal)
+#' Refined Generation Lengths
 #'
-#' The proposed replacement for the 1-year placeholder of
-#' [generation_lengths()], built by `methodology/generation_lengths/build.R`
-#' (sources and method in the README there). Until AOPK adopts it, it is
-#' used only when asked for: `generation_length_set("refined")`, the
-#' `ndopred.generation_lengths` option, the `NDOPRED_GENERATION_LENGTH_SET`
-#' environment variable, or the choice in the bulk app.
+#' The generation lengths ndopred uses by default, built by
+#' `methodology/generation_lengths/build.R` (sources and method in the
+#' README there). They replace the 1-year placeholder of
+#' [generation_lengths()], adopted by AOPK on 2026-10-16 (gap analysis,
+#' D15). The placeholder can still be chosen: `generation_length_set("placeholder")`,
+#' the `ndopred.generation_lengths` option, the
+#' `NDOPRED_GENERATION_LENGTH_SET` environment variable, or the choice in
+#' either app.
 #'
 #' A taxon is looked up in this order, within its NDOP group: the species
 #' table (name or synonym, then the binomial of an infraspecific name), a
@@ -142,18 +145,19 @@ generation_lengths_refined <- function() {
 }
 
 #' @rdname generation_lengths_refined
-#' @param set `"placeholder"` or `"refined"`.
+#' @param set `"refined"` or `"placeholder"`.
 #' @export
 generation_length_set <- function(set) {
   if (!missing(set)) {
-    set <- match.arg(set, c("placeholder", "refined"))
-    old <- options(ndopred.generation_lengths = set)
-    return(invisible(if (is.null(old[[1]])) "placeholder" else old[[1]]))
+    set <- match.arg(set, c("refined", "placeholder"))
+    old <- generation_length_set()
+    options(ndopred.generation_lengths = set)
+    return(invisible(old))
   }
   s <- getOption("ndopred.generation_lengths")
-  if (is.null(s)) s <- Sys.getenv("NDOPRED_GENERATION_LENGTH_SET", "placeholder")
-  if (!nzchar(s)) s <- "placeholder"
-  match.arg(s, c("placeholder", "refined"))
+  if (is.null(s)) s <- Sys.getenv("NDOPRED_GENERATION_LENGTH_SET", "refined")
+  if (!nzchar(s)) s <- "refined"
+  match.arg(s, c("refined", "placeholder"))
 }
 
 .refined_generation_length <- function(taxon, group, table, hit) {
