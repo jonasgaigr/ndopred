@@ -7,6 +7,11 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ndopred)
+```
+
 # Introduction
 
 `ndopred` applies the **IUCN Red List Categories and Criteria v3.1** (IUCN 2012)
@@ -14,35 +19,191 @@ using the interpretation given in the **Guidelines for Using the IUCN Red List
 Categories and Criteria v16** (IUCN Standards and Petitions Committee, March
 2024), for a **national (Czech) Red List** built from NDOP occurrence records.
 The **Guidelines for Application of IUCN Red List Criteria at Regional and
-National Levels v4.0** (IUCN 2012, "RG") give the regional step: eligibility
-before the assessment, adjustment for populations outside the country after it
-(section 13). Section numbers below refer to the Guidelines v16 unless stated
-otherwise.
+National Levels v4.0** (IUCN 2012, "RG") give the regional step. Section numbers
+refer to the Guidelines v16 unless stated otherwise. `methodology/gap_analysis.md`
+records the audit of the package against these documents, the decisions AOPK
+took, and what each phase changed.
 
-`methodology/gap_analysis.md` records the audit of the package against these
-documents and the plan for closing the remaining gaps.
+## Four states of a value
 
-# 1. One engine, three layers of input
+The method rests on keeping apart four things that are easily confused:
+
+| State | What it is | Who sets it | Where it lives |
+|---|---|---|---|
+| **Calculated** | measured from the records: EOO, AOO, counts, raw changes | ndopred | the NDOP snapshot and the run configuration |
+| **Evidenced** | a condition, number or threat documented by an assessor, with author, date, justification and source | the assessor | the evidence file |
+| **Proposed** | the category the criteria give from what is calculated and evidenced, with its plausible range and what is still missing | the rule engine | the export and the species card |
+| **Approved** | the final category, checked against the evidence and approved by the group experts | the group experts | the evidence file (final category and approval rows) |
+
+A calculated value is not evidence: a cluster count is not a number of
+locations, and a change in recorded AOO is not a reduction. A proposal is not a
+category: only an approved final category is one. Each part of this vignette
+follows one step: from records to calculated values (part I), from those and
+the evidence to a proposal (part II), from the proposal to an approved
+category (part III), and how the method is checked (part IV).
+
+Where the IUCN rules and ease of use pull apart, ndopred follows the rules and
+says so: an unknown condition stays unknown instead of being guessed, a
+restricted taxon is a D2 *candidate* until a threat is described, and no
+category is final without approval.
+
+# Part I. From records to calculated values
+
+## 1. Records: snapshots and flags
+
+Each download is an **immutable snapshot** (`ndop_snapshot()`): the records and
+their points, lines and polygons as NDOP returned them, with the query, the
+download time and the versions. Stored as RDS (by default in
+`Documents/ndop_snapshots`, outside the repository, since snapshots hold exact
+coordinates and observer names), a snapshot lets any assessment be rerun on
+exactly the same records; `latest_snapshot()` finds it again. NDOP data are
+never edited.
+
+`flag_records()` then adds one flag per test and the first exclusion reason.
+**Nothing is deleted.** The rules, agreed with AOPK:
+
+* `VEROH` (credibility after the guarantor's review): 0 not yet validated and 1
+  credible are used; 6 and 9 (erroneous) are excluded; 3 (less credible) is
+  always used, and flagged only when more than 10 % of the taxon's records
+  carry it. A validation mark proposed while the guarantee is open
+  (`VALIDACE`) is only flagged.
+* Records of another taxon are excluded; names match exactly, because the NDOP
+  query also returns hybrids and aggregates.
+* Negative findings are kept as non-detections, out of the presence metrics.
+* Records without coordinates (including hidden ones) or outside Czechia are
+  excluded.
+* Literature and collection records (recognised by markers in `ZDROJ`: a card
+  index, collection, museum, herbarium, atlas, literature data or a journal
+  volume with pages) and suspected duplicates are flagged only. The rndop
+  export has no source-type field, so the literature flag is a heuristic.
+* A record dated as a range (`DATUM_OD` to `DATUM_DO`) belongs to a time window
+  only if the whole range lies inside it.
+
+Records can also be excluded or re-included by an assessor, by `ID_NALEZ` and
+with a reason, in the evidence file (section 12); the record keeps its row.
+
+## 2. Spatial metrics
+
+**AOO** is the count of occupied cells times the cell area (§4.10.2, eq. 4.1) on
+the reference **2 × 2 km** grid (§4.10.3). Because AOO depends on where the grid
+starts, `calculate_aoo()` keeps the **minimum** over grid origins, as §4.10.2
+requires. It tests a 4 × 4 lattice of origins and, for up to 150 distinct
+positions, also every origin at which the count can change (the positions of
+the points modulo the cell size), which finds the exact minimum where a cell
+matters most, near the CR and EN thresholds of B2. The criterion B2 value is
+always this current-window minimum on 2 × 2 km; other grid sizes are for
+display only.
+
+Positional precision (`CXPRESNOST`, metres; 0 = exact) and NDOP's record
+polygons and lines give AOO a range at the same origin (§3.2):
+
+* the **minimum** puts each record whose precision disc or polygon reaches into
+  other cells into a cell already occupied, whenever it can reach one;
+* the **maximum** gives each such record a cell of its own, whenever it can.
+
+The range bounds the *observed* AOO. Observed AOO is itself a plausible
+*lower* bound on the true AOO of an under-recorded taxon (§4.10.8); an upper
+bound from habitat maps is not implemented.
+
+**EOO** is a minimum convex polygon (§4.9). Discontinuities and disjunctions are
+deliberately *not* excluded. Its range comes from the same sources: the
+minimum leaves out records less precise than 2 km and flagged less-credible
+records; the maximum is the hull of every precision disc and polygon. Where a
+hull cannot be built, `reconcile_eoo_aoo()` substitutes AOO, per the rule that
+EOO is never smaller than AOO.
+
+**Clusters.** `calculate_locations()` counts 5 km distance clusters. They are
+reported as clusters, never as locations: a location is "a geographically or
+ecologically distinct area in which a single threatening event can rapidly
+affect all individuals of the taxon present" (§4.11), defined by a threat the
+records do not show.
+
+## 3. Time windows and generation length
+
+The windows are an AOPK convention (D5): the current window is the 17 years up
+to the reference year (**2010–2026** for 2026), and the trend compares it with
+**2000–2016**, the same window ten years earlier. Ten years is the period of
+criterion A unless three generations are longer; then the comparison window
+moves back by three generations (`ndopred_config(window = 17)`, with
+`trend_shift` derived from the generation length). The reference year is always
+explicit; nothing reads the system clock.
+
+**Generation length** comes from `generation_lengths()`, a table with one row
+per NDOP taxonomic group (`KAT_TAX`), unless the assessor gives one for the
+taxon. Every group is set to **1 year** for now, a placeholder AOPK will refine.
+Up to 3.3 years a generation length changes nothing: criterion A uses 10 years
+until three generations exceed it, and C1 uses 3, 5 and 10 years until one, two
+and three generations exceed them. Each result row reports the value used and
+its source.
+
+* **Criterion B** describes the **current** distribution: §4.9 states that EOO
+  and AOO "should not include areas where the species no longer exists". EOO,
+  AOO and clusters use the current window.
+* **The trend** compares the two windows on a **single shared grid origin**, so
+  that the change is not an artefact of two different grids. The windows'
+  midpoints are 10 years apart, the period of criterion A2. They share
+  2010–2016, and records from those years count in both, which damps the
+  measured change.
+
+## 4. Trends and data tiers
+
+`trend_estimate()` classifies each taxon's data into the tiers of the review
+(Table 5) and computes the trend the tier allows:
+
+* **T0**, records only: the raw change in AOO (one grid origin for both windows)
+  and in EOO as an alpha-hull. §4.9 recommends the alpha-hull, not the convex
+  hull, "for assessing reductions or continuing declines in EOO"; it is built
+  on one point per occupied 2 × 2 km cell so that it follows the range rather
+  than the density of recording. The comparison window is also moved two years
+  earlier and later, and the range of changes is the interval (start-year
+  sensitivity, review §7.4). A diagnostic, not a population trend.
+* **T1**, an effort layer of the group (`ndop_effort()`: every record of the
+  NDOP group, reduced to cells and anonymous visits; for large groups a random
+  sample of cadastral units): relative occupancy on the cells recorded for the
+  group in both windows, with a bootstrap interval. An explicitly labelled
+  interim proxy.
+* **T2**, repeat visits of the group around the taxon: a multi-season
+  occupancy-detection model (`spOccupancy::tPGOcc()`), occupancy with a linear
+  trend over years, detection with the visit's list length. A trend in
+  occupancy, not in mature individuals (review §7.3), so basis (c). Run when
+  `trend_settings(occupancy_model = TRUE)`; it takes minutes per taxon.
+* **T3**, counts from standardized monitoring projects that AOPK lists
+  (`monitoring_projects`): an abundance index, a log-linear model of counts on
+  site and year, basis (b). The only source of an estimated decline (C1) and of
+  a fluctuation diagnosis from records.
+
+The best available tier gives the reduction *indication*, with its interval
+as the plausible range. It becomes evidence only when an assessor confirms it.
+
+# Part II. From calculated values and evidence to a proposal
+
+## 5. One engine, three layers of input
 
 All entry points (both Shiny apps, `assess_species()`, `batch_assess()` and the
 deprecated `summarize_assessment()`) call the same engine:
 `assessment_inputs()` → `assess_criteria()` → `categorise()`. No other code
-holds thresholds or category logic.
-
-The engine distinguishes three kinds of input:
+holds thresholds or category logic, so bulk and single-taxon mode give the same
+result for the same inputs.
 
 | Layer | Examples | Source |
 |---|---|---|
-| **Data** | EOO, AOO, record counts | measured from the records |
-| **Indication** | 5 km cluster count for locations; raw AOO/EOO change between windows for decline and reduction; NDOP counts for mature individuals; localities for subpopulations | proxies derived from the records |
-| **Evidence** | severe fragmentation, the most serious plausible threat, threat-defined locations, continuing decline, population estimates, an evidenced reduction | the assessor |
+| **Data** | EOO, AOO, record counts | calculated from the records |
+| **Indication** | cluster count for locations; the trend estimate for reduction and decline; NDOP counts for mature individuals; localities for subpopulations | derived from the records |
+| **Evidence** | severe fragmentation, the most serious plausible threat, threat-defined locations, continuing decline, population estimates, a confirmed reduction | the assessor |
 
 Every condition is TRUE, FALSE or **UNKNOWN**. The proposal uses the evidence
 where there is some, otherwise the indication. An unknown condition with no
 indication does not count towards the proposal, but it is never read as FALSE:
-it widens the plausible range and is listed as needing evidence.
+it widens the plausible range and is listed as needing evidence. Numbers can be
+ranges, `min`/`best`/`max`: the proposal uses the best estimate, and each end
+of the plausible range uses the end that lowers or raises the risk (§3.2).
 
-# 2. The proposal
+Guidelines Table 3.1 sets a minimum data quality per criterion: below it, the
+criterion "is considered not to have been met". Evidence below the minimum of
+its criterion (a suspected decline for B(b) or C2; inferred numbers for C, D or
+C2a(i); an inferred decline for C1) is documented but not used.
+
+## 6. The proposal
 
 `categorise()` returns:
 
@@ -66,117 +227,34 @@ range of plausible categories include both LC and VU (or EN), the taxon can be
 classified as NT, unless the best estimate is VU (or EN)". The flag says when NT
 may be chosen. A range from LC to CR adds a **DD flag** (§10.1, §10.4). Choosing
 NT or DD on uncertainty is the assessor's decision, "based on their level of
-risk tolerance" (§10.4), and DD needs all five criteria documented. ndopred
-proposes NT itself only where a criterion is nearly met (§10.1 examples).
+risk tolerance" (§10.4). ndopred proposes NT itself only where a criterion is
+nearly met (§10.1 examples).
+
+**Triage.** Every row gets a place in the expert queue from the highest
+category its plausible range reaches: 1 where CR or EN is possible (or an RE
+candidate), 2 where VU is possible (or a DD candidate), 3 for NT, 4 for an
+**LC candidate**. A taxon is an LC candidate only when no criterion is met even
+with every unknown subcriterion met. It is never LC without an expert: the
+review (section 3) allows Rapid LC only as a low-priority preselection, since an
+undetected decline is the risk a wide range does not exclude.
 
 Values that are conventions rather than IUCN rules are set in
 `ndopred_config()` and labelled there: the decline tolerance, the NT margins,
 the RE-candidate period and the indicative D2 figures.
 
-# 3. Records: snapshots and flags
-
-Each download is an **immutable snapshot** (`ndop_snapshot()`): the records and
-their points, lines and polygons as NDOP returned them, with the query, download
-time and versions. Stored as RDS (by default in `Documents/ndop_snapshots`), a
-snapshot lets any assessment be rerun on exactly the same records.
-
-`flag_records()` then adds one flag per test and the first exclusion reason.
-**Nothing is deleted.** The rules, agreed with AOPK:
-
-* `VEROH` (credibility after the guarantor's review): 0 not yet validated and 1
-  credible are used; 6 and 9 (erroneous) are excluded; 3 (less credible) is
-  always used, and flagged only when more than 10 % of the taxon's records
-  carry it. A validation mark proposed while the guarantee is open
-  (`VALIDACE`) is only flagged.
-* Records of another taxon are excluded; names match exactly, because the NDOP
-  query also returns hybrids and aggregates.
-* Negative findings are kept as non-detections, out of the presence metrics.
-* Records without coordinates (including hidden ones) or outside Czechia are
-  excluded.
-* Literature sources and suspected duplicates are flagged only.
-* A record dated as a range (`DATUM_OD` to `DATUM_DO`) belongs to a time window
-  only if the whole range lies inside it.
-
-# 4. Spatial metrics
-
-**AOO** is the count of occupied cells times the cell area (§4.10.2, eq. 4.1) on
-the reference **2 × 2 km** grid (§4.10.3). Because AOO depends on where the grid
-starts, `calculate_aoo()` tests a 4 × 4 lattice of grid origins and keeps the
-**minimum** count, as §4.10.2 requires. The criterion B2 value is always this
-current-window minimum on 2 × 2 km; other grid sizes are for display only.
-
-Positional precision (`CXPRESNOST`, metres; 0 = exact) and NDOP's record
-polygons and lines give AOO a range at the same origin (§3.2):
-
-* the **minimum** puts each record whose precision disc or polygon reaches into
-  other cells into a cell already occupied, whenever it can reach one;
-* the **maximum** gives each such record a cell of its own, whenever it can.
-
-The range bounds the *observed* AOO. Observed AOO is itself a plausible
-*lower* bound on the true AOO of an under-recorded taxon (§4.10.8); an upper
-bound from habitat maps is not implemented.
-
-The EOO range comes from the same sources. The minimum leaves out records less
-precise than 2 km and flagged less-credible records; the maximum is the hull of
-every precision disc and polygon. The proposal uses the best estimates. The low
-end of the plausible range uses the largest areas, and the high end the
-smallest.
-
-**EOO** is a minimum convex polygon (§4.9). Discontinuities and disjunctions are
-deliberately *not* excluded. Where a hull cannot be built, EOO is returned as
-`NA` and `reconcile_eoo_aoo()` substitutes AOO, per the rule that EOO is never
-smaller than AOO.
-
-**Locations** (§4.11) are threat-defined: "a geographically or ecologically
-distinct area in which a single threatening event can rapidly affect all
-individuals of the taxon present". `calculate_locations()` counts 5 km
-clusters. That count is only an **indication**: it may support a proposal, and
-threat-defined locations are then always listed as needed. With no plausible
-threat (`threat = FALSE`), "the subcriteria that refer to the number of
-locations will not be met" (§4.11), and the indication is ignored.
-
-# 5. Time windows
-
-The windows are an AOPK convention (D5): the current window is the 17 years up
-to the reference year (**2010–2026** for 2026), and the trend compares it with
-**2000–2016**, the same window ten years earlier. Ten years is the period of
-criterion A unless three generations are longer; then the comparison window
-moves back by three generations (`ndopred_config(window = 17)`, with
-`trend_shift` derived from the generation length).
-
-**Generation length** comes from `generation_lengths()`, a table with one row
-per NDOP taxonomic group (`KAT_TAX`), unless the assessor gives one for the
-taxon. Every group is set to **1 year** for now, a placeholder AOPK will refine.
-Up to 3.3 years a generation length changes nothing: criterion A uses 10 years
-until three generations exceed it, and C1 uses 3, 5 and 10 years until one, two
-and three generations exceed them. Each result row reports the value used and
-its source.
-
-* **Criterion B** describes the **current** distribution: §4.9 states that EOO
-  and AOO "should not include areas where the species no longer exists". EOO,
-  AOO and locations use the current window. A long window holds more of an
-  under-recorded taxon's range, but can also hold sites lost since its start.
-* **The trend** compares the two windows on a **single shared grid origin**, so
-  that the change is not an artefact of two different grids. The windows'
-  midpoints are 10 years apart, the period of criterion A2. They share
-  2010–2016, and records from those years count in both, which damps the
-  measured change: a site lost after 2010 still counts as current if it was
-  recorded before the loss.
-* **The reference year** is always explicit (`ndopred_config(reference_year)`);
-  nothing reads the system clock.
-
-# 6. Criterion A
+## 7. Criterion A
 
 Thresholds are 90/70/50 % for A1 and 80/50/30 % for A2–A4, inclusive. The window
 is 10 years or three generations, whichever is longer; past reductions (A2) are
 not capped at 100 years, which §5.2 applies to projections only. The reduction
-indication comes from the trend module (section 10): its tier, estimate and
+indication comes from the trend estimate (section 4): its tier, estimate and
 interval, with basis (c) for occupancy and basis (b) for standardized counts or
 NDOP counts. It is listed with what it still needs, because the number of
-records changes with recording effort (§4.10.8). An assessor's reduction
-estimate is evidence and replaces the indication.
+records changes with recording effort (§4.10.8). An assessor's reduction is
+evidence and replaces the indication. A1 needs the causes to be reversible,
+understood and ceased; otherwise the reduction is evaluated under A2.
 
-# 7. Criterion B
+## 8. Criterion B
 
 The area threshold must be met (EOO < 100 / 5,000 / 20,000 km², AOO < 10 / 500 /
 2,000 km²) **and at least two of** (a) severe fragmentation or ≤ 1 / 5 / 10
@@ -190,7 +268,16 @@ from counts. A decline in (i) or (ii) is indicated only when the whole interval
 of the change lies below the decline tolerance (default 5 %), ruled out when it
 lies above, and unknown otherwise.
 
-# 8. Criteria C and D
+**Locations** come from the evidence: the number of threat-defined locations
+with its basis, either the most serious plausible threat over the whole range
+or one of the §4.11 options for parts it does not affect. Option (a) means the
+number of locations is not used, so the location subcriteria are not met; with
+no plausible threat at all, "the subcriteria that refer to the number of
+locations will not be met" (§4.11). The cluster count is only an indication: it
+may support a proposal, and threat-defined locations are then listed as
+needed.
+
+## 9. Criteria C and D
 
 C: fewer than 250 / 2,500 / 10,000 mature individuals, with either C1 (an
 estimated continuing decline of 25 % in 3 years or 1 generation, 20 % in 5 years
@@ -198,15 +285,17 @@ or 2 generations, 10 % in 10 years or 3 generations, whichever is longer, up to
 100 years) or C2 (a continuing decline in mature individuals and a(i) no
 subpopulation over 50 / 250 / 1,000, a(ii) at least 90 / 95 / 100 % in one
 subpopulation, or b extreme fluctuations). The observed rate is re-projected onto
-each category's own period at a constant proportional rate (§4.5.1).
+each category's own period at a constant proportional rate (§4.5.1). C1 needs an
+*estimated* decline, so it is met only from evidence or from a standardized
+monitoring series (T3), never from opportunistic counts.
 
 D: CR and EN **D** below 50 and 250 mature individuals; VU **D1** below 1,000.
 **D2** (VU) needs the restriction (AOO typically < 20 km² or typically ≤ 5
 locations) **and** a specified plausible threat able to make the taxon CR or EX
 in a very short time (§8). "Simply meeting the suggested (or any other)
 threshold for AOO or number of locations is not sufficient", and literal use
-"results in massive over-listing" (§8). An unknown threat is never assumed in
-the proposal; a restricted taxon is flagged as a D2 candidate.
+"results in massive over-listing" (§8). The threat must be described in words;
+a bare yes is refused. A restricted taxon without one is a D2 candidate.
 
 NDOP counts are minimum observed values and NDOP localities stand in for
 subpopulations (§4.2, §4.3), so both are indications. `evaluate_pop` decides
@@ -214,56 +303,15 @@ whether NDOP counts may be used at all. The total is each locality's most recent
 count, not a sum of maxima from different years; the latest census year and the
 per-locality maxima are its range.
 
-Guidelines Table 3.1 sets a minimum data quality per criterion: below it, the
-criterion "is considered not to have been met". C1 needs an *estimated*
-continuing decline, so it is met only from evidence or from a standardized
-monitoring series (T3), never from opportunistic counts. Expert evidence below
-the minimum of its criterion (a suspected decline for B(b) or C2; inferred
-numbers for C, D or C2a(i); an inferred decline for C1) is documented but not
-used.
+**Extreme fluctuations** (§4.7) need variation greater than one order of
+magnitude **and** a recurring pattern of increases and decreases; "an observed
+decline should not be considered as a fluctuation unless there is evidence for
+this" (§4.6). Whether the change is in the population or in recording can only
+be judged from a consistent-effort series, so `extreme_fluctuation` (a ratio ≥
+10, at least two reversals, at least five years) is diagnosed only from
+standardized monitoring counts (T3) and is unknown otherwise.
 
-# 9. Extreme fluctuations
-
-§4.7 requires variation greater than one order of magnitude **and** a recurring
-pattern of increases and decreases; §4.6 adds that "an observed decline should
-not be considered as a fluctuation unless there is evidence for this".
-`calculate_pop_metrics()` reports the max/min ratio and a count of direction
-reversals. Whether the change is in the population or in recording can only be
-judged from a consistent-effort series, so `extreme_fluctuation` (a ratio ≥ 10,
-at least two reversals, at least five years) is diagnosed only from standardized
-monitoring counts (T3) and is unknown otherwise.
-
-# 10. Trends and data tiers
-
-`trend_estimate()` classifies each taxon's data into the tiers of the review
-(Table 5) and computes the trend the tier allows:
-
-* **T0**, records only: the raw change in AOO (one grid origin for both windows)
-  and in EOO as an alpha-hull. §4.9 recommends the alpha-hull, not the convex
-  hull, "for assessing reductions or continuing declines in EOO"; it is built
-  on one point per occupied 2 × 2 km cell so that it follows the range rather
-  than the density of recording. The comparison window is also moved two years
-  earlier and later, and the range of changes is the interval (start-year
-  sensitivity, review §7.3). A diagnostic, not a population trend.
-* **T1**, an effort layer of the group (`ndop_effort()`: every record of the
-  NDOP group, reduced to cells and anonymous visits): relative occupancy on the
-  cells recorded for the group in both windows, with a bootstrap interval. An
-  explicitly labelled interim proxy.
-* **T2**, repeat visits of the group around the taxon: a multi-season
-  occupancy-detection model (`spOccupancy::tPGOcc()`), occupancy with a linear
-  trend over years, detection with the visit's list length. A trend in
-  occupancy, not in mature individuals (review §7.3), so basis (c). Run when
-  `trend_settings(occupancy_model = TRUE)`; it takes minutes per taxon.
-* **T3**, counts from standardized monitoring projects that AOPK lists
-  (`monitoring_projects`): an abundance index, a log-linear model of counts on
-  site and year, basis (b). The only source of an estimated decline (C1) and of
-  a fluctuation diagnosis from records.
-
-The best available tier gives the reduction indication, with its interval as
-the plausible range. Bulk mode still proposes from T0 and T1 (AOPK, D11); the
-needs list says what each tier lacks.
-
-# 11. RE, DD and NE
+## 10. RE, DD and NE
 
 * **RE.** A taxon with no current records and no record for longer than
   `re_candidate_years` is proposed as an **RE candidate**, with documented
@@ -275,54 +323,42 @@ needs list says what each tier lacks.
   current window and nothing else to go on, and flagged when the plausible
   range spans LC to CR (§10.1). DD requires the assessor to document all five
   criteria (§10.4).
-* **NE.** A taxon with no usable records has not been evaluated (§10.4).
+* **NE.** A taxon with no usable records has not been evaluated (§10.4). A
+  failed download gives no proposal at all, never DD or NE.
 
-A taxon that was recorded in the comparison window but not in the current one is
+A taxon recorded in the comparison window but not in the current one is
 proposed under A2c from the indicated loss, with current occurrence listed as
 needing evidence (§11.2 prefers A2 for recent disappearances).
 
-# 12. Expert evidence, the final category and approval
+# Part III. From a proposal to an approved category
 
-Expert evidence is one table with a row per piece of evidence
-(`evidence_fields()` lists the fields; `evidence_template()` writes a CSV or
-XLSX to fill offline). Every row carries its author, date and justification,
-and recommended sources; numbers are `min`/`best`/`max` with a qualifier
-(observed, estimated, projected, inferred, suspected; §3.1). The latest entry
-for a field is the one in force, and `write_evidence()` stores each version as
-a new dated file.
+## 11. Expert evidence
 
-* **Conditions and numbers** go to the engine as evidence. A range widens the
-  plausible range: the low end takes the end that lowers the risk (more mature
-  individuals or locations, a smaller reduction), the high end the other
-  (§3.2). The proposal uses the best estimate.
-* **Locations** state their basis: the most serious plausible threat covers
-  the whole range, or one of the §4.11 options for unaffected parts. Option
-  (a) means "number of locations is not used", so the location subcriteria are
-  not met.
-* **A1** needs the causes to be reversible, understood and ceased; otherwise
-  the reduction is evaluated under A2.
-* **The threat** must be described in words (§8): a bare yes is refused.
-* **Records** are excluded or re-included by `ID_NALEZ`, with a reason. The
-  record keeps its row; negative findings and records without coordinates
-  cannot be used.
+Expert evidence is one table, kept apart from the NDOP data, with a row per
+piece of evidence (`evidence_fields()` lists the fields; `evidence_template()`
+writes a CSV or XLSX to fill offline; the single-taxon app writes the same
+table). Every row carries its author, date and justification, and recommended
+sources; numbers are `min`/`best`/`max` with a qualifier (observed, estimated,
+projected, inferred, suspected; §3.1). The latest entry for a field is the one
+in force, and `write_evidence()` stores each version as a new dated file, so an
+assessment can be traced and rerun.
 
-**The final category** is the assessor's. `final_assessment()` checks it
-against what the evidence and the measured data support on their own,
-without the indications from the records. It flags a threatened category
-above that, a criterion named but not met, a category below a threatened one
-the evidence meets, DD where the evidence meets a threatened category
-(§10.3), RE without documented surveys (Regional Guidelines III.14; §11.3),
-EX or EW at national level, and NA without eligibility evidence. Group
-experts, conservationists and taxonomists trained in Red List assessment,
-approve it (AOPK decision D9); without an approval dated on or after it, the
-category is reported as awaiting approval, not as final.
+What the evidence holds, and how the engine reads it:
 
-`species_card()` puts one assessment on one HTML page: proposal and range,
-final category with approvals and checks, parameters with bounds, every
-criterion with the rule applied and what decided it, the evidence with its
-authors, the record IDs used and excluded, open questions and the versions.
+* **conditions and numbers** (severe fragmentation, continuing decline,
+  fluctuations, mature individuals, subpopulations, a reduction with its
+  basis and type): evidence, replacing the indications (section 5);
+* **threats** (AOPK, D6: filled in by the experts), with **threat-defined
+  locations** and their basis (section 8), and the **D2 threat** (section 9);
+* **records** to exclude or re-include, by `ID_NALEZ`;
+* the **generation length** of the taxon, and its current window where it
+  differs;
+* the **regional step**: origin and status, reproduction since, the global
+  category and share, the answers to questions 3a–3f (section 12);
+* criterion **E**, only from the assessor, with its sources;
+* the **final category** and its **approvals** (section 13).
 
-# 13. The regional step
+## 12. The regional step
 
 A national Red List follows three steps (RG IV.1, Figure 1): decide which
 regional populations to assess, apply the criteria to the regional population
@@ -361,34 +397,130 @@ equivalent to the same category" (RG V.3).
 
 Every row reports the regional category, the reason from step one and the
 step-three answers, and the global category with the share of the global
-population in the region, `?` when unknown (RG V.4). The final-category check
-applies the same regional step to what the evidence supports, so a final
-category set by a documented rescue effect is consistent and shown with its
-degree sign. RE needs documented surveys and should not pre-date 1500 AD (RG
-III.14).
+population in the region, `?` when unknown (RG V.4).
 
-# 14. Known limitations
+## 13. The final category and approval
 
-* NDOP is an opportunistic database. AOO, EOO and location counts depend on
+**The final category** is the assessor's. `final_assessment()` checks it
+against what the evidence and the measured data support on their own, without
+the indications from the records, and with the same regional step applied. It
+flags a threatened category above that, a criterion named but not met, a
+category below a threatened one the evidence meets, DD where the evidence meets
+a threatened category (§10.3), RE without documented surveys or before 1500 AD
+(RG III.14; §11.3), EX or EW at national level, and NA without eligibility
+evidence. A departure from the proposal is noted with its justification.
+
+**Approval.** Group experts, conservationists and taxonomists trained in Red
+List assessment, approve the final category (AOPK, D9), as approval rows in the
+evidence file. Without an approval dated on or after the final category, it is
+reported as *awaiting approval*, not as final. An approved category the checks
+do not support is reported as "approved; inconsistent with the evidence", so
+the inconsistency stays visible.
+
+`species_card()` puts one assessment on one HTML page: proposal and range,
+final category with approvals and checks, parameters with bounds, every
+criterion with the rule applied and what decided it, the evidence with its
+authors, the record IDs used and excluded, open questions and the versions.
+
+# Part IV. Checking the method
+
+## 14. Benchmark against ConR, redlistr and red
+
+`compare_tools()` runs the current-window records of a taxon through ndopred
+and through ConR 2.1, redlistr 2.1.0 and red 1.6.3, the tools the review
+compares (section 3); `inst/benchmark/benchmark_tools.R` runs it on the pilot
+taxa. On three taxa (NDOP exports of September and October 2026, current window
+2010–2026):
+
+| Taxon | Points | EOO km² (ndopred / ConR / redlistr / red) | AOO km² (ndopred / ConR / redlistr / red) | Clusters / ConR locations | B: ndopred best / plausible max / ConR |
+|---|---|---|---|---|---|
+| *Onthophagus medius* | 21 | 6,552 / 6,530 / 6,552 / 6,551 | 28 / 32 / 28 / 36 | 6 / 6 | LC or NT / EN / VU |
+| *Protaetia cuprea* | 1,325 | 85,470 / 85,191 / 85,470 / 85,474 | 3,120 / 3,268 / 3,168 / 3,144 | 346 / 437 | LC or NT / LC or NT / LC or NT |
+| *Bombina bombina* | 17,163 | 74,699 / 74,455 / 74,699 / 74,703 | 8,036 / 8,892 / 8,220 / 8,204 | 225 / 559 | LC or NT / LC or NT / LC or NT |
+
+* **EOO** agrees exactly with redlistr and within 0.01 % with red; ConR is
+  0.3 % smaller, from its cylindrical equal-area projection.
+* **AOO** is lowest in ndopred, as a minimum over origins should be: redlistr
+  jitters the grid only for 150 cells or fewer, red uses one grid. ConR is 5 to
+  14 % higher: its 2 km cells are square in the cylindrical projection, not on
+  the ground, at 50° N. The benchmark also found that the 4 × 4 origin search
+  could miss the minimum by a cell, which led to the exact search (section 2).
+* **Category B** differs by design. ConR assumes a continuing decline when none
+  is given and counts locations on a 10 km grid; ndopred assumes nothing. For
+  *O. medius* the best estimate is therefore LC or NT under B. The plausible
+  maximum, EN, takes the unknown (a) and (b) as met; ConR takes (b) as met but
+  counts 6 grid locations, too many for EN (at most 5), and so gives VU.
+
+The tests cross-check EOO against redlistr (exactly) and ConR (within 1 %), AOO
+against redlistr's jittered grids, and the category against ConR where both
+rules agree.
+
+## 15. Pilot validation
+
+The review (section 9) asks for a pilot on two insect groups, one well recorded
+(e.g. butterflies) and one poorly recorded (e.g. saproxylic beetles), against
+**blinded** expert assessments, with false "threatened" and false
+"non-threatened" proposals counted separately: one accuracy over all taxa
+hides which error is made. `inst/validation/pilot_validation.R` runs it from an
+expert table (taxon, category, group, assessor, blinded):
+
+* `validate_against_experts()` compares the proposals (after the regional step)
+  with the expert categories: exact agreement, the same threat status, false
+  threatened, false non-threatened, sensitivity and specificity, how often the
+  plausible range covers the expert category, and a confusion matrix, overall
+  and per group.
+* `filter_stability()` reassesses each taxon without unvalidated records
+  (`VEROH` 0), without less credible ones (3), without literature and
+  collection records, without positions less precise than 2 km, with 10 % of
+  the records dropped at random, and, with `region_variants()`, without one
+  region at a time; it reports where the category or the threat status
+  changes.
+
+The expert assessments are not in hand yet, so the comparison has not been
+run. The stability test alone already shows what it is for. On the three
+benchmark taxa, dropping literature and collection records, imprecise
+positions or 10 % of the records changes no proposal, but unvalidated records
+matter: all 25 records of *Onthophagus medius* were unvalidated (`VEROH` 0) at
+download, so without them it cannot be evaluated (NE); 1,281 of the 1,402
+usable records of *Protaetia cuprea* were, and without them the proposal moves
+from LC to NT with a range of LC-EN. *Bombina bombina* is stable under every
+filter.
+
+## 16. The export
+
+`batch_assess()` and the bulk app write one row per taxon. The Czech column
+names AOPK already uses are unchanged; new columns follow them. Every column is
+described in `export_dictionary()`, with its layer (section "Four states") and
+a candidate field of an IUCN SIS export, to be checked against the current SIS
+schema before any transfer.
+
+```{r dictionary}
+d <- export_dictionary()
+knitr::kable(d[, c("batch_column", "app_column", "layer", "description")],
+             col.names = c("batch_assess()", "Bulk app", "Layer", "Meaning"))
+```
+
+## 17. Known limitations
+
+* NDOP is an opportunistic database. AOO, EOO and cluster counts depend on
   recording effort (§4.10.8), and counts are minimum observed values (§4.3).
-* Negative findings count as zero counts in T3 monitoring series; T1 and T2 use
-  the group's positive records as effort and do not use them yet. The redlistr
-  cross-check of the spatial metrics is planned for Phase 6.
-* Without an effort layer a trend is T0: a raw change, effort-blind. Effort
-  layers are downloaded once per group; for large groups that takes hours. T1
-  still carries target-species bias (review §7.1); T2 assumes a linear trend in
-  occupancy and reports convergence (Rhat). The overlap of the AOPK windows damps
-  every change.
+* Without an effort layer a trend is T0: a raw change, effort-blind. T1 still
+  carries target-species bias (review §7.1); for large groups the effort layer
+  is a random sample of cadastral units. T2 assumes a linear trend in occupancy
+  and reports convergence (Rhat). The overlap of the AOPK windows damps every
+  change. Negative findings count as zero counts in T3 series; T1 and T2 do not
+  use them yet.
 * Generation lengths are a 1-year placeholder for every group until AOPK
   refines the table.
 * NDOP data come only through rndop (AOPK, D4), which exports no visit
-  identifier: visits are rebuilt from date, locality and an anonymous observer
-  code, and as NDOP lists are rarely complete, list length is the detection
-  covariate of T2.
+  identifier and no source type: visits are rebuilt from date, locality and an
+  anonymous observer code, list length is the detection covariate of T2, and
+  literature records are recognised heuristically.
 * Threats, and so threat-defined locations and the D2 threat, come only from
-  the assessor (AOPK, D6).
+  the assessor (AOPK, D6). Criterion E is taken only from the assessor.
 * One assessment covers a taxon's NDOP records as one regional population.
   Breeding and visiting populations that RG IV.2 would assess separately are
   not separated: NDOP records carry no breeding/visiting distinction, and
   evidence is keyed by taxon name.
-* Criterion E is taken only from the assessor.
+* The pilot validation against blinded expert assessments is built but not yet
+  run.

@@ -1,3 +1,82 @@
+# ndopred 0.10.0
+
+Phase 6 of the IUCN alignment (`methodology/gap_analysis.md`), the last:
+a benchmark against ConR, redlistr and red, the pilot validation tools,
+the data dictionary of the export, and the methodology vignette rewritten
+around the evidence model. With it every phase of the plan is done; 1.0.0
+waits for the pilot against blinded expert assessments and for refined
+generation lengths.
+
+## Benchmark
+
+* New `compare_tools()`: the current-window records of a taxon through
+  ndopred, ConR, redlistr and red, with EOO, AOO, locations and the
+  criterion B category side by side. ConR assumes a continuing decline and
+  counts locations on a 10 km grid, so ndopred is shown twice: its best
+  estimate and its plausible maximum (unknown subcriteria met), the value
+  comparable with ConR. The tools are in Suggests (ConR from GitHub,
+  `Remotes: gdauby/ConR`).
+* `inst/benchmark/benchmark_tools.R` runs it on the pilot taxa. On three
+  taxa EOO agrees with redlistr exactly, with red within 0.01 % and with
+  ConR within 0.3 %; ConR's AOO is 5-14 % higher (its cylindrical
+  projection), and ndopred's is the lowest, as a minimum over origins
+  should be.
+* Tests cross-check EOO and AOO against redlistr and ConR, and the
+  category against ConR where both rules agree.
+
+## Pilot validation
+
+* New `validate_against_experts()`: proposals against blinded expert
+  categories, with false threatened and false non-threatened counted
+  separately, sensitivity, specificity, how often the plausible range covers
+  the expert category, and a confusion matrix, overall and per pilot group
+  (review §9).
+* New `filter_stability()`, `filter_variants()` and `region_variants()`:
+  each taxon reassessed without unvalidated, less credible, literature or
+  imprecise records, with 10 % of the records dropped, or without one region
+  at a time, reporting where the category or the threat status changes.
+* `inst/validation/pilot_validation.R` runs the pilot from an expert table.
+* New `latest_snapshot()` finds a taxon's latest stored snapshot.
+
+## Export
+
+* New `export_dictionary()` (`inst/extdata/export_dictionary.csv`): every
+  column of `batch_assess()` and of the bulk app's export, with its meaning,
+  values, layer (calculated, indication, evidence, proposal, approved, ...),
+  the IUCN section behind it and a candidate SIS field. A test keeps it in
+  step with both exports.
+* New triage for the expert queue, `Triage_Priority` and `Triage`
+  (`Priorita pro experty`, `Třídění pro experty`): 1 where CR or EN is
+  possible (or an RE candidate), 2 for VU (or a DD candidate), 3 for NT, 4
+  for an LC candidate, 0 to rerun. An LC candidate has no criterion met even
+  with every unknown met; it is never LC without an expert (review §3).
+
+## Fixes found by the checks
+
+* `calculate_aoo()` finds the exact minimum over grid origins for up to
+  `exact_max = 150` distinct positions. The 4 x 4 search could miss it by a
+  cell, near the CR and EN thresholds of B2 (found by the redlistr
+  benchmark). Larger sets keep the 4 x 4 search; results change only where
+  the exact search is lower.
+* `flag_records()` recognises literature and collection records by markers
+  in `ZDROJ` (card index, collection, museum, herbarium, atlas, literature
+  data, journal volume with pages). The old pattern, an author in capitals
+  with a year, matched the form NDOP gives every source, and flagged 69 % of
+  the *Bombina bombina* records. The flag never excluded records (found by
+  the stability test).
+* `ndop_effort(units = )` sends unit samples longer than 1,000 cadastral
+  units in parts: NDOP uses only the first 1,000 units of a filter, without
+  a warning. The Diptera, Hymenoptera and Trichoptera layers were drawn
+  again.
+
+## Documentation
+
+* The methodology vignette is rewritten around the four states of a value
+  (calculated, evidenced, proposed, approved), in four parts: records to
+  calculated values, values and evidence to a proposal, proposal to an
+  approved category, and checking the method (benchmark, pilot, export
+  dictionary).
+
 # ndopred 0.9.0
 
 Phase 5 of the IUCN alignment (`methodology/gap_analysis.md`): the trend

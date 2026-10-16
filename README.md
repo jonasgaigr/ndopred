@@ -204,7 +204,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 
 | Function | Purpose |
 |---|---|
-| `ndop_snapshot()`, `read_ndop_snapshot()`, `default_snapshot_dir()` | Store a download unchanged (records and their points, lines and polygons) and read it back |
+| `ndop_snapshot()`, `read_ndop_snapshot()`, `latest_snapshot()`, `default_snapshot_dir()` | Store a download unchanged (records and their points, lines and polygons), read it back, find a taxon's latest one |
 | `flag_records()` | One flag per quality test and an `exclusion_reason`; deletes nothing |
 | `get_assessment_data()` | Snapshot plus flags, as points, with the record geometries and any download error attached |
 | `taxon_metrics()` | Metrics for one taxon, with a reason for every value it cannot compute |
@@ -227,7 +227,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | Function | Purpose |
 |---|---|
 | `calculate_eoo()` | Extent of occurrence, minimum convex polygon (Guidelines §4.9), with bounds from positional precision |
-| `calculate_aoo()` | AOO on the 2 x 2 km reference grid, minimised over grid origins (§4.10.2, §4.10.3), with bounds from positional precision and record polygons |
+| `calculate_aoo()` | AOO on the 2 x 2 km reference grid, minimised over grid origins (§4.10.2, §4.10.3; exactly for up to 150 distinct positions), with bounds from positional precision and record polygons |
 | `calculate_locations()` | 5 km cluster count: an *indication* for threat-defined locations (§4.11), never a location count |
 | `reconcile_eoo_aoo()` | Enforce EOO >= AOO (§4.9) |
 | `calculate_trend()` | AOO and EOO change between two windows, on a shared grid origin |
@@ -252,6 +252,15 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | `regional_eligibility()` | Step one: is the regional population assessed, or Not Applicable? |
 | `regional_adjustment()` | Step three: questions 3a-3f, down- or uplisting with the degree sign |
 | `regional_assessment()` | Both steps around a step-two category, with the global category and share |
+
+**Checking the method** (review §9, §10)
+
+| Function | Purpose |
+|---|---|
+| `compare_tools()` | The same records through ndopred, ConR, redlistr and red: EOO, AOO, locations and the criterion B category side by side |
+| `validate_against_experts()` | Proposals against blinded expert categories: false threatened and false non-threatened counted separately, sensitivity, specificity, a confusion matrix, per pilot group |
+| `filter_stability()`, `filter_variants()`, `region_variants()` | Reassess under alternative record filters (unvalidated, less credible, literature, imprecise, 10 % data loss, one region at a time) and report what changes |
+| `export_dictionary()` | Every column of both exports: meaning, values, layer, IUCN section, candidate SIS field |
 
 **Presentation:** `plot_iucn()`, `run_app()`, `run_bulk_app()`.
 
@@ -285,7 +294,10 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Globální kategorie`, `Podíl globální populace (%)` | Published beside the regional category (Regional Guidelines V.4); `?` when the share is unknown |
 | `Úroveň dat (T0-T3)`, `Odhad trendu (%)`, `Zdroj trendu` | The data tier, the trend estimate with its interval, and what it rests on |
 | `Citlivost trendu na začátek období` | The raw AOO change for comparison windows starting two years earlier to two years later |
+| `Priorita pro experty`, `Třídění pro experty` | The expert queue: `1` where CR or EN is possible (or an RE candidate), `2` VU (or a DD candidate), `3` NT, `4` an LC candidate (no criterion met even with every unknown met; still checked by an expert, never LC), `0` rerun |
 | `issue_download` … `issue_population` | The reason for every empty value |
+
+Every column of both exports is described in `export_dictionary()` (also printed in the methodology vignette).
 
 The app stores snapshots in `Documents/ndop_snapshots` by default; untick *Store NDOP snapshots* to skip it. An optional **evidence file** (one for any number of taxa) adds the experts' evidence, record flags and final categories; with evidence, the proposal in `Kategorie (automatická)` uses it.
 
@@ -326,7 +338,7 @@ Each row names the taxon, the field (`evidence_fields()`), the value or `min`/`b
   - A proposed validation mark (`VALIDACE`) on an unguaranteed record is only flagged.
   - Negative findings are kept as non-detections.
   - Records of another taxon (names match exactly, so the query's hybrids and aggregates are excluded), records without coordinates, and records outside Czechia are excluded.
-  - Literature sources and suspected duplicates are flagged only.
+  - Literature and collection records and suspected duplicates are flagged only. Literature is recognised by markers in `ZDROJ` (card index, collection, museum, herbarium, atlas, literature data, journal volume with pages): a heuristic, since NDOP cites field notes and survey reports in the same "AUTHOR (year) title" form.
 - **Windows (AOPK, D5).** The current window is the 17 years up to the reference year (2010–2026); the trend compares it with 2000–2016. The two windows' midpoints are 10 years apart, the period of criterion A; where three generations are longer, the comparison window moves back by three generations. They share 2010–2016, which damps the measured change: a site lost after 2010 still counts as current if it was recorded before the loss. For the same reason the criterion B window can hold sites lost since 2010, which §4.9 asks to leave out.
 - **Generation lengths per group.** `generation_lengths()` holds one row per NDOP taxonomic group (`KAT_TAX`: Obojživelníci, Savci, Motýli, …). Every group is 1 year for now, a placeholder AOPK will refine; up to 3.3 years it changes no period. A value given for a taxon wins. Point `NDOPRED_GENERATION_LENGTHS` at an edited copy of the CSV to use other values.
 - **Date ranges count only where they fit.** A record dated 1995–2012 belongs to neither 2000–2016 nor 2010–2026.
@@ -355,7 +367,23 @@ The suite covers:
 - the IUCN Annex 2 and Guidelines §8.2/§8.3 worked examples;
 - all 42 gaps from the Phase 0 audit, now closed (`test-iucn-alignment.R`);
 - the evidence layer, the regional step and the trend tiers, including a small occupancy model when spOccupancy is installed;
-- both Shiny apps end-to-end against a synthetic NDOP fixture (`tests/testthat/helper-mock-ndop.R`).
+- both Shiny apps end-to-end against a synthetic NDOP fixture (`tests/testthat/helper-mock-ndop.R`);
+- cross-checks of EOO and AOO against redlistr and ConR, and of the criterion B category against ConR, when they are installed;
+- the pilot validation tools and the export dictionary, which must list every column of both exports.
+
+## Benchmark and pilot validation
+
+Two scripts in `inst/` run the checks of review §9 on real data (they use the latest stored snapshot of each taxon, or download one):
+
+```sh
+# ndopred against ConR, redlistr and red on the pilot taxa
+Rscript inst/benchmark/benchmark_tools.R --year 2026 --out benchmark.csv
+
+# proposals against blinded expert assessments, plus stability under alternative filters
+Rscript inst/validation/pilot_validation.R --experts experts.csv --year 2026 --out pilot/ [--regions]
+```
+
+The expert table has one row per taxon: `taxon`, `category`, `group` (the pilot group, e.g. a well-recorded and a poorly recorded insect group), `assessor` and `blinded`. ConR is installed from GitHub (`remotes::install_github("gdauby/ConR")`), redlistr and red from CRAN. The vignette reports the benchmark on three taxa: EOO agrees with redlistr exactly and with ConR within 0.3 %; ConR's AOO is 5-14 % higher, from its cylindrical projection; ConR's criterion B assumes a continuing decline, which ndopred never does.
 
 ---
 
@@ -367,7 +395,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.9.0 (experimental). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
+Version 0.10.0 (experimental). All phases of the IUCN alignment are done. Proposals are a screening aid; the final category is the assessor's, approved by group experts. Version 1.0.0 waits for the pilot validation against blinded expert assessments and for refined generation lengths.
 
 ## References
 
