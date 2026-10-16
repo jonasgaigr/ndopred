@@ -173,7 +173,9 @@ test_that("Generation-length evidence moves the comparison window", {
   local_mock_ndop()
   occ <- get_assessment_data("Stable widespread sp")
   ev <- evidence_of(ev_row("generation_length", best = 5, taxon = "Stable widespread sp"))
-  res <- assess_taxon(occ, "Stable widespread sp", ndopred_config(2026), evidence = ev)
+  # No time-depth limit here: with the default (2000) the window could not
+  # move back from 2000-2016 (test-generation-lengths.R covers the limit).
+  res <- assess_taxon(occ, "Stable widespread sp", ndopred_config(2026, time_depth_start = NA), evidence = ev)
   expect_equal(res$config$generation_length, 5)
   expect_equal(c(res$config$windows$comp_start, res$config$windows$comp_end), c(1995, 2011))
   expect_match(res$result$Generation_Length_Source, "expert evidence: A. Expert")

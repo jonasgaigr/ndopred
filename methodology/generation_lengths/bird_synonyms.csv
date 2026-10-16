@@ -1,0 +1,40 @@
+name,birdlife_name,relation
+Acanthis cabaret,Acanthis flammea,lumped by BirdLife
+Acanthis hornemanni,Acanthis flammea,lumped by BirdLife
+Anarhynchus alexandrinus,Charadrius alexandrinus,genus
+Anas americana,Mareca americana,genus
+Anas clypeata,Spatula clypeata,genus
+Anas discors,Spatula discors,genus
+Anas penelope,Mareca penelope,genus
+Anas querquedula,Spatula querquedula,genus
+Anas strepera,Mareca strepera,genus
+Anser brachyrhynchos,Anser brachyrhynchus,spelling
+Apus melba,Tachymarptis melba,genus
+Aquila clanga,Clanga clanga,genus
+Aquila pennata,Hieraaetus pennatus,genus
+Aquila pomarina,Clanga pomarina,genus
+Bonasa bonasia,Tetrastes bonasia,genus
+Bucanetes githaginea,Bucanetes githagineus,spelling
+Coloeus monedula,Corvus monedula,genus
+Corvus cornix,Corvus corone,lumped by BirdLife
+Dendrocoptes medius,Leiopicus medius,genus
+Erythrina erythrina,Carpodacus erythrinus,genus
+Hirundo rupestris,Ptyonoprogne rupestris,genus
+Chlidonias leucoptera,Chlidonias leucopterus,spelling
+Chroicocephalus philadelphia,Larus philadelphia,genus
+Chroicocephalus ridibundus,Larus ridibundus,genus
+Melanocorypha yeltonensis,Melanocorypha yeltoniensis,spelling
+Phalacrocorax aristotelis,Gulosus aristotelis,genus
+Phalacrocorax pygmeus,Microcarbo pygmaeus,genus
+Phalaropus fulicaria,Phalaropus fulicarius,spelling
+Philomachus pugnax,Calidris pugnax,genus
+Poecile montana,Poecile montanus,spelling
+Saxicola rubicola,Saxicola torquatus,lumped by BirdLife
+Stercorarius skua,Catharacta skua,genus
+Sterna sandvicensis,Thalasseus sandvicensis,genus
+Sylvia communis,Curruca communis,genus
+Sylvia curruca,Curruca curruca,genus
+Sylvia melanocephala,Curruca melanocephala,genus
+Sylvia nana,Curruca nana,genus
+Sylvia nisoria,Curruca nisoria,genus
+Sylvia undata,Curruca undata,genus

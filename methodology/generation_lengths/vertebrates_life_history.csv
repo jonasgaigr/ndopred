@@ -1,0 +1,202 @@
+taxon,kat_tax,family,afr_years,longevity_years,semelparous,synonyms,note
+Bombina bombina,Obojživelníci,Bombinatoridae,2,12,FALSE,,
+Bombina variegata,Obojživelníci,Bombinatoridae,3,15,FALSE,,wild recaptures beyond 15 years exist
+Bufo bufo,Obojživelníci,Bufonidae,3,12,FALSE,,females mature at 3-5 years
+Bufotes viridis,Obojživelníci,Bufonidae,2,10,FALSE,Bufo viridis; Pseudepidalea viridis,
+Epidalea calamita,Obojživelníci,Bufonidae,2,10,FALSE,Bufo calamita,
+Hyla arborea,Obojživelníci,Hylidae,2,8,FALSE,,
+Ichthyosaura alpestris,Obojživelníci,Salamandridae,3,15,FALSE,Triturus alpestris; Mesotriton alpestris,
+Lissotriton vulgaris,Obojživelníci,Salamandridae,2,10,FALSE,Triturus vulgaris,
+Lissotriton montandoni,Obojživelníci,Salamandridae,3,10,FALSE,Triturus montandoni,
+Pelobates fuscus,Obojživelníci,Pelobatidae,2,10,FALSE,,
+Pelophylax esculentus,Obojživelníci,Ranidae,2,10,FALSE,Rana esculenta; Pelophylax kl. esculentus,
+Pelophylax lessonae,Obojživelníci,Ranidae,2,10,FALSE,Rana lessonae,
+Pelophylax ridibundus,Obojživelníci,Ranidae,2,11,FALSE,Rana ridibunda,
+Rana arvalis,Obojživelníci,Ranidae,2,11,FALSE,,
+Rana dalmatina,Obojživelníci,Ranidae,2,10,FALSE,,
+Rana temporaria,Obojživelníci,Ranidae,3,12,FALSE,,
+Salamandra salamandra,Obojživelníci,Salamandridae,4,20,FALSE,,
+Triturus carnifex,Obojživelníci,Salamandridae,3,12,FALSE,,
+Triturus cristatus,Obojživelníci,Salamandridae,3,14,FALSE,,
+Triturus dobrogicus,Obojživelníci,Salamandridae,3,10,FALSE,,
+Ablepharus kitaibelii,Plazi,Scincidae,2,8,FALSE,,
+Anguis colchica,Plazi,Anguidae,4,25,FALSE,,
+Anguis fragilis,Plazi,Anguidae,4,25,FALSE,,
+Coronella austriaca,Plazi,Colubridae,4,18,FALSE,,
+Emys orbicularis,Plazi,Emydidae,10,60,FALSE,,females mature at 8-15 years in central Europe; wild lifespan 40-60+ years
+Lacerta agilis,Plazi,Lacertidae,2,10,FALSE,,
+Lacerta viridis,Plazi,Lacertidae,2,10,FALSE,,
+Natrix natrix,Plazi,Natricidae,4,20,FALSE,,
+Natrix tessellata,Plazi,Natricidae,4,15,FALSE,,
+Podarcis muralis,Plazi,Lacertidae,2,9,FALSE,,
+Vipera berus,Plazi,Viperidae,4,20,FALSE,,females breed every 2-3 years from age 4-5
+Zamenis longissimus,Plazi,Colubridae,5,25,FALSE,Elaphe longissima,
+Zootoca vivipara,Plazi,Lacertidae,2,9,FALSE,Lacerta vivipara,
+Trachemys scripta,Plazi,Emydidae,6,35,FALSE,,alien; no established reproduction in Czechia
+Erinaceus europaeus,Savci,Erinaceidae,1,8,FALSE,,
+Erinaceus roumanicus,Savci,Erinaceidae,1,8,FALSE,Erinaceus concolor,
+Talpa europaea,Savci,Talpidae,1,5,FALSE,,
+Sorex alpinus,Savci,Soricidae,0,1.5,FALSE,,
+Sorex araneus,Savci,Soricidae,0,1.5,FALSE,,
+Sorex minutus,Savci,Soricidae,0,1.5,FALSE,,
+Neomys fodiens,Savci,Soricidae,0,2,FALSE,,
+Neomys milleri,Savci,Soricidae,0,2,FALSE,Neomys anomalus,
+Crocidura leucodon,Savci,Soricidae,0,2,FALSE,,
+Crocidura suaveolens,Savci,Soricidae,0,2,FALSE,,
+Lepus europaeus,Savci,Leporidae,0,8,FALSE,,
+Oryctolagus cuniculus,Savci,Leporidae,0,9,FALSE,,
+Sciurus vulgaris,Savci,Sciuridae,1,7,FALSE,,
+Spermophilus citellus,Savci,Sciuridae,1,6,FALSE,,
+Marmota marmota,Savci,Sciuridae,2,15,FALSE,,introduced (Krkonoše)
+Glis glis,Savci,Gliridae,1,9,FALSE,,many females first breed at 2 years
+Muscardinus avellanarius,Savci,Gliridae,1,5,FALSE,,
+Eliomys quercinus,Savci,Gliridae,1,5,FALSE,,
+Dryomys nitedula,Savci,Gliridae,1,5,FALSE,,
+Sicista betulina,Savci,Sminthidae,1,3.5,FALSE,,
+Cricetus cricetus,Savci,Cricetidae,0,4,FALSE,,
+Clethrionomys glareolus,Savci,Cricetidae,0,1.5,FALSE,Myodes glareolus,
+Microtus agrestis,Savci,Cricetidae,0,1.5,FALSE,,
+Microtus arvalis,Savci,Cricetidae,0,1.5,FALSE,,
+Microtus oeconomus,Savci,Cricetidae,0,1.5,FALSE,Alexandromys oeconomus,
+Microtus subterraneus,Savci,Cricetidae,0,2,FALSE,Terricola subterraneus,
+Microtus tatricus,Savci,Cricetidae,0,2,FALSE,Terricola tatricus,
+Arvicola amphibius,Savci,Cricetidae,0,2,FALSE,Arvicola terrestris,
+Ondatra zibethicus,Savci,Cricetidae,0,3,FALSE,,alien
+Apodemus agrarius,Savci,Muridae,0,2,FALSE,,
+Apodemus flavicollis,Savci,Muridae,0,2,FALSE,,
+Apodemus sylvaticus,Savci,Muridae,0,2,FALSE,,
+Apodemus uralensis,Savci,Muridae,0,2,FALSE,Apodemus microps,
+Micromys minutus,Savci,Muridae,0,1.5,FALSE,,
+Mus musculus,Savci,Muridae,0,2,FALSE,,
+Rattus norvegicus,Savci,Muridae,0,3,FALSE,,
+Rattus rattus,Savci,Muridae,0,3,FALSE,,
+Castor fiber,Savci,Castoridae,3,20,FALSE,,first litter usually at 3 years
+Myocastor coypus,Savci,Echimyidae,0,6,FALSE,,alien
+Canis aureus,Savci,Canidae,1,12,FALSE,,
+Canis lupus,Savci,Canidae,2,13,FALSE,,
+Vulpes vulpes,Savci,Canidae,1,10,FALSE,,first litter at about 12 months (rounded up)
+Nyctereutes procyonoides,Savci,Canidae,1,10,FALSE,,alien
+Procyon lotor,Savci,Procyonidae,1,12,FALSE,,alien
+Ursus arctos,Savci,Ursidae,5,30,FALSE,,first litter at 4-6 years in the Carpathians
+Lynx lynx,Savci,Felidae,2,17,FALSE,,
+Felis silvestris,Savci,Felidae,1,12,FALSE,,
+Lutra lutra,Savci,Mustelidae,2,16,FALSE,,
+Meles meles,Savci,Mustelidae,2,15,FALSE,,
+Martes foina,Savci,Mustelidae,2,12,FALSE,,delayed implantation
+Martes martes,Savci,Mustelidae,2,12,FALSE,,delayed implantation
+Mustela erminea,Savci,Mustelidae,0,7,FALSE,,females mated as juveniles
+Mustela nivalis,Savci,Mustelidae,0,4,FALSE,,
+Mustela putorius,Savci,Mustelidae,1,8,FALSE,,
+Mustela eversmanii,Savci,Mustelidae,1,6,FALSE,Mustela eversmannii,
+Neogale vison,Savci,Mustelidae,1,8,FALSE,Neovison vison; Mustela vison,alien
+Sus scrofa,Savci,Suidae,1,12,FALSE,,
+Capreolus capreolus,Savci,Cervidae,2,15,FALSE,,first kids at 2 years
+Cervus elaphus,Savci,Cervidae,3,20,FALSE,,first calf usually at 3 years
+Cervus nippon,Savci,Cervidae,2,16,FALSE,,alien
+Dama dama,Savci,Cervidae,2,16,FALSE,,introduced
+Alces alces,Savci,Cervidae,2,18,FALSE,,
+Odocoileus virginianus,Savci,Cervidae,1,15,FALSE,,alien
+Ovis aries musimon,Savci,Bovidae,1,15,FALSE,Ovis musimon; Ovis orientalis musimon; Ovis gmelini musimon,introduced
+Rupicapra rupicapra,Savci,Bovidae,3,18,FALSE,,introduced (Jeseníky)
+Rhinolophus ferrumequinum,Letouni,Rhinolophidae,3,30,FALSE,,first births at about 3 years
+Rhinolophus hipposideros,Letouni,Rhinolophidae,2,21,FALSE,,
+Myotis myotis,Letouni,Vespertilionidae,1,25,FALSE,,
+Myotis blythii,Letouni,Vespertilionidae,1,30,FALSE,Myotis oxygnathus,
+Myotis bechsteinii,Letouni,Vespertilionidae,2,21,FALSE,,
+Myotis nattereri,Letouni,Vespertilionidae,1,21,FALSE,,
+Myotis emarginatus,Letouni,Vespertilionidae,2,18,FALSE,,
+Myotis mystacinus,Letouni,Vespertilionidae,1,23,FALSE,,
+Myotis brandtii,Letouni,Vespertilionidae,1,41,FALSE,Myotis brandti,longest wild bat longevity record (Siberia)
+Myotis alcathoe,Letouni,Vespertilionidae,1,15,FALSE,,longevity poorly known; congener value
+Myotis daubentonii,Letouni,Vespertilionidae,1,28,FALSE,,
+Myotis dasycneme,Letouni,Vespertilionidae,1,20,FALSE,,
+Plecotus auritus,Letouni,Vespertilionidae,1,30,FALSE,,
+Plecotus austriacus,Letouni,Vespertilionidae,1,25,FALSE,,
+Barbastella barbastellus,Letouni,Vespertilionidae,1,22,FALSE,,
+Eptesicus serotinus,Letouni,Vespertilionidae,1,21,FALSE,Cnephaeus serotinus,
+Eptesicus nilssonii,Letouni,Vespertilionidae,1,20,FALSE,,
+Vespertilio murinus,Letouni,Vespertilionidae,1,12,FALSE,,
+Nyctalus noctula,Letouni,Vespertilionidae,1,12,FALSE,,
+Nyctalus leisleri,Letouni,Vespertilionidae,1,11,FALSE,,
+Nyctalus lasiopterus,Letouni,Vespertilionidae,1,12,FALSE,,longevity poorly known; congener value
+Pipistrellus pipistrellus,Letouni,Vespertilionidae,1,16,FALSE,,
+Pipistrellus pygmaeus,Letouni,Vespertilionidae,1,16,FALSE,,
+Pipistrellus nathusii,Letouni,Vespertilionidae,1,14,FALSE,,
+Pipistrellus kuhlii,Letouni,Vespertilionidae,1,8,FALSE,,
+Hypsugo savii,Letouni,Vespertilionidae,1,10,FALSE,,
+Miniopterus schreibersii,Letouni,Miniopteridae,2,22,FALSE,,
+Abramis brama,Ryby a mihule,Cyprinidae,4,20,FALSE,,
+Acipenser ruthenus,Ryby a mihule,Acipenseridae,6,25,FALSE,,reintroduced; females mature at 5-7 years
+Alburnoides bipunctatus,Ryby a mihule,Leuciscidae,2,6,FALSE,,
+Alburnus alburnus,Ryby a mihule,Leuciscidae,2,6,FALSE,,
+Ameiurus melas,Ryby a mihule,Ictaluridae,2,8,FALSE,,alien
+Ameiurus nebulosus,Ryby a mihule,Ictaluridae,3,8,FALSE,,alien
+Anguilla anguilla,Ryby a mihule,Anguillidae,13,13,TRUE,,semelparous; 13 years is the generation length of the IUCN global assessment (Pike et al. 2020)
+Ballerus ballerus,Ryby a mihule,Leuciscidae,4,12,FALSE,Abramis ballerus,
+Ballerus sapa,Ryby a mihule,Leuciscidae,4,12,FALSE,Abramis sapa,
+Barbatula barbatula,Ryby a mihule,Nemacheilidae,1,5,FALSE,Noemacheilus barbatulus,
+Barbus barbus,Ryby a mihule,Cyprinidae,4,20,FALSE,,
+Blicca bjoerkna,Ryby a mihule,Leuciscidae,3,12,FALSE,,
+Carassius auratus,Ryby a mihule,Cyprinidae,2,10,FALSE,,
+Carassius carassius,Ryby a mihule,Cyprinidae,2,10,FALSE,,
+Carassius gibelio,Ryby a mihule,Cyprinidae,2,10,FALSE,,alien
+Chondrostoma nasus,Ryby a mihule,Leuciscidae,4,15,FALSE,,
+Cobitis elongatoides,Ryby a mihule,Cobitidae,2,5,FALSE,,
+Cobitis taenia,Ryby a mihule,Cobitidae,2,5,FALSE,,
+Coregonus maraena,Ryby a mihule,Salmonidae,3,15,FALSE,Coregonus lavaretus,stocked
+Cottus gobio,Ryby a mihule,Cottidae,2,6,FALSE,,
+Cottus poecilopus,Ryby a mihule,Cottidae,2,7,FALSE,,
+Ctenopharyngodon idella,Ryby a mihule,Xenocyprididae,5,20,FALSE,,alien; no natural reproduction
+Cyprinus carpio,Ryby a mihule,Cyprinidae,4,25,FALSE,Cyprinus carpio f. domestica,
+Esox lucius,Ryby a mihule,Esocidae,2,20,FALSE,,
+Eudontomyzon mariae,Ryby a mihule,Petromyzontidae,5,5,TRUE,,semelparous: larval period 4-5 years
+Gasterosteus aculeatus,Ryby a mihule,Gasterosteidae,1,4,FALSE,,
+Gobio gobio,Ryby a mihule,Gobionidae,2,8,FALSE,,
+Gobio obtusirostris,Ryby a mihule,Gobionidae,2,8,FALSE,,
+Gymnocephalus baloni,Ryby a mihule,Percidae,2,8,FALSE,,
+Gymnocephalus cernua,Ryby a mihule,Percidae,2,10,FALSE,,
+Gymnocephalus schraetser,Ryby a mihule,Percidae,2,10,FALSE,Gymnocephalus schraetzer,
+Hucho hucho,Ryby a mihule,Salmonidae,4,20,FALSE,,
+Hypophthalmichthys molitrix,Ryby a mihule,Xenocyprididae,4,20,FALSE,,alien; no natural reproduction
+Hypophthalmichthys nobilis,Ryby a mihule,Xenocyprididae,5,20,FALSE,Aristichthys nobilis,alien; no natural reproduction
+Lampetra planeri,Ryby a mihule,Petromyzontidae,6,6,TRUE,,semelparous: larval period 5-6 years
+Lepomis gibbosus,Ryby a mihule,Centrarchidae,2,8,FALSE,,alien
+Leucaspius delineatus,Ryby a mihule,Leuciscidae,1,4,FALSE,,
+Leuciscus aspius,Ryby a mihule,Leuciscidae,4,15,FALSE,Aspius aspius,
+Leuciscus idus,Ryby a mihule,Leuciscidae,4,20,FALSE,,
+Leuciscus leuciscus,Ryby a mihule,Leuciscidae,3,12,FALSE,,
+Lota lota,Ryby a mihule,Lotidae,3,15,FALSE,,
+Misgurnus fossilis,Ryby a mihule,Cobitidae,2,10,FALSE,,
+Neogobius fluviatilis,Ryby a mihule,Gobiidae,2,5,FALSE,,alien
+Neogobius melanostomus,Ryby a mihule,Gobiidae,2,5,FALSE,,alien
+Oncorhynchus mykiss,Ryby a mihule,Salmonidae,3,10,FALSE,,alien; stocked
+Pelecus cultratus,Ryby a mihule,Leuciscidae,3,10,FALSE,,
+Perca fluviatilis,Ryby a mihule,Percidae,3,15,FALSE,,
+Perccottus glenii,Ryby a mihule,Odontobutidae,1,5,FALSE,,alien
+Phoxinus phoxinus,Ryby a mihule,Leuciscidae,2,8,FALSE,,
+Ponticola kessleri,Ryby a mihule,Gobiidae,2,6,FALSE,Neogobius kessleri,alien
+Proterorhinus semilunaris,Ryby a mihule,Gobiidae,1,4,FALSE,Proterorhinus marmoratus,
+Pseudorasbora parva,Ryby a mihule,Gobionidae,1,5,FALSE,,alien
+Pungitius pungitius,Ryby a mihule,Gasterosteidae,1,3,FALSE,,
+Rhodeus amarus,Ryby a mihule,Acheilognathidae,1,5,FALSE,Rhodeus sericeus amarus; Rhodeus sericeus,
+Romanogobio albipinnatus,Ryby a mihule,Gobionidae,2,6,FALSE,Gobio albipinnatus,
+Romanogobio banaticus,Ryby a mihule,Gobionidae,2,6,FALSE,,
+Romanogobio belingi,Ryby a mihule,Gobionidae,2,6,FALSE,,
+Romanogobio kesslerii,Ryby a mihule,Gobionidae,2,6,FALSE,Gobio kessleri; Romanogobio kessleri,
+Romanogobio vladykovi,Ryby a mihule,Gobionidae,2,6,FALSE,,
+Rutilus rutilus,Ryby a mihule,Leuciscidae,3,15,FALSE,,
+Rutilus virgo,Ryby a mihule,Leuciscidae,4,15,FALSE,Rutilus pigus virgo,
+Sabanejewia balcanica,Ryby a mihule,Cobitidae,2,5,FALSE,Sabanejewia aurata,
+Salmo salar,Ryby a mihule,Salmonidae,5,10,FALSE,,anadromous; most spawn once or twice
+Salmo trutta,Ryby a mihule,Salmonidae,3,12,FALSE,Salmo trutta m. fario; Salmo trutta fario,
+Salvelinus fontinalis,Ryby a mihule,Salmonidae,2,8,FALSE,,alien
+Sander lucioperca,Ryby a mihule,Percidae,3,17,FALSE,Stizostedion lucioperca,
+Sander volgensis,Ryby a mihule,Percidae,3,12,FALSE,Stizostedion volgense,
+Scardinius erythrophthalmus,Ryby a mihule,Leuciscidae,3,15,FALSE,,
+Silurus glanis,Ryby a mihule,Siluridae,4,40,FALSE,,
+Squalius cephalus,Ryby a mihule,Leuciscidae,3,15,FALSE,Leuciscus cephalus,
+Thymallus thymallus,Ryby a mihule,Salmonidae,3,10,FALSE,,
+Tinca tinca,Ryby a mihule,Tincidae,3,15,FALSE,,
+Vimba vimba,Ryby a mihule,Leuciscidae,4,15,FALSE,,
+Zingel streber,Ryby a mihule,Percidae,2,8,FALSE,,
+Zingel zingel,Ryby a mihule,Percidae,3,12,FALSE,,

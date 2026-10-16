@@ -8,6 +8,8 @@ ndopred_config(
   reference_year,
   window = 17,
   trend_shift = NULL,
+  min_trend_shift = 10,
+  time_depth_start = 2000,
   recent_start = NULL,
   recent_end = NULL,
   comp_start = NULL,
@@ -42,6 +44,20 @@ longer (Criteria v3.1 A2): 2000-2016 against 2010-2026 for a generation
 length up to 3.3 years (AOPK, decision D5). The windows overlap when the
 shift is shorter than \code{window}, and their midpoints are the shift apart.
 The shared years damp the measured change (see the vignette).}
+
+\item{min_trend_shift}{Numeric. \emph{Convention (AOPK, decision D5).} The
+shortest derived shift, 10 years: the 10-year floor of criterion A.}
+
+\item{time_depth_start}{Numeric or \code{NA}. \emph{Convention.} The earliest year a
+derived comparison window may start. NDOP coverage before 2000 is too
+thin to compare with (AOPK, D5: 2000-2016 against 2010-2026). When three
+generations reach further back, the shift stops at this year (never below
+\code{min_trend_shift}); the change is then measured over a shorter period
+than criterion A asks for, which understates a steady reduction, and the
+result says so (\code{windows$time_depth_limited}, \code{windows$a_period}).
+Guidelines 4.5: a reduction over three generations may be inferred from a
+shorter series, but that inference is left to the assessor. \code{NA} sets no
+limit.}
 
 \item{recent_start, recent_end, comp_start, comp_end}{Numeric or \code{NULL}.
 Explicit window bounds; override the windows derived from

@@ -24,9 +24,12 @@ bulk_ui <- function() fluidPage(
         "The current window is the last N years up to the reference year",
         "(AOPK default: 17, i.e. 2010-2026 for 2026). The trend compares it with",
         "the same window moved back (default 10 years: 2000-2016), or by three",
-        "generations where longer, from the generation length of the taxon's",
-        "NDOP group (generation_lengths())."
+        "generations where longer, but not before 2000 (time depth of NDOP data)."
       ))),
+      radioButtons("gl_set", "Generation lengths:",
+                   choices = c("Placeholder: 1 year per NDOP group (AOPK, 2026-10-15)" = "placeholder",
+                               "Refined: species, genus, family, group (proposal)" = "refined"),
+                   selected = generation_length_set()),
       checkboxInput("save_snapshots", "Store NDOP snapshots (RDS)", value = TRUE),
       textInput("snapshot_dir", "Snapshot folder:", value = default_snapshot_dir()),
       p(tags$small(paste(
@@ -307,10 +310,14 @@ bulk_server <- function(input, output, session) {
       }
       if (isFALSE(efforts[[grp]])) NULL else efforts[[grp]]
     }
+    gl_set <- if (is.null(input$gl_set) || !nzchar(input$gl_set)) generation_length_set() else input$gl_set
+    if (gl_set == "refined") {
+      log_msg("Generation lengths: refined set (proposal, not yet adopted by AOPK).")
+    }
     taxon_config <- function(occ, group_hint, sp) {
       gl <- if (is.null(gl_table)) {
         list(years = 1, source = "default 1 year: table not read")
-      } else .taxon_generation_length(occ, group_hint, gl_table)
+      } else .taxon_generation_length(occ, group_hint, gl_table, taxon = sp, set = gl_set)
       # A generation length given as evidence for the taxon wins.
       if (!is.null(ev_all)) {
         exg <- evidence_for_engine(ev_all, sp)$config
@@ -318,8 +325,9 @@ bulk_server <- function(input, output, session) {
           gl <- list(years = exg$generation_length, source = exg$generation_length_source)
         }
       }
-      ndopred_config(reference_year = ref_year, window = win,
-                     trend_shift = max(shift, 3 * gl$years),
+      # The shift: the form's minimum, or three generations where longer,
+      # stopping at the time-depth limit (see ndopred_config()).
+      ndopred_config(reference_year = ref_year, window = win, min_trend_shift = shift,
                      generation_length = gl$years, generation_length_source = gl$source,
                      trend = trend_cfg)
     }

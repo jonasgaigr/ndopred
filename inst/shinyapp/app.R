@@ -26,6 +26,10 @@ ui <- fluidPage(
       p(tags$small("Criterion B (EOO, AOO, locations) uses this window: IUCN Guidelines 4.9 requires the *current* distribution. AOPK default: 17 years (2010-2026 for 2026).")),
       numericInput("gen_length", "Generation length (years; empty = NDOP group table):", value = NA, min = 0.1),
       textInput("gen_length_basis", "Basis for the generation length (if entered):"),
+      radioButtons("gl_set", "Generation lengths when none is entered:",
+                   choices = c("Placeholder: 1 year per NDOP group (AOPK)" = "placeholder",
+                               "Refined: species, genus, family, group (proposal)" = "refined"),
+                   selected = ndopred::generation_length_set()),
       uiOutput("window_note"),
 
       actionButton("run_calc", "Run Assessment", class = "btn-primary", style = "width: 100%"),
@@ -133,15 +137,17 @@ server <- function(input, output, session) {
   # which Guidelines 5.2 does not cap; the 100-year cap is for projections.
   reduction_window_for <- function(gl) max(10, 3 * gl)
 
-  # The generation length typed in, else the value for the taxon's NDOP
-  # group (generation_lengths(); AOPK placeholder of 1 year until refined).
+  # The generation length typed in, else the value for the taxon: the NDOP
+  # group's (AOPK placeholder of 1 year), or with the refined set the
+  # species, genus, family or group value (generation_length_set()).
   generation_length_used <- function(occ) {
     gl_in <- num_or_na(input$gen_length)
     if (!is.na(gl_in) && gl_in > 0) return(list(years = gl_in, source = "entered by the assessor"))
     group <- if (!is.null(occ) && "KAT_TAX" %in% names(occ) && nrow(occ) > 0) {
       names(sort(table(as.character(occ$KAT_TAX)), decreasing = TRUE))[1]
     } else NA_character_
-    tryCatch(ndopred::generation_length_for(group),
+    tryCatch(ndopred::generation_length_for(group, taxon = input$species_name,
+                                            set = input$gl_set %||% ndopred::generation_length_set()),
              error = function(e) list(years = 1, source = paste("default 1 year:", conditionMessage(e))))
   }
 
@@ -151,7 +157,11 @@ server <- function(input, output, session) {
       "Criterion A reduction window: 10 years or 3 generations, whichever is longer (past reductions are not capped)."
     } else paste0("Generation length ", d$config$generation_length, " years (",
                   d$config$generation_length_source, "); criterion A reduction window ",
-                  d$a_window, " years.")
+                  d$a_window, " years.",
+                  if (isTRUE(d$config$windows$time_depth_limited)) paste0(
+                    " The comparison window cannot start before ", d$config$conventions$time_depth_start,
+                    " (time depth of NDOP data), so the change covers only ",
+                    d$config$windows$recent_end - d$config$windows$comp_end, " years.") else "")
     tags$small(style = "color:#337ab7;", paste(txt, "The trend compares the current window",
                                                "with the same window moved back by that period."))
   })
@@ -185,7 +195,7 @@ server <- function(input, output, session) {
       trend_cfg <- ndopred::trend_settings(occupancy_model = isTRUE(input$occupancy_model),
                                            monitoring_projects = projects[nzchar(projects)])
       config <- ndopred::ndopred_config(reference_year = reference_year(), window = b_window,
-                                        trend_shift = a_window, generation_length = gl$years,
+                                        generation_length = gl$years,
                                         generation_length_source = gl$source, trend = trend_cfg)
       # The group's effort layer, for data tiers T1 and T2 (trend_estimate()).
       effort <- NULL

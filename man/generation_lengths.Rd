@@ -7,7 +7,12 @@
 \usage{
 generation_lengths(path = Sys.getenv("NDOPRED_GENERATION_LENGTHS"))
 
-generation_length_for(group, table = generation_lengths())
+generation_length_for(
+  group,
+  table = generation_lengths(),
+  taxon = NA_character_,
+  set = generation_length_set()
+)
 }
 \arguments{
 \item{path}{Path to a CSV with the same columns. Defaults to the
@@ -18,6 +23,12 @@ with the package (\code{inst/extdata/generation_lengths.csv}).}
 Latin or English name; matched case-insensitively.}
 
 \item{table}{The table, from \code{generation_lengths()}.}
+
+\item{taxon}{Character. The taxon's name, used by the refined set only.}
+
+\item{set}{\code{"placeholder"} (the group table above) or \code{"refined"} (the
+proposal of \code{\link[=generation_lengths_refined]{generation_lengths_refined()}}). Defaults to
+\code{\link[=generation_length_set]{generation_length_set()}}.}
 }
 \value{
 \code{generation_lengths()}: a data frame with \code{ndop_code} (NDOP group
@@ -26,8 +37,10 @@ NDOP), \code{group_en}, \code{generation_length_years}, \code{status}, \code{sou
 \code{note}.
 
 \code{generation_length_for()}: a list with \code{years}, \code{group} (the
-matched \code{KAT_TAX}), \code{status} and \code{source}. A group not in the table gets
-1 year with status \code{"default"}.
+matched \code{KAT_TAX}), \code{status}, \code{source} and \code{level} (\code{"group"}, or for
+the refined set the row that matched: \code{"species"}, \code{"genus"},
+\code{"family"} or \code{"group"}). A group not in the table gets 1 year with
+status \code{"default"}.
 }
 \description{
 The table ndopred takes a generation length from when the assessor gives
@@ -46,7 +59,9 @@ criterion A uses 10 years until three generations exceed it, and C1 uses
 3, 5 and 10 years until one, two and three generations exceed them. Groups
 holding longer-lived taxa (most vertebrate groups, large bivalves, woody
 plants) are where the refinement matters. A value given for one taxon
-(single-taxon app, \code{generation_length} argument) always wins.
+(single-taxon app, \code{generation_length} argument) always wins. The refined
+values proposed to replace the placeholder are in
+\code{\link[=generation_lengths_refined]{generation_lengths_refined()}} (opt-in, \code{set = "refined"}).
 }
 
 \examples{

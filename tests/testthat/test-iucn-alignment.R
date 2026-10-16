@@ -409,8 +409,12 @@ test_that("GAP-05b: the batch reduction window follows generation length (closed
     },
     .package = "ndopred"
   )
-  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 1))
-  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 10))
+  # The time-depth limit (convention, 2000) is off here; where it stops the
+  # window, the result says so (test-generation-lengths.R).
+  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 1,
+                                time_depth_start = NA))
+  suppressMessages(batch_assess("Stable widespread sp", reference_year = gap_year, generation_length = 10,
+                                time_depth_start = NA))
   expect_false(identical(seen[[1]], seen[[2]]))
 })
 

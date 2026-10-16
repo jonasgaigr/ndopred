@@ -135,7 +135,7 @@ assess_species <- function(sp, recent_start, recent_end, comp_start = NULL, comp
   if (is.character(args$evidence) && length(args$evidence) == 1) args$evidence <- read_evidence(args$evidence)
   occ <- get_assessment_data(sp, snapshot = snapshot, snapshot_dir = snapshot_dir)
   if (is.null(args$generation_length)) {
-    gl <- .taxon_generation_length(occ, group)
+    gl <- .taxon_generation_length(occ, group, taxon = sp)
     args$generation_length <- gl$years
     args$generation_length_source <- gl$source
   }

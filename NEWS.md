@@ -1,3 +1,32 @@
+# ndopred (development version)
+
+## Refined generation lengths (proposal, opt-in)
+
+* New `generation_lengths_refined()`: the proposed replacement for the
+  1-year placeholder. 698 species rows (every vertebrate; every Habitats
+  Directive taxon), 620 group, family and genus rows for the rest, and a
+  genus-to-family lookup (AOPK checklist for plants, fungi, lichens and
+  bryophytes). Sources and method: `methodology/generation_lengths/`.
+* `generation_length_for()` takes `taxon` and `set`. With
+  `set = "refined"` a taxon is looked up by species (or synonym, or the
+  binomial of an infraspecific name), then genus, then family, then its
+  NDOP group. The placeholder stays the default until AOPK adopts the
+  proposal; `generation_length_set()`, the `ndopred.generation_lengths`
+  option, `NDOPRED_GENERATION_LENGTH_SET` and a choice in both apps switch
+  it. `Generation_Length_Source` names the row that matched.
+
+## Time depth of the comparison window
+
+* New conventions in `ndopred_config()`: `time_depth_start` (2000) and
+  `min_trend_shift` (10). A derived comparison window no longer starts
+  before 2000, the start of the effort layers and of AOPK's D5 windows.
+  When three generations reach further back, the shift stops there and the
+  trend issue says the change covers fewer years than the criterion A
+  period (`windows$a_period`, `windows$time_depth_limited`). For reference
+  year 2026 any generation length over 3.3 years now keeps 2000-2016;
+  before, 5 years gave 1995-2011. `time_depth_start = NA` restores that.
+  Explicit windows and shifts are not limited.
+
 # ndopred 0.10.0
 
 Phase 6 of the IUCN alignment (`methodology/gap_analysis.md`), the last:

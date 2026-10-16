@@ -137,6 +137,17 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
     }
   }
 
+  if (isTRUE(w$time_depth_limited)) {
+    # Guidelines 4.5: the reduction is over three generations; a shorter
+    # series understates a steady reduction, and inferring the rest is the
+    # assessor's call.
+    note("trend", sprintf(paste0(
+      "time depth: criterion A period %g years (3 generations of %g years), but the comparison ",
+      "window stops at %s (time_depth_start); the change covers %g years and understates a ",
+      "steady reduction over the full period"),
+      w$a_period, config$generation_length, config$conventions$time_depth_start,
+      w$recent_end - w$comp_end))
+  }
   if (nrow(comp) == 0) {
     note("trend", sprintf("no records in the comparison window %s-%s", w$comp_start, w$comp_end))
   } else {
@@ -369,7 +380,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
 
 .config_from_args <- function(args, ...) {
   keep <- intersect(names(args), c("generation_length", "generation_length_source", "trend_shift",
-                                   "decline_tolerance", "nt_margin_a",
+                                   "min_trend_shift", "time_depth_start", "decline_tolerance", "nt_margin_a",
                                    "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations",
                                    "colonizer_years", "regional_filter_share", "trend"))
   cfg <- args[keep]

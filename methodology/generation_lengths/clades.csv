@@ -1,0 +1,383 @@
+group_lat,rank,clade,generation_length_years,basis,note
+Cyanobacteria,group,Cyanobacteria,1,life cycle,generations far shorter than a year
+Euglenozoa,group,Euglenozoa,1,life cycle,generations far shorter than a year
+Peronosporomycota,group,Peronosporomycota,1,life cycle,"annual epidemics; oospores persist, but the window stays 10 years"
+Mycetozoa,group,Mycetozoa,1,life cycle,plasmodia and fruit bodies within one season; spores persist
+Dinoflagellata,group,Dinoflagellata,1,life cycle,generations far shorter than a year
+Phaeista,group,Phaeista,1,life cycle,generations far shorter than a year
+Diatomeae,group,Diatomeae,1,life cycle,generations far shorter than a year
+Haptophyta,group,Haptophyta,1,life cycle,generations far shorter than a year
+Cryptophyta,group,Cryptophyta,1,life cycle,generations far shorter than a year
+Rhodophyta,group,Rhodophyta,1,life cycle,freshwater red algae; perennial crusts (Hildenbrandia) still turn over within a few years
+Chlorophyta,group,Chlorophyta,1,life cycle,generations far shorter than a year
+Chlorophyta,family,Characeae,3,seed bank,"stoneworts: annual or short-lived thalli; long-lived oospore bank (Guidelines 4.4, option 6)"
+Fungi,group,Fungi,7,fungal convention,"default: litter and soil saprotrophs, period 20 years = 3 generations (Dahlberg & Mueller 2011)"
+Fungi,family,Amanitaceae,17,fungal convention,ectomycorrhizal: period 50 years = 3 generations
+Fungi,family,Boletaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Suillaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Gyroporaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Paxillaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Gomphidiaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Rhizopogonaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Sclerodermataceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Cortinariaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Inocybaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Hymenogastraceae,17,fungal convention,"mostly ectomycorrhizal (Hebeloma, Alnicola); Galerina and Psilocybe are saprotrophs"
+Fungi,family,Russulaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Hydnangiaceae,17,fungal convention,ectomycorrhizal (Laccaria)
+Fungi,family,Cantharellaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Hydnaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Bankeraceae,17,fungal convention,ectomycorrhizal tooth fungi
+Fungi,family,Thelephoraceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Gomphaceae,17,fungal convention,ectomycorrhizal (Ramaria and allies)
+Fungi,family,Albatrellaceae,17,fungal convention,ectomycorrhizal
+Fungi,family,Tuberaceae,17,fungal convention,ectomycorrhizal truffles
+Fungi,family,Elaphomycetaceae,17,fungal convention,ectomycorrhizal
+Fungi,genus,Tricholoma,17,fungal convention,ectomycorrhizal genus in a mostly saprotrophic family
+Fungi,genus,Hygrophorus,17,fungal convention,ectomycorrhizal
+Fungi,family,Hygrophoraceae,17,fungal convention,waxcaps of semi-natural grassland: period up to 50 years
+Fungi,family,Geoglossaceae,17,fungal convention,grassland earth tongues: period up to 50 years
+Fungi,family,Clavariaceae,17,fungal convention,grassland clubs: period up to 50 years
+Fungi,family,Entolomataceae,17,fungal convention,many grassland species of conservation interest; precautionary
+Fungi,family,Polyporaceae,10,fungal convention,wood-inhabiting: period 20-50 years by wood durability; 30 years used
+Fungi,family,Fomitopsidaceae,10,fungal convention,wood-inhabiting
+Fungi,family,Hymenochaetaceae,10,fungal convention,wood-inhabiting
+Fungi,family,Ganodermataceae,10,fungal convention,wood-inhabiting
+Fungi,family,Meripilaceae,10,fungal convention,wood-inhabiting
+Fungi,family,Bondarzewiaceae,10,fungal convention,wood-inhabiting; root and butt rots of old trees
+Fungi,family,Sparassidaceae,10,fungal convention,wood-inhabiting
+Fungi,family,Fistulinaceae,17,fungal convention,on living old oaks; most durable substrate
+Fungi,family,Hericiaceae,17,fungal convention,on old and veteran trees and large logs; durable substrate
+Fungi,family,Laetiporaceae,10,fungal convention,wood-inhabiting
+Fungi,family,Phanerochaetaceae,7,fungal convention,wood-inhabiting on fine or less durable wood: period 20 years
+Fungi,family,Meruliaceae,7,fungal convention,wood-inhabiting on less durable wood
+Fungi,family,Stereaceae,7,fungal convention,wood-inhabiting on less durable wood
+Fungi,family,Corticiaceae,7,fungal convention,wood-inhabiting on less durable wood
+Fungi,family,Xylariaceae,7,fungal convention,wood-inhabiting on less durable wood
+Fungi,family,Erysiphaceae,3,fungal convention,obligate plant pathogens with annual cycles; host-dependent (pathogens: period 10-100 years)
+Fungi,family,Pucciniaceae,3,fungal convention,obligate rusts with annual cycles
+Fungi,family,Ustilaginaceae,3,fungal convention,smuts with annual cycles
+Fungi,family,Ophiocordycipitaceae,3,fungal convention,insect pathogens
+Fungi,family,Cordycipitaceae,3,fungal convention,insect pathogens
+Lichenes,group,Lichenes,10,lichen convention,"default between 7 years (epigeic or asexually dispersed) and 17 years (sexually dispersed epilithic), as in Estonian red-listing practice"
+Lichenes,family,Cladoniaceae,7,lichen convention,epigeic
+Lichenes,family,Peltigeraceae,7,lichen convention,epigeic and asexually dispersed; Lobaria and Sticta (formerly Lobariaceae) have their own rows
+Lichenes,genus,Lobaria,17,lichen convention,slow-growing epiphytes of old-growth forest; precautionary
+Lichenes,genus,Sticta,17,lichen convention,slow-growing epiphytes of old-growth forest
+Lichenes,family,Lobariaceae,17,lichen convention,older classification of Lobaria and Sticta
+Lichenes,family,Collemataceae,7,lichen convention,gelatinous lichens; mostly asexual
+Lichenes,family,Rhizocarpaceae,17,lichen convention,epilithic; sexually dispersed
+Lichenes,family,Lecideaceae,17,lichen convention,epilithic; sexually dispersed
+Lichenes,family,Umbilicariaceae,17,lichen convention,epilithic; slow-growing
+Lichenes,family,Verrucariaceae,17,lichen convention,epilithic; sexually dispersed
+Bryophyta,group,Bryophyta,5,life strategy,default for perennial bryophytes; short-lived colonists and annual shuttles have their own rows
+Bryophyta,family,Sphagnaceae,10,life strategy,perennial clonal peat mosses
+Bryophyta,family,Leucobryaceae,10,life strategy,long-lived cushions
+Bryophyta,family,Hylocomiaceae,7,life strategy,perennial mat-forming forest mosses
+Bryophyta,family,Neckeraceae,10,life strategy,long-lived perennial epiphytes and epiliths
+Bryophyta,family,Leucodontaceae,10,life strategy,long-lived perennial epiphytes
+Bryophyta,family,Anomodontaceae,10,life strategy,long-lived perennial epiphytes
+Bryophyta,family,Funariaceae,2,life strategy,short-lived colonists with spore banks
+Bryophyta,family,Ephemeraceae,1,life strategy,annual shuttles
+Bryophyta,family,Ricciaceae,1,life strategy,annual shuttles
+Bryophyta,family,Anthocerotaceae,1,life strategy,annual hornworts of stubble fields
+Bryophyta,family,Notothyladaceae,1,life strategy,annual hornworts
+Bryophyta,family,Buxbaumiaceae,3,life strategy,short-lived colonists
+Bryophyta,family,Splachnaceae,2,life strategy,short-lived colonists of dung and carcasses
+Bryophyta,family,Aytoniaceae,3,life strategy,short-lived thalloid liverworts
+Bryophyta,family,Marchantiaceae,3,life strategy,short-lived thalloid liverworts
+Tracheophyta,group,Tracheophyta,5,life form,default: perennial herbs; families of annuals and woody families have their own rows; trees in mixed families have genus rows
+Tracheophyta,family,Amaranthaceae,2,life form,mostly annuals (incl. Chenopodiaceae)
+Tracheophyta,family,Brassicaceae,3,life form,annuals and short-lived perennials
+Tracheophyta,family,Papaveraceae,3,life form,mostly annuals (incl. Fumariaceae)
+Tracheophyta,family,Polygonaceae,4,life form,mixed annuals and perennials
+Tracheophyta,family,Caryophyllaceae,4,life form,mixed annuals and perennials
+Tracheophyta,family,Boraginaceae,3,life form,many annuals and biennials
+Tracheophyta,family,Apiaceae,4,life form,many monocarpic biennials
+Tracheophyta,family,Orobanchaceae,3,life form,"annual hemiparasites (Melampyrum, Rhinanthus, Euphrasia) and monocarpic broomrapes; Pedicularis perennial"
+Tracheophyta,family,Plantaginaceae,4,life form,mixed (incl. Veronica)
+Tracheophyta,family,Lamiaceae,5,life form,
+Tracheophyta,family,Asteraceae,5,life form,
+Tracheophyta,family,Fabaceae,5,life form,herbs; woody genera have their own rows
+Tracheophyta,family,Rosaceae,6,life form,herbs; woody genera have their own rows
+Tracheophyta,family,Ranunculaceae,6,life form,long-lived perennials frequent
+Tracheophyta,family,Poaceae,5,life form,
+Tracheophyta,family,Cyperaceae,6,life form,long-lived clonal sedges
+Tracheophyta,family,Juncaceae,5,life form,
+Tracheophyta,family,Orchidaceae,10,life form,juvenile (mycoheterotrophic) phase of several years; long-lived tubers and rhizomes
+Tracheophyta,family,Liliaceae,8,life form,geophytes with long juvenile periods
+Tracheophyta,family,Amaryllidaceae,8,life form,geophytes (incl. Allium)
+Tracheophyta,family,Iridaceae,8,life form,geophytes
+Tracheophyta,family,Asparagaceae,8,life form,geophytes and rhizomatous perennials
+Tracheophyta,family,Colchicaceae,8,life form,geophytes
+Tracheophyta,family,Melanthiaceae,8,life form,long-lived rhizomatous perennials (Veratrum and Paris)
+Tracheophyta,family,Gentianaceae,6,life form,perennial gentians; Gentianella and Centaurium are biennial or annual
+Tracheophyta,genus,Gentianella,2,life form,biennials
+Tracheophyta,genus,Gentiana,10,life form,long-lived perennials
+Tracheophyta,family,Primulaceae,6,life form,
+Tracheophyta,family,Campanulaceae,5,life form,
+Tracheophyta,family,Violaceae,4,life form,
+Tracheophyta,family,Euphorbiaceae,4,life form,
+Tracheophyta,family,Geraniaceae,4,life form,
+Tracheophyta,family,Onagraceae,4,life form,
+Tracheophyta,family,Lythraceae,3,life form,
+Tracheophyta,family,Linderniaceae,3,seed bank,annuals of exposed pond bottoms
+Tracheophyta,family,Elatinaceae,3,seed bank,annuals of exposed pond bottoms
+Tracheophyta,family,Saxifragaceae,6,life form,
+Tracheophyta,family,Crassulaceae,5,life form,
+Tracheophyta,family,Droseraceae,4,life form,
+Tracheophyta,family,Lentibulariaceae,3,life form,clonal aquatics overwintering as turions; Pinguicula perennial
+Tracheophyta,family,Araceae,2,life form,"duckweeds (Lemna, Spirodela) multiply clonally within weeks"
+Tracheophyta,family,Potamogetonaceae,4,life form,
+Tracheophyta,family,Hydrocharitaceae,3,life form,
+Tracheophyta,family,Alismataceae,4,life form,
+Tracheophyta,family,Typhaceae,5,life form,incl. Sparganium
+Tracheophyta,family,Nymphaeaceae,15,life form,long-lived rhizomes
+Tracheophyta,family,Ericaceae,15,life form,"long-lived clonal dwarf shrubs (Vaccinium, Calluna, Pyrola)"
+Tracheophyta,family,Empetraceae,15,life form,long-lived dwarf shrubs
+Tracheophyta,family,Santalaceae,6,life form,Thesium perennial; Viscum has its own row
+Tracheophyta,genus,Viscum,10,life form,
+Tracheophyta,family,Lycopodiaceae,23,option 3,"see Lycopodiaceae in the species table: gametophyte 6-15 years, long-lived clones"
+Tracheophyta,family,Selaginellaceae,5,life form,
+Tracheophyta,family,Isoetaceae,15,life form,long-lived aquatic quillworts
+Tracheophyta,family,Equisetaceae,10,life form,long-lived clonal rhizomes
+Tracheophyta,family,Ophioglossaceae,8,life form,subterranean gametophytes; long-lived sporophytes in Ophioglossum
+Tracheophyta,family,Osmundaceae,20,life form,long-lived
+Tracheophyta,family,Aspleniaceae,8,life form,ferns
+Tracheophyta,family,Dryopteridaceae,8,life form,ferns
+Tracheophyta,family,Athyriaceae,8,life form,ferns
+Tracheophyta,family,Woodsiaceae,8,life form,ferns
+Tracheophyta,family,Polypodiaceae,8,life form,ferns
+Tracheophyta,family,Thelypteridaceae,8,life form,ferns
+Tracheophyta,family,Blechnaceae,8,life form,ferns
+Tracheophyta,family,Onocleaceae,8,life form,ferns
+Tracheophyta,family,Cystopteridaceae,8,life form,ferns
+Tracheophyta,family,Pteridaceae,8,life form,ferns
+Tracheophyta,family,Dennstaedtiaceae,15,life form,Pteridium: very long-lived clones
+Tracheophyta,family,Hymenophyllaceae,20,life form,clonal gametophyte colonies
+Tracheophyta,family,Marsileaceae,5,life form,
+Tracheophyta,family,Salviniaceae,1,life form,annual floating fern
+Tracheophyta,family,Pinaceae,50,life form,trees: first reproduction at 20-40 years in stands; individuals live centuries
+Tracheophyta,family,Cupressaceae,40,life form,Juniperus communis
+Tracheophyta,family,Taxaceae,80,life form,Taxus baccata: very long-lived and slow to mature
+Tracheophyta,family,Fagaceae,60,life form,trees
+Tracheophyta,family,Betulaceae,30,life form,trees; Corylus has its own row
+Tracheophyta,genus,Corylus,15,life form,shrub
+Tracheophyta,family,Salicaceae,20,life form,"Populus 30, Salix 10-20"
+Tracheophyta,genus,Populus,30,life form,trees
+Tracheophyta,family,Sapindaceae,40,life form,"Acer (incl. Aceraceae, Hippocastanaceae)"
+Tracheophyta,family,Aceraceae,40,life form,older classification of Acer
+Tracheophyta,family,Ulmaceae,40,life form,trees
+Tracheophyta,family,Juglandaceae,40,life form,trees
+Tracheophyta,genus,Tilia,50,life form,trees (Malvaceae s.l. or Tiliaceae)
+Tracheophyta,family,Tiliaceae,50,life form,older classification of Tilia
+Tracheophyta,genus,Fraxinus,40,life form,trees (Oleaceae)
+Tracheophyta,genus,Ligustrum,10,life form,shrub (Oleaceae)
+Tracheophyta,genus,Sorbus,25,life form,trees (Rosaceae)
+Tracheophyta,genus,Malus,30,life form,trees (Rosaceae)
+Tracheophyta,genus,Pyrus,30,life form,trees (Rosaceae)
+Tracheophyta,genus,Prunus,20,life form,trees and shrubs (Rosaceae)
+Tracheophyta,genus,Crataegus,20,life form,shrubs and small trees (Rosaceae)
+Tracheophyta,genus,Cotoneaster,15,life form,shrubs (Rosaceae)
+Tracheophyta,genus,Rosa,10,life form,shrubs (Rosaceae)
+Tracheophyta,genus,Rubus,4,life form,biennial canes; clonal (Rosaceae)
+Tracheophyta,genus,Robinia,30,life form,tree (Fabaceae); alien
+Tracheophyta,genus,Cytisus,10,life form,shrub (Fabaceae)
+Tracheophyta,genus,Chamaecytisus,10,life form,shrub (Fabaceae)
+Tracheophyta,genus,Genista,10,life form,shrub (Fabaceae)
+Tracheophyta,genus,Laburnum,20,life form,tree (Fabaceae)
+Tracheophyta,family,Cornaceae,15,life form,shrubs
+Tracheophyta,family,Rhamnaceae,15,life form,shrubs
+Tracheophyta,family,Celastraceae,15,life form,shrubs (Euonymus)
+Tracheophyta,family,Aquifoliaceae,30,life form,Ilex
+Tracheophyta,family,Thymelaeaceae,10,life form,Daphne
+Tracheophyta,family,Elaeagnaceae,10,life form,shrubs
+Tracheophyta,family,Berberidaceae,10,life form,shrubs
+Tracheophyta,family,Grossulariaceae,10,life form,shrubs
+Tracheophyta,family,Viburnaceae,10,life form,"Sambucus, Viburnum (Adoxaceae); Adoxa is a herb"
+Tracheophyta,family,Adoxaceae,10,life form,older name of Viburnaceae
+Tracheophyta,genus,Lonicera,10,life form,shrubs (Caprifoliaceae)
+Tracheophyta,family,Staphyleaceae,15,life form,shrub
+Tracheophyta,family,Loranthaceae,10,life form,Loranthus
+Tracheophyta,family,Vitaceae,20,life form,Vitis sylvestris
+Tracheophyta,genus,Hedera,20,life form,woody climber (Araliaceae)
+Tracheophyta,genus,Clematis,10,life form,woody climber (Ranunculaceae)
+Porifera,group,Porifera,1,life cycle,freshwater sponges overwinter as gemmules
+Hydrozoa,group,Hydrozoa,1,life cycle,
+Bryozoa,group,Bryozoa,1,life cycle,colonies overwinter as statoblasts
+Turbellaria,group,Turbellaria,1,life cycle,
+Rotifera,group,Rotifera,1,life cycle,
+Vermes varia,group,Vermes varia,1,life cycle,
+Mollusca,group,Mollusca,2,life cycle,default: most snails and pea mussels live 1-3 years
+Mollusca,family,Margaritiferidae,37,option 3,see Margaritifera margaritifera in the species table
+Mollusca,family,Unionidae,8,option 3,"Unio, Anodonta, Pseudanodonta: mature at 2-4 years; live 10-30 years"
+Mollusca,family,Dreissenidae,2,life cycle,
+Mollusca,family,Sphaeriidae,1,life cycle,
+Mollusca,family,Viviparidae,3,life cycle,live 4-5 years
+Mollusca,family,Helicidae,4,option 3,"Helix 4-5; Cepaea, Arianta and Causa 2-4"
+Mollusca,family,Clausiliidae,3,life cycle,live 3-5 years
+Mollusca,family,Vertiginidae,1,life cycle,
+Annelida,group,Annelida,2,life cycle,earthworms mature in 1 year and live several years
+Annelida,family,Hirudinidae,4,option 3,"Hirudo, Haemopis: mature at 2-3 years"
+Annelida,family,Glossiphoniidae,1,life cycle,
+Annelida,family,Erpobdellidae,1,life cycle,
+Tardigrada,group,Tardigrada,1,life cycle,
+Araneae,group,Araneae,1,life cycle,most species annual or biennial
+Araneae,family,Atypidae,5,option 3,purse-web spiders: females mature at about 4 years and live 8-10 years
+Araneae,family,Eresidae,3,semelparous,ladybird spiders: development 2-4 years
+Araneae,family,Lycosidae,2,life cycle,many species biennial
+Opiliones,group,Opiliones,1,life cycle,
+Scorpiones,group,Scorpiones,3,option 3,Euscorpius: mature at 2-3 years; live 4-6 years
+Pseudoscorpionida,group,Pseudoscorpionida,2,life cycle,development 1-2 years; adults live 2-3 seasons
+Schizomida,group,Schizomida,1,life cycle,
+Acari,group,Acari,1,life cycle,
+Acari,family,Ixodidae,2,life cycle,ticks: life cycle 2-3 years
+Crustacea,group,Crustacea,1,life cycle,"default: Cladocera, Copepoda, Amphipoda, Isopoda"
+Crustacea,family,Astacidae,6,option 3,"Astacus, Austropotamobius: mature at 3-4 years; live 10-20 years"
+Crustacea,family,Cambaridae,4,option 3,alien Faxonius: mature at 1-2 years; live 4-6 years
+Crustacea,genus,Pacifastacus,4,option 3,signal crayfish (alien): mature at 2-3 years
+Crustacea,family,Triopsidae,3,seed bank,"Triops, Lepidurus: annual adults; resting eggs persist for decades (option 6)"
+Crustacea,family,Branchinectidae,3,seed bank,fairy shrimps: resting eggs
+Crustacea,family,Branchipodidae,3,seed bank,fairy shrimps: resting eggs
+Crustacea,family,Chirocephalidae,3,seed bank,fairy shrimps: resting eggs
+Crustacea,family,Limnadiidae,3,seed bank,clam shrimps: resting eggs
+Crustacea,family,Leptestheriidae,3,seed bank,clam shrimps: resting eggs
+Chilopoda,group,Chilopoda,3,option 3,"Lithobius, geophilomorphs: mature at 2-3 years; live 5-6 years"
+Symphyla,group,Symphyla,1,life cycle,
+Pauropoda,group,Pauropoda,1,life cycle,
+Diplopoda,group,Diplopoda,3,option 3,Julida: mature at 2-3 years; live 4-7 years
+Diplopoda,family,Glomeridae,5,option 3,pill millipedes: mature at 3-4 years; live up to 10 years
+Diplopoda,family,Polydesmidae,2,life cycle,
+"Collembola, Protura, Diplura",group,"Collembola, Protura, Diplura",1,life cycle,
+Ephemeroptera,group,Ephemeroptera,1,semelparous,most species uni- or bivoltine
+Ephemeroptera,family,Ephemeridae,2,semelparous,Ephemera: larval development 1-3 years
+Ephemeroptera,family,Palingeniidae,3,semelparous,Palingenia longicauda: larval development 3 years
+Plecoptera,group,Plecoptera,1,semelparous,
+Plecoptera,family,Perlidae,3,semelparous,"Perla, Dinocras: larval development 2-3 years"
+Plecoptera,family,Perlodidae,2,semelparous,
+Odonata,group,Odonata,2,semelparous,Anisoptera default; most damselflies univoltine
+Odonata,family,Coenagrionidae,1,semelparous,
+Odonata,family,Lestidae,1,semelparous,
+Odonata,family,Platycnemididae,1,semelparous,
+Odonata,family,Calopterygidae,2,semelparous,
+Odonata,family,Libellulidae,2,semelparous,
+Odonata,family,Aeshnidae,3,semelparous,larval development 2-3 years
+Odonata,family,Corduliidae,3,semelparous,larval development 2-3 years
+Odonata,family,Gomphidae,3,semelparous,larval development 2-4 years
+Odonata,family,Cordulegastridae,4,semelparous,larval development 3-5 years
+Polyneoptera,group,Polyneoptera,1,semelparous,"grasshoppers, crickets, earwigs, cockroaches, mantids"
+Polyneoptera,family,Gryllotalpidae,2,semelparous,development 1-2 years
+"Thysanoptera, Psocoptera, Pthiraptera",group,"Thysanoptera, Psocoptera, Pthiraptera",1,life cycle,
+Heteroptera,group,Heteroptera,1,semelparous,
+Homoptera,group,Homoptera,1,semelparous,
+Homoptera,family,Cicadidae,4,semelparous,singing cicadas: nymphal development 3-5 years
+Neuropterida,group,Neuropterida,1,semelparous,
+Neuropterida,family,Myrmeleontidae,2,semelparous,antlions: development 2-3 years
+Neuropterida,family,Ascalaphidae,2,semelparous,
+Neuropterida,family,Sialidae,2,semelparous,
+Neuropterida,family,Raphidiidae,2,semelparous,snakeflies: development 2-3 years
+Neuropterida,family,Inocelliidae,2,semelparous,
+Mecoptera,group,Mecoptera,1,semelparous,
+Hymenoptera,group,Hymenoptera,1,semelparous,"solitary and annual social species (Bombus, Vespula)"
+Hymenoptera,family,Formicidae,8,option 3,colonies: queens first produce sexuals after 3-5 years and live 15-25 years; Formica rufa group colonies persist for decades
+Hymenoptera,family,Siricidae,2,semelparous,woodwasps: development 2-3 years
+Trichoptera,group,Trichoptera,1,semelparous,
+Lepidoptera,group,Lepidoptera,1,semelparous,
+Lepidoptera,family,Cossidae,3,semelparous,goat and leopard moths: larval development 2-4 years
+Lepidoptera,family,Sesiidae,2,semelparous,clearwings: development 1-3 years
+Lepidoptera,family,Hepialidae,2,semelparous,
+Coleoptera,group,Coleoptera,1,semelparous,
+Coleoptera,family,Lucanidae,3,semelparous,"Dorcus, Platycerus, Sinodendron 2-3 years; Lucanus cervus 5 (species table)"
+Coleoptera,family,Cerambycidae,3,semelparous,"saproxylic larvae 1-4 years; Cerambyx, Prionus and Ergates 3-5"
+Coleoptera,family,Scarabaeidae,3,semelparous,Cetoniinae 2-3 years; Melolontha 3-4 (4-year cycle in Czechia); dung beetles 1
+Coleoptera,family,Elateridae,3,semelparous,Agriotes and other click beetles: larval development 2-5 years
+Coleoptera,family,Buprestidae,2,semelparous,
+Coleoptera,family,Carabidae,1,option 3,Carabus adults breed over 2-3 seasons (about 1.6 years)
+Coleoptera,family,Tenebrionidae,2,semelparous,
+Coleoptera,family,Pythidae,2,semelparous,
+Coleoptera,family,Cucujidae,2,semelparous,
+Coleoptera,family,Boridae,3,semelparous,
+Strepsiptera,group,Strepsiptera,1,semelparous,
+Diptera,group,Diptera,1,semelparous,
+Siphonaptera,group,Siphonaptera,1,semelparous,
+Tracheophyta,family,Chenopodiaceae,2,life form,"mostly annuals (family name used by the AOPK checklist; Amaranthaceae s.l.)"
+Tracheophyta,family,Fumariaceae,3,life form,"annuals and geophytes (Corydalis); family name used by the AOPK checklist"
+Tracheophyta,family,Scrophulariaceae,4,life form,"family in the older sense used by the AOPK checklist (Veronica, Rhinanthus, Verbascum)"
+Tracheophyta,family,Dipsacaceae,5,life form,family name used by the AOPK checklist
+Tracheophyta,family,Caprifoliaceae,5,life form,"herbs (Valeriana, Knautia); Lonicera has its own row"
+Tracheophyta,family,Malvaceae,5,life form,"herbs; Tilia has its own row"
+Tracheophyta,family,Oleaceae,40,life form,"Fraxinus; Ligustrum and Syringa have rows of their own"
+Tracheophyta,genus,Syringa,15,life form,shrub (Oleaceae); naturalised
+Tracheophyta,family,Pyrolaceae,15,life form,long-lived clonal wintergreens (family name used by the AOPK checklist)
+Tracheophyta,family,Lemnaceae,2,life form,duckweeds: clonal (family name used by the AOPK checklist)
+Tracheophyta,family,Sparganiaceae,4,life form,family name used by the AOPK checklist
+Tracheophyta,family,Hyacinthaceae,8,life form,geophytes (family name used by the AOPK checklist)
+Tracheophyta,family,Alliaceae,8,life form,geophytes (family name used by the AOPK checklist)
+Tracheophyta,family,Asphodelaceae,8,life form,long-lived perennials (Anthericum)
+Tracheophyta,family,Convallariaceae,8,life form,rhizomatous perennials (family name used by older checklists)
+Tracheophyta,family,Montiaceae,2,life form,annuals and short-lived perennials
+Tracheophyta,family,Isoëtaceae,15,life form,long-lived aquatic quillworts (spelling with diaeresis)
+Bryophyta,genus,Sphagnum,10,life strategy,"see Sphagnum in the species table (Annex V)"
+Mollusca,genus,Margaritifera,37,option 3,"see Margaritifera margaritifera in the species table"
+Mollusca,genus,Unio,8,option 3,"mature at 2-4 years; live 10-30 years"
+Mollusca,genus,Anodonta,8,option 3,"mature at 2-4 years; live 10-20 years"
+Mollusca,genus,Pseudanodonta,8,option 3,"mature at 2-4 years; live 10-15 years"
+Mollusca,genus,Sinanodonta,4,option 3,"alien; mature at 1-2 years; live about 12 years"
+Mollusca,genus,Helix,4,option 3,"see Helix pomatia in the species table"
+Annelida,genus,Hirudo,4,option 3,"see Hirudo medicinalis in the species table"
+Annelida,genus,Haemopis,4,option 3,"mature at 2-3 years; live several years"
+Araneae,genus,Atypus,5,option 3,"purse-web spiders: females mature at about 4 years and live 8-10 years"
+Crustacea,genus,Astacus,6,option 3,"mature at 3-4 years; live 15-20 years"
+Crustacea,genus,Austropotamobius,6,option 3,"mature at 3-4 years; live about 10 years"
+Crustacea,genus,Pontastacus,5,option 3,"narrow-clawed crayfish: mature at 3 years; live about 10 years"
+Crustacea,genus,Faxonius,4,option 3,"alien spiny-cheek crayfish: mature at 1-2 years; live 4-6 years"
+Crustacea,genus,Orconectes,4,option 3,"older name of Faxonius"
+Crustacea,genus,Procambarus,2,life cycle,"alien; mature within the first year"
+Diplopoda,genus,Glomeris,5,option 3,"pill millipedes: mature at 3-4 years; live up to 10 years"
+Diplopoda,genus,Haploglomeris,5,option 3,pill millipedes
+Odonata,genus,Cordulegaster,4,semelparous,larval development 3-5 years
+Homoptera,genus,Cicadetta,4,semelparous,nymphal development 3-5 years
+Homoptera,genus,Tibicina,4,semelparous,nymphal development 3-5 years
+Homoptera,genus,Lyristes,4,semelparous,nymphal development 3-5 years
+Homoptera,genus,Cicada,4,semelparous,nymphal development 3-5 years
+Coleoptera,genus,Lucanus,5,semelparous,"see Lucanus cervus in the species table"
+Coleoptera,genus,Cerambyx,4,semelparous,larval development 3-5 years
+Coleoptera,genus,Prionus,4,semelparous,larval development 3-4 years
+Coleoptera,genus,Ergates,4,semelparous,larval development 3-4 years
+Coleoptera,genus,Melolontha,4,semelparous,"cockchafers: 3-4-year cycle (4 in most of Czechia)"
+Coleoptera,genus,Polyphylla,4,semelparous,larval development 3-4 years
+Coleoptera,genus,Agriotes,4,semelparous,wireworms: larval development 2-5 years
+Hymenoptera,genus,Formica,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Polyergus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Lasius,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Camponotus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Myrmica,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Tetramorium,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Leptothorax,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Temnothorax,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Solenopsis,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Myrmecina,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Manica,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Stenamma,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Aphaenogaster,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Messor,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Tapinoma,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Dolichoderus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Liometopum,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Ponera,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Hypoponera,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Plagiolepis,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Cardiocondyla,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Harpagoxenus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Formicoxenus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Strongylognathus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Anergates,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Myrmoxenus,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Monomorium,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Crematogaster,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Prenolepis,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Bothriomyrmex,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Lepisiota,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Proformica,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Cataglyphis,8,option 3,"ant colony: see Formicidae"
+Hymenoptera,genus,Chalepoxenus,8,option 3,"ant colony: see Formicidae"

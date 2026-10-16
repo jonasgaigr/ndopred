@@ -24,6 +24,18 @@
 #'   length up to 3.3 years (AOPK, decision D5). The windows overlap when the
 #'   shift is shorter than `window`, and their midpoints are the shift apart.
 #'   The shared years damp the measured change (see the vignette).
+#' @param min_trend_shift Numeric. *Convention (AOPK, decision D5).* The
+#'   shortest derived shift, 10 years: the 10-year floor of criterion A.
+#' @param time_depth_start Numeric or `NA`. *Convention.* The earliest year a
+#'   derived comparison window may start. NDOP coverage before 2000 is too
+#'   thin to compare with (AOPK, D5: 2000-2016 against 2010-2026). When three
+#'   generations reach further back, the shift stops at this year (never below
+#'   `min_trend_shift`); the change is then measured over a shorter period
+#'   than criterion A asks for, which understates a steady reduction, and the
+#'   result says so (`windows$time_depth_limited`, `windows$a_period`).
+#'   Guidelines 4.5: a reduction over three generations may be inferred from a
+#'   shorter series, but that inference is left to the assessor. `NA` sets no
+#'   limit.
 #' @param recent_start,recent_end,comp_start,comp_end Numeric or `NULL`.
 #'   Explicit window bounds; override the windows derived from
 #'   `reference_year`, `window` and `trend_shift`. The trend always compares
@@ -76,6 +88,8 @@
 ndopred_config <- function(reference_year,
                            window = 17,
                            trend_shift = NULL,
+                           min_trend_shift = 10,
+                           time_depth_start = 2000,
                            recent_start = NULL, recent_end = NULL,
                            comp_start = NULL, comp_end = NULL,
                            generation_length = 1,
@@ -103,12 +117,18 @@ ndopred_config <- function(reference_year,
   }
   # Criteria v3.1 A2: "over the last 10 years or three generations,
   # whichever is the longer" (AOPK, D5: 10 years, 2000-2016 vs 2010-2026).
-  shift_derived <- is.null(trend_shift) && is.null(comp_start) && is.null(comp_end)
-  if (is.null(trend_shift)) trend_shift <- max(10, 3 * gl)
-  trend_shift <- max(1, as.numeric(trend_shift))
-
   if (is.null(recent_end)) recent_end <- reference_year
   if (is.null(recent_start)) recent_start <- recent_end - window + 1
+  min_trend_shift <- max(1, as.numeric(min_trend_shift))
+  a_period <- max(10, 3 * gl)
+  shift_derived <- is.null(trend_shift) && is.null(comp_start) && is.null(comp_end)
+  limited <- FALSE
+  if (is.null(trend_shift)) {
+    s <- .derived_shift(gl, recent_start, min_trend_shift, time_depth_start)
+    trend_shift <- s$shift
+    limited <- s$limited
+  }
+  trend_shift <- max(1, as.numeric(trend_shift))
   # The trend compares the comparison window with the current window; by
   # default the comparison window is the current one moved `trend_shift`
   # years back (AOPK, D5).
@@ -125,7 +145,8 @@ ndopred_config <- function(reference_year,
       windows = list(
         recent_start = recent_start, recent_end = recent_end,
         trend_start = recent_start, trend_end = recent_end,
-        comp_start = comp_start, comp_end = comp_end
+        comp_start = comp_start, comp_end = comp_end,
+        a_period = a_period, time_depth_limited = shift_derived && limited
       ),
       generation_length = gl,
       generation_length_source = generation_length_source,
@@ -148,7 +169,9 @@ ndopred_config <- function(reference_year,
         d2_aoo_km2 = d2_aoo_km2,
         d2_locations = d2_locations,
         colonizer_years = colonizer_years,
-        regional_filter_share = regional_filter_share
+        regional_filter_share = regional_filter_share,
+        min_trend_shift = min_trend_shift,
+        time_depth_start = time_depth_start
       ),
       trend = trend,
       versions = list(
@@ -169,6 +192,10 @@ print.ndopred_config <- function(x, ...) {
   cat("  current window (B):", w$recent_start, "-", w$recent_end, "\n")
   cat("  trend:", w$comp_start, "-", w$comp_end, "vs", w$trend_start, "-", w$trend_end, "\n")
   cat("  generation length:", x$generation_length, "years (", x$generation_length_source, ")\n")
+  if (isTRUE(w$time_depth_limited)) {
+    cat("  time depth: criterion A period", w$a_period, "years; the comparison window stops at",
+        x$conventions$time_depth_start, "\n")
+  }
   cat("  proposal:", x$attitude$proposal, "- flagged uncertain when the", x$attitude$uncertain_when, "\n")
   cat("  conventions:", paste(names(x$conventions), unlist(x$conventions), sep = " = ", collapse = ", "), "\n")
   invisible(x)
@@ -183,14 +210,26 @@ print.ndopred_config <- function(x, ...) {
   gl <- if (is.null(upd$generation_length)) cfg$generation_length else upd$generation_length
   src <- if (is.null(upd$generation_length_source)) cfg$generation_length_source else upd$generation_length_source
   rs <- if (is.null(upd$recent_start)) w$recent_start else upd$recent_start
-  shift <- if (isTRUE(cfg$trend_shift_derived)) max(10, 3 * gl) else w$recent_end - w$comp_end
+  derived <- isTRUE(cfg$trend_shift_derived)
+  shift <- w$recent_end - w$comp_end
   out <- do.call(ndopred_config, c(
     list(reference_year = cfg$reference_year, recent_start = rs, recent_end = w$recent_end,
-         comp_start = rs - shift, comp_end = w$recent_end - shift,
+         comp_start = if (derived) NULL else rs - shift,
+         comp_end = if (derived) NULL else w$recent_end - shift,
          generation_length = gl, generation_length_source = src,
          trend = if (is.null(cfg$trend)) trend_settings() else cfg$trend),
     cfg$conventions
   ))
   out$trend_shift_derived <- cfg$trend_shift_derived
   out
+}
+
+# The shift of the comparison window: the criterion A period (10 years or
+# three generations), stopped where the comparison window would start before
+# `time_depth_start`, but never below `min_trend_shift`.
+.derived_shift <- function(gl, recent_start, min_trend_shift = 10, time_depth_start = 2000) {
+  wanted <- max(min_trend_shift, 3 * gl)
+  room <- if (length(time_depth_start) != 1 || is.na(time_depth_start)) Inf else recent_start - time_depth_start
+  shift <- max(min_trend_shift, min(wanted, room))
+  list(shift = shift, wanted = wanted, limited = shift < wanted)
 }
