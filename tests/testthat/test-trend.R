@@ -252,3 +252,12 @@ test_that("A year that does not download completely is retried on the next run",
   second <- ndop_effort("Amphibia", years = c(2001, 2001), dir = dir, download = fake)
   expect_true(2001 %in% attr(second, "years_done"))
 })
+
+test_that("Groups without a confirmed Czech name are not confused with each other", {
+  dir <- withr::local_tempdir()
+  seen <- character(0)
+  fake <- function(lat, from, to) { seen <<- c(seen, lat); data.frame() }
+  ndop_effort("Pauropoda", years = c(2000, 2000), dir = dir, download = fake)
+  expect_equal(unique(seen), "Pauropoda")
+  expect_true(file.exists(file.path(dir, "effort_Pauropoda_2000-2000.rds")))
+})

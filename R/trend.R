@@ -216,10 +216,10 @@ trend_settings <- function(reps = 199, seed = 1, sensitivity_years = 2,
 #' @export
 ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir(),
                         download = NULL, units = NULL) {
-  g <- generation_length_for(group)
   tab <- generation_lengths()
-  lat <- tab$group_lat[match(g$group, tab$kat_tax)]
+  lat <- .group_lat(group, tab)
   if (is.na(lat)) stop("Unknown NDOP group: ", group, call. = FALSE)
+  g <- list(group = tab$kat_tax[match(lat, tab$group_lat)])
   dir.create(dir, showWarnings = FALSE, recursive = TRUE)
   path <- file.path(dir, sprintf("effort_%s_%d-%d.rds", gsub("[^A-Za-z]+", "_", lat), years[1], years[2]))
   done <- if (file.exists(path)) readRDS(path) else NULL
@@ -282,9 +282,7 @@ read_effort <- function(path) {
 #' @export
 effort_layer <- function(group, dir = default_snapshot_dir()) {
   if (is.na(group) || !nzchar(group) || !dir.exists(dir)) return(NULL)
-  g <- generation_length_for(group)
-  tab <- generation_lengths()
-  lat <- tab$group_lat[match(g$group, tab$kat_tax)]
+  lat <- .group_lat(group, generation_lengths())
   if (is.na(lat)) return(NULL)
   files <- sort(list.files(dir, pattern = paste0("^effort_", gsub("[^A-Za-z]+", "_", lat), "_.*\\.rds$"),
                            full.names = TRUE))
@@ -439,4 +437,14 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
 cadastral_units <- function() {
   a <- get("area_list", envir = asNamespace("rndop"))
   a$payload_val[a$type == "KU"]
+}
+# The Latin NDOP name of a group given by its Latin, Czech (KAT_TAX) or
+# English name. Matched on the group's own row: two groups have no
+# confirmed Czech name, so going through KAT_TAX would confuse them.
+.group_lat <- function(group, tab) {
+  key <- function(v) tolower(trimws(as.character(v)))
+  g <- key(group)
+  hit <- which(key(tab$group_lat) == g | (!is.na(tab$kat_tax) & nzchar(tab$kat_tax) & key(tab$kat_tax) == g) |
+                 key(tab$group_en) == g)
+  if (length(hit)) tab$group_lat[hit[1]] else NA_character_
 }

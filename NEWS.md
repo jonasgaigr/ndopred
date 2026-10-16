@@ -28,7 +28,9 @@ is gone.
 * New `ndop_effort()`, `effort_layer()` and `read_effort()`: the recording
   effort of a whole NDOP group as cells and anonymous visits (no names).
   Downloaded year by year, month by month where a year is too large;
-  resumable and cached.
+  resumable and cached. `ndop_effort(units = )` restricts a layer to a random
+  sample of NDOP cadastral units (`cadastral_units()`), one request per group;
+  T1 and T2 stay within the sample and say so.
 * `assess_taxon(effort = )`, `assess_species(effort_dir = )`,
   `batch_assess(effort_dir = )`; the bulk app reads (and optionally
   downloads) effort layers; both apps can fit occupancy models and take a

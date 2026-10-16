@@ -242,7 +242,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 |---|---|
 | `trend_estimate()`, `data_tier()` | The data tier T0-T3 of a taxon and the trend estimate it allows, with its interval and start-year sensitivity |
 | `trend_settings()` | Conventions of the trend module: thresholds per tier, monitoring projects (T3), the occupancy model (T2) |
-| `ndop_effort()`, `effort_layer()`, `read_effort()` | Recording effort of a whole NDOP group (cells and visits, no names), downloaded once and cached |
+| `ndop_effort()`, `effort_layer()`, `read_effort()`, `cadastral_units()` | Recording effort of an NDOP group (cells and visits, no names), downloaded once and cached; for a large group, a random sample of cadastral units (`units`) |
 | `calculate_eoo_alpha()` | EOO as an alpha-hull, the measure for change in EOO (§4.9) |
 
 **Regional step** (Regional Guidelines v4.0)
