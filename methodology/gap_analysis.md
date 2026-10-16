@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phase 5 done (0.9.0); Phase 6 done (0.10.0); the pilot comparison awaits the expert assessments (§8) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phase 5 done (0.9.0); Phase 6 done (0.10.0); decisions D14–D17 implemented (0.11.0) |
 
 ## 1. Summary
 
@@ -414,7 +414,7 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
 
 **Status (2026-10-16): done, version 0.10.0.**
 - `compare_tools()` and `inst/benchmark/benchmark_tools.R`: ndopred against ConR 2.1, redlistr 2.1.0 and red 1.6.3 on *Onthophagus medius*, *Protaetia cuprea* and *Bombina bombina*. EOO agrees with redlistr exactly, with red within 0.01 % and with ConR within 0.3 % (projection). ndopred's AOO is the lowest; ConR's is 5–14 % higher, because its cells are square in a cylindrical projection, not on the ground. ConR's criterion B assumes a continuing decline and counts locations on a 10 km grid, so it is compared with ndopred's plausible maximum, not the best estimate. Tests cross-check EOO and AOO against redlistr and ConR, and the category against ConR where both rules agree.
-- `validate_against_experts()`, `filter_stability()`, `filter_variants()`, `region_variants()` and `inst/validation/pilot_validation.R`: false threatened and false non-threatened counted separately against blinded expert categories, overall and per pilot group, and stability under alternative filters (review §9). **The comparison has not been run: it needs the expert table (taxon, category, group, assessor, blinded) for the two pilot groups AOPK chooses.** On the three benchmark taxa only dropping unvalidated records changes a proposal: *O. medius* NT → NE (all 25 records `VEROH` 0), *P. cuprea* LC → NT (1,281 of 1,402 records `VEROH` 0).
+- `validate_against_experts()`, `filter_stability()`, `filter_variants()`, `region_variants()` and `inst/validation/pilot_validation.R`: false threatened and false non-threatened counted separately against blinded expert categories, overall and per pilot group, and stability under alternative filters (review §9). The expert comparison was later dropped by AOPK (D17, below). On the three benchmark taxa only dropping unvalidated records changes a proposal: *O. medius* NT → NE (all 25 records `VEROH` 0), *P. cuprea* LC → NT (1,281 of 1,402 records `VEROH` 0).
 - `export_dictionary()`: every column of both exports with its layer, IUCN section and a candidate SIS field; a test keeps it in step with the exports. Triage for the expert queue (`Triage_Priority`, `Triage`; prompt §8, review §3).
 - The vignette is rewritten around the four states of a value: calculated, evidenced, proposed, approved.
 - Fixes found by the checks:
@@ -422,12 +422,12 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - **Literature flag.** The stability test showed that the literature flag matched 69 % of *B. bombina* records, because NDOP cites every source as "AUTHOR (year) title". It now looks for markers of secondary sources.
   - **Unit filter.** NDOP uses only the first 1,000 cadastral units of a filter, without a warning. `ndop_effort()` now sends longer unit samples in parts, and the Diptera, Hymenoptera and Trichoptera layers were downloaded again.
 - Effort layers for T1, larger samples (2026-10-16, 75 min of NDOP queries in all): Lepidoptera 512 cells (was 42), Coleoptera 513 (66), Hymenoptera 1,747, Trichoptera 998 (88), Diptera 495 (92), Aves 195 (35), Tracheophyta 144 (21). Hymenoptera, Trichoptera and Diptera were downloaded again after the 1,000-unit fix (before it: 716, 109 and 312 cells). A cadastral-unit sample spreads effort thinly over the country, so T1 is reached only for taxa whose occupied cells overlap enough sampled cells; most taxa of the large groups stay T0. With the new Coleoptera layer *P. cuprea* reaches T1, +140 % (+64 to +344) against +236 % raw at T0; *O. medius* stays T0 (none of its cells in the sample); *B. bombina* is T1 +0 % (−10 to +11) on the 1.4 % amphibian sample.
-- Still open, for AOPK:
-  - the expert assessments for the pilot;
-  - the list of standardized monitoring projects for T3 ("Monitoring druhů ČR" is a candidate);
-  - refined generation lengths;
-  - the share filter of the regional step;
-  - checking the SIS field mapping against the current SIS schema.
+- Decided by AOPK on 2026-10-16 (§9), version 0.11.0:
+  - **D14:** the T3 projects. T3 now uses only sites counted in two or more years, since many listed projects are inventories and mappings.
+  - **D15:** the refined generation lengths are the default.
+  - **D16:** no regional share filter.
+  - **D17:** no validation against blinded expert assessments. `validate_against_experts()` became `compare_categories()`, which takes no list as the truth, and the pilot script became `check_proposals.R`.
+- Still open: checking the SIS field mapping against the current SIS schema.
 
 ## 9. Decisions needed from AOPK
 
@@ -450,6 +450,10 @@ One question the prompt already settles is not listed: taxa with no usable recor
 | D11 | Should raw window-to-window change and cluster counts stop driving bulk categories until Phase 5 provides effort-corrected trends? | **Decided 2026-10-15: no.** Bulk mode must propose a category. Indications from the records may support the proposal; they are labelled as indications, and "needs further evidence" comes alongside the proposal, not instead of it |
 | D12 | Where are snapshots stored? They contain exact and hidden coordinates and personal names | **Decided 2026-10-15:** RDS files in a new folder in Documents: `default_snapshot_dir()` = `Documents/ndop_snapshots` (override with `NDOPRED_SNAPSHOT_DIR`) |
 | D13 | How are taxa identified: exact `DRUH`, `ID_TAXON` from the input sheet, or an accepted-name checklist? | **Decided 2026-10-15: exact names.** Records whose `DRUH` differs from the queried name are flagged and excluded |
+| D14 | Which NDOP projects count as monitoring for data tier T3? | **Decided 2026-10-16:** 18 projects. They cover species and site monitoring (Monitoring druhů ČR; OP MapInv and OP Mon3 monitoring and mapping; Natura 2000 implementation and monitoring; monitoring of habitats on permanent plots, of bird areas and Annex I birds), inventories and state surveys of protected areas, habitat mapping and its updates and rectification, the national phytosociological database, bird counts (LSD, IWC) and the mapping of invasive species. Implemented as `monitoring_projects()` (`inst/extdata/monitoring_projects.csv`), the default of `trend_settings()` and of both apps. Names are matched exactly against `PROJEKT`. Many of these projects visit a site once, so T3 now uses only sites counted in two or more years |
+| D15 | Generation lengths: keep the 1-year placeholder or adopt the refined tables? | **Decided 2026-10-16: the refined tables** (`generation_lengths_refined()`; `methodology/generation_lengths/`) are the default; the placeholder can still be chosen |
+| D16 | Should taxa below a share of the global population be Not Applicable (Regional Guidelines IV.2, optional filter)? | **Decided 2026-10-16: no.** `regional_filter_share` stays `NA` |
+| D17 | Should the proposals be validated against blinded expert assessments (review §9)? | **Decided 2026-10-16: no.** Experts often depart from the IUCN criteria, so their categories are no gold standard. The reference is the criteria (tests at the thresholds, the unknown paths, the notation and the Guidelines' worked examples). `compare_categories()` sets the proposals beside any list without taking either side as the truth, and `final_assessment()` checks expert categories against the evidence |
 
 ## 10. Running the gap tests
 

@@ -125,16 +125,25 @@ to the reference year (**2010–2026** for 2026), and the trend compares it with
 **2000–2016**, the same window ten years earlier. Ten years is the period of
 criterion A unless three generations are longer; then the comparison window
 moves back by three generations (`ndopred_config(window = 17)`, with
-`trend_shift` derived from the generation length). The reference year is always
-explicit; nothing reads the system clock.
+`trend_shift` derived from the generation length), but not before 2000
+(`time_depth_start`), the start of the effort layers and of the AOPK windows.
+Where three generations reach further back, the trend issue says that the
+change covers fewer years than the criterion A period, so a steady decline
+measured that way is understated. The reference year is always explicit;
+nothing reads the system clock.
 
-**Generation length** comes from `generation_lengths()`, a table with one row
-per NDOP taxonomic group (`KAT_TAX`), unless the assessor gives one for the
-taxon. Every group is set to **1 year** for now, a placeholder AOPK will refine.
-Up to 3.3 years a generation length changes nothing: criterion A uses 10 years
-until three generations exceed it, and C1 uses 3, 5 and 10 years until one, two
-and three generations exceed them. Each result row reports the value used and
-its source.
+**Generation length** (§4.4) comes from the refined tables adopted by AOPK
+(D15; `generation_lengths_refined()`, sources and method in
+`methodology/generation_lengths/`), unless the assessor gives one for the
+taxon. A taxon is looked up within its NDOP group: by species (or synonym),
+then genus, then family, then the group's value. The species table covers
+every vertebrate (birds from BirdLife International, others from age at
+first reproduction and longevity) and every Habitats Directive taxon. Up to
+3.3 years a generation length changes nothing: criterion A uses 10 years
+until three generations exceed it, and C1 uses 3, 5 and 10 years until one,
+two and three generations exceed them. Each result row reports the value
+used and the row it came from. The earlier 1-year placeholder per group can
+still be chosen (`generation_length_set("placeholder")`).
 
 * **Criterion B** describes the **current** distribution: §4.9 states that EOO
   and AOO "should not include areas where the species no longer exists". EOO,
@@ -167,10 +176,15 @@ its source.
   trend over years, detection with the visit's list length. A trend in
   occupancy, not in mature individuals (review §7.3), so basis (c). Run when
   `trend_settings(occupancy_model = TRUE)`; it takes minutes per taxon.
-* **T3**, counts from standardized monitoring projects that AOPK lists
-  (`monitoring_projects`): an abundance index, a log-linear model of counts on
-  site and year, basis (b). The only source of an estimated decline (C1) and of
-  a fluctuation diagnosis from records.
+* **T3**, counts from the monitoring projects AOPK lists (D14,
+  `monitoring_projects()`: species and site monitoring, inventories and state
+  surveys of protected areas, habitat mapping, the national phytosociological
+  database, bird counts): an abundance index, a log-linear model of counts on
+  site and year, basis (b). Only sites counted in two or more years count: a
+  site counted once says nothing about the change there, and inventories and
+  mappings visit most sites once. T3 needs at least three such sites and five
+  years. The only source of an estimated decline (C1) and of a fluctuation
+  diagnosis from records, both taken from those repeat sites alone.
 
 The best available tier gives the reduction *indication*, with its interval
 as the plausible range. It becomes evidence only when an assessor confirms it.
@@ -375,7 +389,7 @@ resulting from benign introductions". Not Applicable (NA), and not assessed:
 * colonizers until they have reproduced in the region "for several years
   (typically for at least 10 consecutive years)" (`colonizer_years`);
 * taxa below an optional filter on the share of the global population
-  (`regional_filter_share`, off until AOPK sets one).
+  (`regional_filter_share`), which AOPK decided not to use (D16).
 
 As in the flowchart, an answer the assessor does not know leads to assessment.
 Visitors are assessed, as visiting populations.
@@ -455,36 +469,41 @@ The tests cross-check EOO against redlistr (exactly) and ConR (within 1 %), AOO
 against redlistr's jittered grids, and the category against ConR where both
 rules agree.
 
-## 15. Pilot validation
+## 15. Checking the proposals
 
-The review (section 9) asks for a pilot on two insect groups, one well recorded
-(e.g. butterflies) and one poorly recorded (e.g. saproxylic beetles), against
-**blinded** expert assessments, with false "threatened" and false
-"non-threatened" proposals counted separately: one accuracy over all taxa
-hides which error is made. `inst/validation/pilot_validation.R` runs it from an
-expert table (taxon, category, group, assessor, blinded):
+The review (section 9) proposes a pilot against **blinded** expert
+assessments, counting false "threatened" and false "non-threatened"
+proposals. AOPK decided against it (D17): experts often depart from the IUCN
+criteria, so their categories cannot serve as the truth a proposal is
+measured against. The reference is the criteria themselves: the tests check
+the engine at the threshold boundaries, the unknown paths, the Annex 2
+notation and the worked examples of the Guidelines (§8.2, §8.3). Where an
+expert's category and the evidence part, `final_assessment()` says so
+(section 13).
 
-* `validate_against_experts()` compares the proposals (after the regional step)
-  with the expert categories: exact agreement, the same threat status, false
-  threatened, false non-threatened, sensitivity and specificity, how often the
-  plausible range covers the expert category, and a confusion matrix, overall
-  and per group.
+Two checks remain, run for a list of taxa by
+`inst/validation/check_proposals.R`:
+
 * `filter_stability()` reassesses each taxon without unvalidated records
   (`VEROH` 0), without less credible ones (3), without literature and
   collection records, without positions less precise than 2 km, with 10 % of
   the records dropped at random, and, with `region_variants()`, without one
   region at a time; it reports where the category or the threat status
   changes.
+* `compare_categories()` (with `--compare`) sets the proposals beside another
+  list of categories, such as the current national Red List. It sorts the
+  taxa into exact agreement, the same threat status, "proposal threatened
+  only" and "reference threatened only", with counts and shares per group.
+  Neither side is taken as the truth: each disagreement is a question to
+  settle against the criteria and the evidence.
 
-The expert assessments are not in hand yet, so the comparison has not been
-run. The stability test alone already shows what it is for. On the three
-benchmark taxa, dropping literature and collection records, imprecise
-positions or 10 % of the records changes no proposal, but unvalidated records
-matter: all 25 records of *Onthophagus medius* were unvalidated (`VEROH` 0) at
-download, so without them it cannot be evaluated (NE); 1,281 of the 1,402
-usable records of *Protaetia cuprea* were, and without them the proposal moves
-from LC to NT with a range of LC-EN. *Bombina bombina* is stable under every
-filter.
+On the three benchmark taxa, dropping literature and collection records,
+imprecise positions or 10 % of the records changes no proposal, but
+unvalidated records matter: all 25 records of *Onthophagus medius* were
+unvalidated (`VEROH` 0) at download, so without them it cannot be evaluated
+(NE); 1,281 of the 1,402 usable records of *Protaetia cuprea* were, and
+without them the proposal moves from LC to NT with a range of LC-EN.
+*Bombina bombina* is stable under every filter.
 
 ## 16. The export
 
@@ -510,8 +529,15 @@ knitr::kable(d[, c("batch_column", "app_column", "layer", "description")],
   and reports convergence (Rhat). The overlap of the AOPK windows damps every
   change. Negative findings count as zero counts in T3 series; T1 and T2 do not
   use them yet.
-* Generation lengths are a 1-year placeholder for every group until AOPK
-  refines the table.
+* Generation lengths outside the species table are family, genus or group
+  values; most vertebrate values come from one formula on curated
+  parameters, and some plant and bryophyte values are expert estimates
+  flagged for review (`methodology/generation_lengths/`). The comparison
+  window stops at 2000, so for long-lived taxa the change covers fewer years
+  than the criterion A period.
+* The T3 projects include inventories and habitat mappings. Only their
+  sites counted in two or more years enter T3, but the counts follow each
+  project's protocol, which may differ between projects and years.
 * NDOP data come only through rndop (AOPK, D4), which exports no visit
   identifier and no source type: visits are rebuilt from date, locality and an
   anonymous observer code, list length is the detection covariate of T2, and
@@ -522,5 +548,3 @@ knitr::kable(d[, c("batch_column", "app_column", "layer", "description")],
   Breeding and visiting populations that RG IV.2 would assess separately are
   not separated: NDOP records carry no breeding/visiting distinction, and
   evidence is keyed by taxon name.
-* The pilot validation against blinded expert assessments is built but not yet
-  run.

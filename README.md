@@ -195,7 +195,8 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | Function | Purpose |
 |---|---|
 | `ndopred_config()` | Everything a run depends on: reference year, windows, generation length, labelled conventions, versions |
-| `generation_lengths()`, `generation_length_for()` | Generation length per NDOP taxonomic group (`KAT_TAX`), with status and source |
+| `generation_lengths_refined()`, `generation_length_for()`, `generation_length_set()` | Generation length of a taxon: by species, genus, family, then NDOP group (refined set, the default; AOPK, D15), with its source |
+| `generation_lengths()` | The superseded 1-year placeholder per NDOP group (`set = "placeholder"`) |
 | `assessment_inputs()` | Data, indications and evidence for one taxon |
 | `assess_criteria()` | The single rule engine: criteria A-E in two scenarios, plus a tidy evidence table |
 | `categorise()` | The proposal: category, criteria (both formats), support, needs, range, flags |
@@ -242,6 +243,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 |---|---|
 | `trend_estimate()`, `data_tier()` | The data tier T0-T3 of a taxon and the trend estimate it allows, with its interval and start-year sensitivity |
 | `trend_settings()` | Conventions of the trend module: thresholds per tier, monitoring projects (T3), the occupancy model (T2) |
+| `monitoring_projects()` | AOPK's list of NDOP projects for T3 (D14) |
 | `ndop_effort()`, `effort_layer()`, `read_effort()`, `cadastral_units()` | Recording effort of an NDOP group (cells and visits, no names), downloaded once and cached; for a large group, a random sample of cadastral units (`units`) |
 | `calculate_eoo_alpha()` | EOO as an alpha-hull, the measure for change in EOO (§4.9) |
 
@@ -258,7 +260,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | Function | Purpose |
 |---|---|
 | `compare_tools()` | The same records through ndopred, ConR, redlistr and red: EOO, AOO, locations and the criterion B category side by side |
-| `validate_against_experts()` | Proposals against blinded expert categories: false threatened and false non-threatened counted separately, sensitivity, specificity, a confusion matrix, per pilot group |
+| `compare_categories()` | Proposals beside another list of categories (e.g. the current Red List), sorted by agreement and by the direction of each disagreement; neither side taken as the truth (D17) |
 | `filter_stability()`, `filter_variants()`, `region_variants()` | Reassess under alternative record filters (unvalidated, less credible, literature, imprecise, 10 % data loss, one region at a time) and report what changes |
 | `export_dictionary()` | Every column of both exports: meaning, values, layer, IUCN section, candidate SIS field |
 
@@ -285,7 +287,7 @@ The established columns are unchanged. `Kategorie (automatická)` holds the prop
 | `Záznamů vyřazeno`, `Důvody vyřazení` | How many records were excluded, and why |
 | `Snapshot NDOP` | The snapshot file the row was computed from (when snapshots are stored) |
 | `Nejistý návrh` | `ano` when the plausible range holds both a non-threatened and a threatened category (AOPK, D7) |
-| `Generační doba (roky)`, `Zdroj generační doby` | The generation length used and where it came from (the group table, by default) |
+| `Generační doba (roky)`, `Zdroj generační doby` | The generation length used and where it came from (the row of the refined tables that matched, by default) |
 | `Kategorie (finální)` | The assessor's final category, once approved (with an evidence file) |
 | `Stav finální kategorie` | `approved`, `approved; inconsistent with the evidence`, `awaiting approval` or `no final category` |
 | `Nesoulad finální kategorie s doklady` | Where the final category and the evidence disagree |
@@ -340,15 +342,15 @@ Each row names the taxon, the field (`evidence_fields()`), the value or `min`/`b
   - Records of another taxon (names match exactly, so the query's hybrids and aggregates are excluded), records without coordinates, and records outside Czechia are excluded.
   - Literature and collection records and suspected duplicates are flagged only. Literature is recognised by markers in `ZDROJ` (card index, collection, museum, herbarium, atlas, literature data, journal volume with pages): a heuristic, since NDOP cites field notes and survey reports in the same "AUTHOR (year) title" form.
 - **Windows (AOPK, D5).** The current window is the 17 years up to the reference year (2010–2026); the trend compares it with 2000–2016. The two windows' midpoints are 10 years apart, the period of criterion A; where three generations are longer, the comparison window moves back by three generations. They share 2010–2016, which damps the measured change: a site lost after 2010 still counts as current if it was recorded before the loss. For the same reason the criterion B window can hold sites lost since 2010, which §4.9 asks to leave out.
-- **Generation lengths per group.** `generation_lengths()` holds one row per NDOP taxonomic group (`KAT_TAX`: Obojživelníci, Savci, Motýli, …). Every group is 1 year for now, a placeholder AOPK will refine; up to 3.3 years it changes no period. A value given for a taxon wins. Point `NDOPRED_GENERATION_LENGTHS` at an edited copy of the CSV to use other values.
+- **Generation lengths per taxon** (AOPK, D15). The refined tables (`generation_lengths_refined()`; sources and method in [`methodology/generation_lengths/`](methodology/generation_lengths/)) give every vertebrate and every Habitats Directive taxon its own value, and other taxa a genus, family or NDOP-group value. Up to 3.3 years a generation length changes no period. A value given for a taxon wins. The comparison window does not start before 2000 (`time_depth_start`); for long-lived taxa the trend issue says that the change covers fewer years than the criterion A period. The superseded 1-year placeholder per group stays available (`generation_length_set("placeholder")`).
 - **Date ranges count only where they fit.** A record dated 1995–2012 belongs to neither 2000–2016 nor 2010–2026.
 - **AOO and EOO have ranges.** `CXPRESNOST` 0 means an exact position. A record whose precision disc, or NDOP polygon, reaches into other 2 x 2 km cells widens AOO to a minimum and a maximum around the best estimate. These bound the *observed* AOO; for an under-recorded taxon the true AOO can be larger (§4.10.8).
 - **Unknown is not "no".** Severe fragmentation, habitat decline and the threat default to unknown. A restricted taxon with nothing evidenced is proposed as LC, flagged uncertain, with a range reaching CR and the missing conditions listed; the same taxon with the conditions evidenced absent is LC without the flag (Guidelines §10.1).
 - **D2 needs a described threat.** A restricted range is flagged as a D2 candidate; VU D2 follows once the assessor names a plausible threat able to drive the taxon to CR or EX in a very short time (§8). `d2_threat = TRUE` alone is not a threat and is treated as unknown.
 - **Clusters are not locations.** The 5 km cluster count is an indication for B(a) and D2, always listed as needing threat-defined locations (§4.11). With no plausible threat, the location subcriteria are not met.
-- **Trends follow the data tier** (review, Table 5). **T0**, records only: the raw change in AOO and in alpha-hull EOO, with the range from moving the comparison window two years either way; a diagnostic, not a population trend. **T1**, with an effort layer of the group (`ndop_effort()`): relative occupancy on the cells recorded for the group in both windows, an interim proxy with a bootstrap interval. **T2**, repeat visits: an occupancy-detection model (spOccupancy) when switched on. **T3**, counts from standardized monitoring projects that AOPK lists: an abundance index (basis b). Each estimate is an indication with its interval; a continuing decline is indicated only when the whole interval says so. The needs list says what each tier still lacks (a monitored estimate for T0/T1; the link from occupancy to population for T2).
+- **Trends follow the data tier** (review, Table 5). **T0**, records only: the raw change in AOO and in alpha-hull EOO, with the range from moving the comparison window two years either way; a diagnostic, not a population trend. **T1**, with an effort layer of the group (`ndop_effort()`): relative occupancy on the cells recorded for the group in both windows, an interim proxy with a bootstrap interval. **T2**, repeat visits: an occupancy-detection model (spOccupancy) when switched on. **T3**, counts from the monitoring projects AOPK lists (`monitoring_projects()`, D14) at sites counted in two or more years: an abundance index (basis b). Inventories and habitat mappings on the list visit most sites once, and those sites do not count. Each estimate is an indication with its interval; a continuing decline is indicated only when the whole interval says so. The needs list says what each tier still lacks (a monitored estimate for T0/T1; the link from occupancy to population for T2).
 - **Minimum data quality** (Guidelines Table 3.1): expert evidence below the minimum of its criterion (a suspected decline for B or C2; inferred numbers for C, D or C2a(i); an inferred decline for C1) is documented but not used. C1 needs an estimated decline, so only standardized monitoring (T3) or evidence gives it, and only T3 counts diagnose extreme fluctuations.
-- **The regional step needs experts.** Eligibility (origin, occurrence, years of reproduction, share of the global population), the step-three questions 3a-3f, the number of steps and the global category are evidence entries. An optional filter on the share of the global population (`ndopred_config(regional_filter_share)`) is off until AOPK sets one. A final category one step below what the evidence supports is consistent when the step-three answers give that downlisting.
+- **The regional step needs experts.** Eligibility (origin, occurrence, years of reproduction, share of the global population), the step-three questions 3a-3f, the number of steps and the global category are evidence entries. AOPK decided not to filter taxa by their share of the global population (D16); `ndopred_config(regional_filter_share)` stays off. A final category one step below what the evidence supports is consistent when the step-three answers give that downlisting.
 - **RE and DD are candidates, NE is "not evaluated".** A taxon not recorded for longer than `re_candidate_years` (a convention, default 50) is an RE candidate needing documented surveys (Regional Guidelines III.14). DD is proposed only for a taxon with records but none current and nothing else to go on, and is flagged when the range spans LC to CR (§10.1, §10.4). A taxon with no usable records is NE (§10.4).
 - **Notation follows Annex 2** in `Criteria_IUCN` / `Kritéria (IUCN zápis)`: `CR D` and `EN D` (not `D1`), `B1…+2…`, `C2a(i,ii)`, `VU D1+2`.
 - **No system clock.** Every run states its reference year.
@@ -369,9 +371,9 @@ The suite covers:
 - the evidence layer, the regional step and the trend tiers, including a small occupancy model when spOccupancy is installed;
 - both Shiny apps end-to-end against a synthetic NDOP fixture (`tests/testthat/helper-mock-ndop.R`);
 - cross-checks of EOO and AOO against redlistr and ConR, and of the criterion B category against ConR, when they are installed;
-- the pilot validation tools and the export dictionary, which must list every column of both exports.
+- the stability and comparison tools, and the export dictionary, which must list every column of both exports.
 
-## Benchmark and pilot validation
+## Benchmark and checks on real data
 
 Two scripts in `inst/` run the checks of review §9 on real data (they use the latest stored snapshot of each taxon, or download one):
 
@@ -379,11 +381,11 @@ Two scripts in `inst/` run the checks of review §9 on real data (they use the l
 # ndopred against ConR, redlistr and red on the pilot taxa
 Rscript inst/benchmark/benchmark_tools.R --year 2026 --out benchmark.csv
 
-# proposals against blinded expert assessments, plus stability under alternative filters
-Rscript inst/validation/pilot_validation.R --experts experts.csv --year 2026 --out pilot/ [--regions]
+# stability under alternative record filters; optionally a comparison with another list
+Rscript inst/validation/check_proposals.R --taxa taxa.csv --year 2026 [--compare redlist.csv] [--regions]
 ```
 
-The expert table has one row per taxon: `taxon`, `category`, `group` (the pilot group, e.g. a well-recorded and a poorly recorded insect group), `assessor` and `blinded`. ConR is installed from GitHub (`remotes::install_github("gdauby/ConR")`), redlistr and red from CRAN. The vignette reports the benchmark on three taxa: EOO agrees with redlistr exactly and with ConR within 0.3 %; ConR's AOO is 5-14 % higher, from its cylindrical projection; ConR's criterion B assumes a continuing decline, which ndopred never does.
+`taxa.csv` has a `taxon` column (and optionally `group`); a `--compare` list has `taxon` and `category`. There is no validation against expert categories as a gold standard: experts often depart from the IUCN criteria (AOPK, D17), so the reference is the criteria themselves, and a disagreement with any list is a question to settle against the criteria and the evidence. ConR is installed from GitHub (`remotes::install_github("gdauby/ConR")`), redlistr and red from CRAN. The vignette reports the benchmark on three taxa: EOO agrees with redlistr exactly and with ConR within 0.3 %; ConR's AOO is 5-14 % higher, from its cylindrical projection; ConR's criterion B assumes a continuing decline, which ndopred never does.
 
 ---
 
@@ -395,7 +397,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.10.0 (experimental). All phases of the IUCN alignment are done. Proposals are a screening aid; the final category is the assessor's, approved by group experts. Version 1.0.0 waits for the pilot validation against blinded expert assessments and for refined generation lengths.
+Version 0.11.0 (experimental). All phases of the IUCN alignment are done, with AOPK's decisions on generation lengths, T3 projects, the regional filter and validation (D14-D17). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
 
 ## References
 

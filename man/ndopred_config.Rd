@@ -103,7 +103,8 @@ years".}
 \item{regional_filter_share}{Numeric or \code{NA}. \emph{Convention.} The optional
 filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
 cent) of the global population in the region are Not Applicable. \code{NA}
-(default) applies no filter; the regional Red List authority decides.}
+(default) applies no filter: AOPK, the regional Red List authority,
+decided on 2026-10-16 not to set one (gap analysis, D16).}
 
 \item{trend}{Settings of the trend module, from \code{\link[=trend_settings]{trend_settings()}}.}
 }

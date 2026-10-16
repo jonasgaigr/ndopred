@@ -1,19 +1,54 @@
-# ndopred (development version)
+# ndopred 0.11.0
 
-## Refined generation lengths (proposal, opt-in)
+AOPK's decisions of 2026-10-16 (`methodology/gap_analysis.md`, D14-D17):
+refined generation lengths, the projects of data tier T3, no regional
+share filter, and no validation against expert categories.
 
-* New `generation_lengths_refined()`: the proposed replacement for the
-  1-year placeholder. 698 species rows (every vertebrate; every Habitats
-  Directive taxon), 620 group, family and genus rows for the rest, and a
-  genus-to-family lookup (AOPK checklist for plants, fungi, lichens and
-  bryophytes). Sources and method: `methodology/generation_lengths/`.
-* `generation_length_for()` takes `taxon` and `set`. With
-  `set = "refined"` a taxon is looked up by species (or synonym, or the
-  binomial of an infraspecific name), then genus, then family, then its
-  NDOP group. The placeholder stays the default until AOPK adopts the
-  proposal; `generation_length_set()`, the `ndopred.generation_lengths`
-  option, `NDOPRED_GENERATION_LENGTH_SET` and a choice in both apps switch
-  it. `Generation_Length_Source` names the row that matched.
+## Refined generation lengths (D15)
+
+* New `generation_lengths_refined()`, adopted by AOPK and the default:
+  698 species rows (every vertebrate; every Habitats Directive taxon), 620
+  group, family and genus rows for the rest, and a genus-to-family lookup
+  (AOPK checklist for plants, fungi, lichens and bryophytes). Sources and
+  method: `methodology/generation_lengths/`.
+* `generation_length_for()` takes `taxon` and `set`. A taxon is looked up
+  by species (or synonym, or the binomial of an infraspecific name), then
+  genus, then family, then its NDOP group. `generation_length_set()`, the
+  `ndopred.generation_lengths` option, `NDOPRED_GENERATION_LENGTH_SET` and
+  a choice in both apps switch to the superseded 1-year placeholder
+  (`set = "placeholder"`). `Generation_Length_Source` names the row that
+  matched. `generation_length_set(set)` returns the set in force before
+  the change.
+
+## Data tier T3 (D14)
+
+* New `monitoring_projects()`: AOPK's 18 NDOP projects for T3
+  (`inst/extdata/monitoring_projects.csv`), the default of
+  `trend_settings()` and of the project box in both apps.
+* T3 uses only sites counted in two or more years. Many listed projects
+  are inventories and habitat mappings that visit a site once; with a site
+  effect in the model such a site says nothing about the trend, yet T3
+  had qualified on all sites and fed every listed record to C1 and the
+  fluctuation diagnosis as a consistent-effort series. The tier reason
+  says how many of the projects' sites qualified, and a T3 taxon's
+  population metrics come from those sites only.
+
+## No list taken as the truth (D17)
+
+* `validate_against_experts()` is replaced by `compare_categories()`.
+  Experts often depart from the IUCN criteria, so their categories are no
+  gold standard. The new function sets the proposals beside any list (the
+  current Red List, expert categories) and sorts disagreements by
+  direction ("proposal threatened only", "reference threatened only"),
+  with counts and shares but no sensitivity or specificity.
+* `inst/validation/pilot_validation.R` becomes `check_proposals.R`: the
+  stability test for a list of taxa, and the comparison only with
+  `--compare`.
+
+## Regional step (D16)
+
+* No filter on the share of the global population:
+  `regional_filter_share` stays `NA`.
 
 ## Time depth of the comparison window
 

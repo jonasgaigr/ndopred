@@ -71,7 +71,8 @@
 #' @param regional_filter_share Numeric or `NA`. *Convention.* The optional
 #'   filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
 #'   cent) of the global population in the region are Not Applicable. `NA`
-#'   (default) applies no filter; the regional Red List authority decides.
+#'   (default) applies no filter: AOPK, the regional Red List authority,
+#'   decided on 2026-10-16 not to set one (gap analysis, D16).
 #' @param trend Settings of the trend module, from [trend_settings()].
 #' @return An object of class `ndopred_config`.
 #' @seealso [assess_criteria()], [categorise()], [assess_taxon()]
