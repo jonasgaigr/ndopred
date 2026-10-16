@@ -290,9 +290,24 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
   read_effort(files[length(files)])
 }
 
-# One chunk from NDOP (rndop): NULL when the query fails or is too large.
-# NULL when the request fails or holds more than `max_n` records.
+# NDOP uses only the first 1,000 cadastral units of a filter and ignores the
+# rest without a word (checked on 2026-10-16: lists of 1,000, 2,000 and 4,000
+# units gave the count of the first 1,000), so longer lists go in parts.
+.MAX_UNITS <- 1000
+
+# One chunk from NDOP (rndop): NULL when the request fails or holds more
+# than `max_n` records.
 .download_chunk <- function(lat, from, to, max_n = Inf, units = NULL) {
+  if (length(units) > .MAX_UNITS) {
+    tabs <- list()
+    for (u in split(units, ceiling(seq_along(units) / .MAX_UNITS))) {
+      tab <- .download_chunk(lat, from, to, max_n, u)
+      if (is.null(tab)) return(NULL)
+      tabs[[length(tabs) + 1]] <- tab
+    }
+    tab <- as.data.frame(dplyr::bind_rows(tabs))
+    return(if (nrow(tab) > max_n) NULL else tab)
+  }
   p <- utils::capture.output(
     payload <- rndop::set_search_payload(rfKategorie = paste0("^", lat, "$"), rfDatumOd = from, rfDatumDo = to)
   )

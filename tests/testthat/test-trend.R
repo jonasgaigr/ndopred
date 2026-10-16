@@ -261,3 +261,20 @@ test_that("Groups without a confirmed Czech name are not confused with each othe
   expect_equal(unique(seen), "Pauropoda")
   expect_true(file.exists(file.path(dir, "effort_Pauropoda_2000-2000.rds")))
 })
+
+test_that("A unit sample longer than NDOP's 1,000-unit limit goes in parts", {
+  units <- sprintf("%06d: Unit %d", seq_len(2500), seq_len(2500))
+  sizes <- integer(0)
+  n_units <- function(payload) length(strsplit(payload$rfKatastr, " || ", fixed = TRUE)[[1]])
+  local_mocked_bindings(.ndop_count = function(payload) {
+    sizes <<- c(sizes, n_units(payload))
+    n_units(payload)
+  })
+  local_mocked_bindings(ndop_download = function(search_payload, ...) {
+    data.frame(ID_NALEZ = seq_len(n_units(search_payload)), DRUH = "A b")
+  }, .package = "rndop")
+  tab <- .download_chunk("Amphibia", "1.1.2000", "31.12.2026", units = units)
+  expect_equal(nrow(tab), 2500)
+  expect_equal(sizes, c(1000L, 1000L, 500L))
+  expect_null(.download_chunk("Amphibia", "1.1.2000", "31.12.2026", max_n = 2000, units = units))
+})
