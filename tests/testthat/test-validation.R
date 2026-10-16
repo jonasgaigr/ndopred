@@ -1,4 +1,4 @@
-# Pilot validation (review section 9): blinded expert comparison and
+# Checking proposals: comparison with another list of categories, and
 # stability under alternative record filters.
 
 proposals_fixture <- function() {
@@ -12,7 +12,7 @@ proposals_fixture <- function() {
   )
 }
 
-experts_fixture <- function() {
+reference_fixture <- function() {
   data.frame(
     taxon = c("A a", "B b", "C c", "D d", "E e", "F f", "G g", "H h"),
     category = c("EN", "NT", "VU", "LC", "DD", "LC", "EN", "CR"),
@@ -21,62 +21,55 @@ experts_fixture <- function() {
   )
 }
 
-test_that("outcomes separate false threatened from false non-threatened", {
-  v <- validate_against_experts(proposals_fixture(), experts_fixture())
+test_that("disagreements are sorted by direction, with neither side taken as true", {
+  v <- compare_categories(proposals_fixture(), reference_fixture())
   t <- v$taxa
-  expect_equal(t$outcome, c("exact", "exact", "false non-threatened", "false threatened",
+  expect_equal(t$outcome, c("exact", "exact", "reference threatened only", "proposal threatened only",
                             "not comparable", "exact", "same status", "no proposal"))
   # The regional category is compared (degree sign dropped), falling back
   # to the category where the regional step is missing.
   expect_equal(t$proposed[1:2], c("EN", "NT"))
   expect_equal(t$proposed[7], "VU")
-  # The plausible range covers the expert category for C c (LC-EN, VU).
+  # The plausible range covers the listed category for C c (LC-EN, VU).
   expect_equal(t$range_covers[1:4], c(TRUE, TRUE, TRUE, FALSE))
 })
 
-test_that("rates are computed per assessed status, overall and per group", {
-  v <- validate_against_experts(proposals_fixture(), experts_fixture())
+test_that("the summary gives counts and shares, overall and per group", {
+  v <- compare_categories(proposals_fixture(), reference_fixture())
   s <- v$summary
   expect_equal(s$group, c("all", "poor", "well"))
   all <- s[s$group == "all", ]
   expect_equal(all$comparable, 6)
-  expect_equal(all$false_threatened, 1)
-  expect_equal(all$false_non_threatened, 1)
-  # Assessed threatened: C c (VU), G g (EN), A a (EN) -> 2 of 3 proposed threatened.
-  expect_equal(all$assessed_threatened, 3)
-  expect_equal(all$sensitivity, round(2 / 3, 3))
-  expect_equal(all$false_non_threatened_rate, round(1 / 3, 3))
-  # Assessed non-threatened: B b (NT), D d (LC), F f (LC) -> D d proposed VU.
-  expect_equal(all$specificity, round(2 / 3, 3))
-  expect_equal(all$false_threatened_rate, round(1 / 3, 3))
+  expect_equal(all$exact, 3)
+  expect_equal(all$same_status, 4)
+  expect_equal(all$proposal_threatened_only, 1)
+  expect_equal(all$reference_threatened_only, 1)
+  expect_equal(all$share_same_status, round(4 / 6, 3))
   expect_equal(all$not_comparable, 2)
+  # No measure that presumes one side is right.
+  expect_false(any(c("sensitivity", "specificity") %in% names(s)))
   well <- s[s$group == "well", ]
-  expect_equal(c(well$false_threatened, well$false_non_threatened), c(1, 1))
-  expect_equal(v$confusion["VU", "LC"], 1)
-  expect_equal(v$confusion["(none)", "CR"], 1)
+  expect_equal(c(well$proposal_threatened_only, well$reference_threatened_only), c(1, 1))
+  expect_equal(v$cross["VU", "LC"], 1)
+  expect_equal(v$cross["(none)", "CR"], 1)
 })
 
 test_that("the plain category column can be compared instead", {
-  v <- validate_against_experts(proposals_fixture(), experts_fixture(), column = "Category")
+  v <- compare_categories(proposals_fixture(), reference_fixture(), column = "Category")
   expect_equal(v$taxa$proposed[2], "VU")
-  expect_equal(v$taxa$outcome[2], "false threatened")
-  expect_warning(validate_against_experts(proposals_fixture(), experts_fixture(),
-                                          column = "Final_Category"), "not a blind")
+  expect_equal(v$taxa$outcome[2], "proposal threatened only")
 })
 
-test_that("the expert table is checked", {
-  ex <- experts_fixture()
-  ex$category[1] <- "VUL"
-  expect_error(validate_against_experts(proposals_fixture(), ex), "unknown expert categories")
-  ex <- experts_fixture()
-  ex$taxon[2] <- "A a"
-  expect_error(validate_against_experts(proposals_fixture(), ex), "twice")
-  ex <- experts_fixture()
-  ex$blinded <- c(TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE)
-  expect_warning(validate_against_experts(proposals_fixture(), ex), "not marked blinded")
+test_that("the reference table is checked", {
+  ref <- reference_fixture()
+  ref$category[1] <- "VUL"
+  expect_error(compare_categories(proposals_fixture(), ref), "unknown reference categories")
+  ref <- reference_fixture()
+  ref$taxon[2] <- "A a"
+  expect_error(compare_categories(proposals_fixture(), ref), "twice")
   path <- withr::local_tempfile(fileext = ".csv")
-  utils::write.csv(experts_fixture(), path, row.names = FALSE)
-  expect_equal(nrow(validate_against_experts(proposals_fixture(), path)$taxa), 8)
+  utils::write.csv(reference_fixture(), path, row.names = FALSE)
+  expect_equal(nrow(compare_categories(proposals_fixture(), path)$taxa), 8)
 })
 
 stability_fixture <- function() {

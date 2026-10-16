@@ -34,5 +34,5 @@ section 9). Records dropped by a variant are marked excluded with the
 reason \code{"variant: <name>"}; the snapshot is not changed.
 }
 \seealso{
-\code{\link[=validate_against_experts]{validate_against_experts()}}
+\code{\link[=compare_categories]{compare_categories()}}
 }

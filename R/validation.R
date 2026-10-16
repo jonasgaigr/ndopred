@@ -1,64 +1,67 @@
-#' Compare Proposals With Blinded Expert Assessments
+#' Compare Proposals With Another List of Categories
 #'
-#' The pilot validation of the review (section 9): the categories ndopred
-#' proposes are compared with categories that experts assigned without
-#' seeing them. False "threatened" and false "non-threatened" proposals are
-#' counted separately, since a single accuracy over all taxa hides which
-#' error is made.
+#' Sets the proposals beside the categories of another list, such as the
+#' current national Red List or categories assigned by experts, and sorts
+#' the taxa by where they agree and where they do not. **Neither side is
+#' taken as the truth.** Experts often depart from the IUCN criteria (AOPK,
+#' D17), and a proposal rests on what the records show and the evidence
+#' given. A disagreement is therefore a question to settle against the
+#' criteria and the evidence. It is not an error of the proposal, and it
+#' is not an error of the list.
 #'
 #' @section Outcomes:
 #' For taxa where both sides give CR, EN, VU, NT or LC:
 #' * `exact`: the same category;
 #' * `same status`: both threatened (CR, EN, VU) or both not (NT, LC);
-#' * `false threatened`: proposed threatened, assessed NT or LC;
-#' * `false non-threatened`: proposed NT or LC, assessed threatened.
+#' * `proposal threatened only`: the proposal threatened, the list NT or LC;
+#' * `reference threatened only`: the list threatened, the proposal NT or LC.
 #'
-#' Any other pair (DD, NE, NA, RE, EX, EW, or no proposal) is
-#' `not comparable` and kept in the confusion matrix. A degree sign
-#' (regional adjustment) is ignored. `range_covers` says whether the expert
-#' category lies inside the proposal's plausible range.
+#' Any other pair (DD, NE, NA, RE, EX, EW) is `not comparable`, and a taxon
+#' the proposals lack is `no proposal`; both are kept in the cross table. A
+#' degree sign (regional adjustment) is ignored. `range_covers` says whether
+#' the list's category lies inside the proposal's plausible range.
+#'
+#' An expert's final category is checked against the criteria by
+#' [final_assessment()], which flags where it goes beyond what the evidence
+#' supports.
 #'
 #' @param proposals A data frame from [batch_assess()] (or rows of
 #'   [assess_taxon()]), with `Species`, `Category` and optionally
 #'   `Regional_Category`, `Category_Range` and `Uncertain`.
-#' @param experts A data frame, or the path to a CSV file, with one row per
-#'   taxon: `taxon` and `category`, and optionally `group` (e.g. the
-#'   well-recorded and the poorly recorded pilot group), `criteria`,
-#'   `assessor` and `blinded` (`TRUE` when the assessor did not see the
-#'   proposal).
+#' @param reference A data frame, or the path to a CSV file, with one row
+#'   per taxon: `taxon` and `category`, and optionally `group` (to summarise
+#'   by group) and `criteria`.
 #' @param column The proposal column compared: `"Regional_Category"` (the
-#'   category after the regional step, falling back to `Category`) or
-#'   `"Category"`, or `"Final_Category"`, which is not blind.
-#' @return A list: `taxa` (one row per expert taxon with both categories,
-#'   the outcome and `range_covers`), `summary` (counts and rates, overall
-#'   and per `group`), and `confusion` (a table of proposed against assessed
+#'   category after the regional step, falling back to `Category`),
+#'   `"Category"` or `"Final_Category"`.
+#' @return A list: `taxa` (one row per reference taxon with both categories,
+#'   the outcome and `range_covers`), `summary` (counts and shares, overall
+#'   and per `group`), and `cross` (a table of proposed against reference
 #'   categories).
-#' @seealso [filter_stability()], `inst/validation/pilot_validation.R`
+#' @seealso [filter_stability()], [final_assessment()],
+#'   `inst/validation/check_proposals.R`
 #' @export
-validate_against_experts <- function(proposals, experts,
-                                     column = c("Regional_Category", "Category", "Final_Category")) {
+compare_categories <- function(proposals, reference,
+                               column = c("Regional_Category", "Category", "Final_Category")) {
   column <- match.arg(column)
-  experts <- .read_experts(experts)
+  reference <- .read_reference(reference)
   if (!"Species" %in% names(proposals)) stop("`proposals` needs a Species column", call. = FALSE)
-  if (column == "Final_Category") {
-    warning("Final categories are set by experts and are not a blind comparison.", call. = FALSE)
-  }
-  idx <- match(experts$taxon, proposals$Species)
+  idx <- match(reference$taxon, proposals$Species)
   col <- function(nm) if (nm %in% names(proposals)) as.character(proposals[[nm]])[idx] else
     rep(NA_character_, length(idx))
   proposed <- col(column)
   if (column == "Regional_Category") proposed <- ifelse(is.na(proposed), col("Category"), proposed)
   proposed <- .plain_category(proposed)
-  assessed <- .plain_category(experts$category)
+  listed <- .plain_category(reference$category)
   range <- col("Category_Range")
   taxa <- data.frame(
-    taxon = experts$taxon,
-    group = experts$group,
+    taxon = reference$taxon,
+    group = reference$group,
     proposed = proposed,
-    assessed = assessed,
-    outcome = .outcome(proposed, assessed),
+    reference = listed,
+    outcome = .outcome(proposed, listed),
     range = range,
-    range_covers = .range_covers(range, assessed),
+    range_covers = .range_covers(range, listed),
     uncertain = as.logical(col("Uncertain")),
     stringsAsFactors = FALSE
   )
@@ -66,38 +69,34 @@ validate_against_experts <- function(proposals, experts,
   groups <- list(all = taxa)
   g <- taxa$group
   if (any(!is.na(g))) groups <- c(groups, split(taxa[!is.na(g), ], g[!is.na(g)]))
-  summary <- do.call(rbind, lapply(names(groups), function(g) .validation_summary(groups[[g]], g)))
+  summary <- do.call(rbind, lapply(names(groups), function(g) .comparison_summary(groups[[g]], g)))
   lv <- c("CR", "EN", "VU", "NT", "LC", "DD", "NE", "NA", "RE", "EW", "EX")
   lev <- function(x) factor(ifelse(is.na(x), "(none)", x),
                             levels = c(lv, setdiff(unique(stats::na.omit(x)), lv), "(none)"))
-  confusion <- table(proposed = lev(taxa$proposed), assessed = lev(taxa$assessed))
-  list(taxa = taxa, summary = summary, confusion = confusion)
+  cross <- table(proposed = lev(taxa$proposed), reference = lev(taxa$reference))
+  list(taxa = taxa, summary = summary, cross = cross)
 }
 
 .THREAT <- c("CR", "EN", "VU")
 .NON_THREAT <- c("NT", "LC")
 
-.read_experts <- function(experts) {
-  if (is.character(experts) && length(experts) == 1) {
-    experts <- utils::read.csv(experts, stringsAsFactors = FALSE, na.strings = "",
-                               fileEncoding = "UTF-8")
+.read_reference <- function(reference) {
+  if (is.character(reference) && length(reference) == 1) {
+    reference <- utils::read.csv(reference, stringsAsFactors = FALSE, na.strings = "",
+                                 fileEncoding = "UTF-8")
   }
-  experts <- as.data.frame(experts, stringsAsFactors = FALSE)
-  miss <- setdiff(c("taxon", "category"), names(experts))
-  if (length(miss)) stop("expert table lacks: ", paste(miss, collapse = ", "), call. = FALSE)
-  if (anyDuplicated(experts$taxon)) {
-    stop("expert table has taxa twice: ",
-         paste(unique(experts$taxon[duplicated(experts$taxon)]), collapse = ", "), call. = FALSE)
+  reference <- as.data.frame(reference, stringsAsFactors = FALSE)
+  miss <- setdiff(c("taxon", "category"), names(reference))
+  if (length(miss)) stop("reference table lacks: ", paste(miss, collapse = ", "), call. = FALSE)
+  if (anyDuplicated(reference$taxon)) {
+    stop("reference table has taxa twice: ",
+         paste(unique(reference$taxon[duplicated(reference$taxon)]), collapse = ", "), call. = FALSE)
   }
   known <- c(.CATS, "DD", "NE", "NA", "RE", "EW", "EX")
-  bad <- setdiff(stats::na.omit(.plain_category(experts$category)), known)
-  if (length(bad)) stop("unknown expert categories: ", paste(bad, collapse = ", "), call. = FALSE)
-  if (!"group" %in% names(experts)) experts$group <- NA_character_
-  if ("blinded" %in% names(experts) && any(!as.logical(experts$blinded) %in% TRUE)) {
-    warning("Some expert assessments are not marked blinded; the comparison is not blind for them.",
-            call. = FALSE)
-  }
-  experts
+  bad <- setdiff(stats::na.omit(.plain_category(reference$category)), known)
+  if (length(bad)) stop("unknown reference categories: ", paste(bad, collapse = ", "), call. = FALSE)
+  if (!"group" %in% names(reference)) reference$group <- NA_character_
+  reference
 }
 
 # Category codes without the degree sign of a regional adjustment or a
@@ -109,14 +108,14 @@ validate_against_experts <- function(proposals, experts,
   x
 }
 
-.outcome <- function(proposed, assessed) {
-  ok <- proposed %in% c(.THREAT, .NON_THREAT) & assessed %in% c(.THREAT, .NON_THREAT)
+.outcome <- function(proposed, listed) {
+  ok <- proposed %in% c(.THREAT, .NON_THREAT) & listed %in% c(.THREAT, .NON_THREAT)
   p_thr <- proposed %in% .THREAT
-  a_thr <- assessed %in% .THREAT
+  l_thr <- listed %in% .THREAT
   ifelse(!ok, "not comparable",
-         ifelse(proposed == assessed, "exact",
-                ifelse(p_thr == a_thr, "same status",
-                       ifelse(p_thr, "false threatened", "false non-threatened"))))
+         ifelse(proposed == listed, "exact",
+                ifelse(p_thr == l_thr, "same status",
+                       ifelse(p_thr, "proposal threatened only", "reference threatened only"))))
 }
 
 .range_covers <- function(range, assessed) {
@@ -132,28 +131,23 @@ validate_against_experts <- function(proposals, experts,
   }, logical(1))
 }
 
-.validation_summary <- function(t, group) {
-  comp <- t[t$outcome %in% c("exact", "same status", "false threatened", "false non-threatened"), ]
-  a_thr <- comp$assessed %in% .THREAT
-  p_thr <- comp$proposed %in% .THREAT
-  rate <- function(k, n) if (n) round(k / n, 3) else NA_real_
+# Counts and shares only: with neither side the truth, there is no
+# sensitivity or specificity to report.
+.comparison_summary <- function(t, group) {
+  comp <- t[t$outcome %in% c("exact", "same status", "proposal threatened only",
+                             "reference threatened only"), ]
+  share <- function(k, n) if (n) round(k / n, 3) else NA_real_
   data.frame(
     group = group,
     taxa = nrow(t),
     comparable = nrow(comp),
     exact = sum(comp$outcome == "exact"),
     same_status = sum(comp$outcome %in% c("exact", "same status")),
-    false_threatened = sum(comp$outcome == "false threatened"),
-    false_non_threatened = sum(comp$outcome == "false non-threatened"),
-    assessed_threatened = sum(a_thr),
-    assessed_non_threatened = sum(!a_thr),
-    # Sensitivity: threatened taxa proposed as threatened; specificity:
-    # non-threatened taxa proposed as non-threatened.
-    sensitivity = rate(sum(p_thr & a_thr), sum(a_thr)),
-    specificity = rate(sum(!p_thr & !a_thr), sum(!a_thr)),
-    false_threatened_rate = rate(sum(p_thr & !a_thr), sum(!a_thr)),
-    false_non_threatened_rate = rate(sum(!p_thr & a_thr), sum(a_thr)),
-    range_covers = rate(sum(t$range_covers %in% TRUE), sum(!is.na(t$range_covers))),
+    proposal_threatened_only = sum(comp$outcome == "proposal threatened only"),
+    reference_threatened_only = sum(comp$outcome == "reference threatened only"),
+    share_exact = share(sum(comp$outcome == "exact"), nrow(comp)),
+    share_same_status = share(sum(comp$outcome %in% c("exact", "same status")), nrow(comp)),
+    range_covers = share(sum(t$range_covers %in% TRUE), sum(!is.na(t$range_covers))),
     not_comparable = sum(t$outcome %in% c("not comparable", "no proposal")),
     stringsAsFactors = FALSE
   )
@@ -233,7 +227,7 @@ region_variants <- function(regions, name_col) {
 #'   (threatened against not threatened)), and `summary` (per taxon:
 #'   the categories seen, `stable`, `status_stable` and the variants that
 #'   changed the category).
-#' @seealso [validate_against_experts()]
+#' @seealso [compare_categories()]
 #' @export
 filter_stability <- function(occ, config, taxon = NULL, variants = filter_variants(), ...) {
   if (inherits(occ, "sf")) {
