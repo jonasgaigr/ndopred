@@ -35,11 +35,15 @@ Imports:
     utils,
     zip
 Remotes:
-    kalab-oto/rndop
+    kalab-oto/rndop,
+    gdauby/ConR
 Suggests:
+    ConR,
     igraph,
     knitr,
     readxl,
+    red,
+    redlistr,
     rmarkdown,
     spOccupancy,
     testthat (>= 3.0.0),

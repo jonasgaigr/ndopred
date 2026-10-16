@@ -95,11 +95,7 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
   occ <- add_year_column(occ)
   yl <- suppressWarnings(max(occ$year_max, na.rm = TRUE))
   out$year_last <- if (is.finite(yl)) yl else NA_real_
-  # A record belongs to a window only if its whole date range does.
-  in_window <- function(a, b) {
-    keep <- !is.na(occ$year_min) & occ$year_min >= a & !is.na(occ$year_max) & occ$year_max <= b
-    suppressWarnings(occ[keep, , drop = FALSE])
-  }
+  in_window <- function(a, b) .window_records(occ, a, b)
   recent <- in_window(w$recent_start, w$recent_end)
   comp <- in_window(w$comp_start, w$comp_end)
   out$n_current <- nrow(recent)
@@ -317,6 +313,13 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   list(result = row, metrics = metrics, assessment = assessment,
        proposal = proposal, config = config, final = final, evidence = ex,
        regional = regional, records = .record_list(occ))
+}
+
+# A record belongs to a window only if its whole date range does
+# (`occ` with the columns of add_year_column()).
+.window_records <- function(occ, a, b) {
+  keep <- !is.na(occ$year_min) & occ$year_min >= a & !is.na(occ$year_max) & occ$year_max <= b
+  suppressWarnings(occ[keep, , drop = FALSE])
 }
 
 # The records behind an assessment, for the species card: IDs, dates and
