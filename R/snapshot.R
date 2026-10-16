@@ -97,6 +97,27 @@ default_snapshot_dir <- function() {
   file.path(docs, "ndop_snapshots")
 }
 
+#' The Latest Stored Snapshot of a Taxon
+#'
+#' Finds the most recent snapshot file of a taxon written by
+#' [ndop_snapshot()], so that a rerun uses exactly the same records.
+#'
+#' @param species Character. Taxon name exactly as in NDOP.
+#' @param dir Character. Folder of the snapshots.
+#' @param download Logical. Download and store a snapshot when there is
+#'   none.
+#' @return The path, or `NA` when there is no snapshot (and none was
+#'   downloaded, or the download failed).
+#' @export
+latest_snapshot <- function(species, dir = default_snapshot_dir(), download = FALSE) {
+  stem <- gsub("[^A-Za-z0-9]+", "_", species)
+  files <- list.files(dir, paste0("^", stem, "_[0-9]{8}T[0-9]{6}[.]rds$"), full.names = TRUE)
+  if (length(files)) return(sort(files, decreasing = TRUE)[1])
+  if (!download) return(NA_character_)
+  path <- ndop_snapshot(species, dir = dir)$meta$path
+  if (is.null(path)) NA_character_ else path
+}
+
 #' @export
 print.ndop_snapshot <- function(x, ...) {
   m <- x$meta
