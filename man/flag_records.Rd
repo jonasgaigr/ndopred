@@ -50,7 +50,12 @@ means exact.}
 \code{year_min} and \code{year_max}; time windows use the whole range.}
 }
 Literature or collection records and suspected duplicates (same taxon,
-date and position) are flagged, never excluded.
+date and position) are flagged, never excluded. Literature and
+collections are recognised in \code{ZDROJ} by a card index (kartotéka), a
+collection, museum or herbarium, an atlas, literature data, or a journal
+volume with pages. This is a heuristic: the rndop export has no
+source-type field, and NDOP cites field notes and survey reports in the
+same "AUTHOR (year) title" form as publications.
 }
 
 \examples{

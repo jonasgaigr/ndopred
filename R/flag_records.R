@@ -28,7 +28,12 @@
 #'     `year_min` and `year_max`; time windows use the whole range.}
 #' }
 #' Literature or collection records and suspected duplicates (same taxon,
-#' date and position) are flagged, never excluded.
+#' date and position) are flagged, never excluded. Literature and
+#' collections are recognised in `ZDROJ` by a card index (kartotéka), a
+#' collection, museum or herbarium, an atlas, literature data, or a journal
+#' volume with pages. This is a heuristic: the rndop export has no
+#' source-type field, and NDOP cites field notes and survey reports in the
+#' same "AUTHOR (year) title" form as publications.
 #'
 #' @param raw Data frame from `rndop::ndop_download()`.
 #' @param species Character. The queried taxon name, or `NULL` to skip the
@@ -90,9 +95,10 @@ flag_records <- function(raw, species = NULL, less_credible_share = 0.10) {
     flag_date_unknown = is.na(year_min),
     flag_date_range = !is.na(year_min) & !is.na(year_max) & year_max != year_min,
     flag_imprecise = !is.na(precision) & precision > 2000,
-    # A heuristic: an author list in capitals followed by a year, the form
-    # NDOP uses for publications (e.g. "NOVAK J. (2008) ...").
-    flag_literature = grepl("[A-Z\u00c1\u010c\u010e\u00c9\u011a\u00cd\u0147\u00d3\u0158\u0160\u0164\u00da\u016e\u00dd\u017d]{2,}.*\\(\\d{4}\\)", zdroj) &
+    # A heuristic on markers of secondary sources in ZDROJ (see .LITERATURE).
+    # NDOP cites every source as "AUTHOR (year) title", field notes and
+    # survey reports included, so the citation form itself says nothing.
+    flag_literature = grepl(.LITERATURE, zdroj) &
       !grepl("Vlastn\u00ed n\u00e1lezy|iNaturalist", zdroj),
     flag_duplicate = rep(FALSE, n)
   )
@@ -132,3 +138,9 @@ flag_records <- function(raw, species = NULL, less_credible_share = 0.10) {
   attr(out, "less_credible_flagged") <- flag_lc
   out
 }
+
+# Markers of secondary sources in ZDROJ: card index, collection, museum,
+# herbarium, atlas, literature data, a journal volume with pages ("44: 1-10").
+.LITERATURE <- paste(c("Kartot[e\u00e9]k", "[Ss]b[i\u00ed]rk", "[Mm]uze", "[Hh]erb[a\u00e1][r\u0159]",
+                       "[Cc]oll[.]", "[Cc]ollection", "[Aa]tlas", "[Ll]iterat",
+                       "[0-9]+ ?([(][0-9/-]+[)])? ?: ?[0-9]+ ?[-\u2013]"), collapse = "|")

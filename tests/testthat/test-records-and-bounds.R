@@ -101,6 +101,20 @@ test_that("Suspected duplicates and literature sources are flagged, never exclud
   expect_true(f$include[7])
 })
 
+test_that("Field notes and survey reports are not taken for literature", {
+  src <- c("ZAVADIL V. (2008) Kartot\u00e9ka.",
+           "MORAVEC J. (1994) Atlas rozs\u00ed\u0159en\u00ed oboj\u017eiveln\u00edk\u016f.",
+           "MAT\u011aJ\u016e J. (2013) N\u00e1lezov\u00e1 data - Muzeum Karlovy Vary.",
+           "CHOBOT K. (2020) Ter\u00e9nn\u00ed z\u00e1pisky - n\u00e1hodn\u00e1 pozorov\u00e1n\u00ed.",
+           "JAN\u00c1K R., BODN\u00c1R T. (2021) Mapov\u00e1n\u00ed oboj\u017eiveln\u00edk\u016f v poli 7052. 4 pp.",
+           "Kolektiv autor\u016f (2024) Monitoring oboj\u017eiveln\u00edk\u016f.",
+           "iNaturalist (2024) Data \u010cR 2022-2023 (iNaturalist.com).",
+           "Vlastn\u00ed n\u00e1lezy")
+  r <- raw_records(VEROH = 1, ZDROJ = src)
+  f <- flag_records(r, species = "Bombina bombina")
+  expect_equal(f$flag_literature, c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE))
+})
+
 # ------------------------------------------------------------ snapshots
 
 test_that("A snapshot keeps the download unchanged and can be rerun (D12)", {
