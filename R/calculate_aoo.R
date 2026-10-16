@@ -17,6 +17,16 @@
 #'   of the grid) result in different AOO estimates, the minimum estimate
 #'   should be used." Default 4 tests a 4x4 = 16 origin grid; use 1 to keep a
 #'   single, unshifted origin (faster, but not guideline-compliant).
+#' @param exact_max Integer. Up to this many distinct positions, the minimum
+#'   over origins is also searched exactly (see the section below) and
+#'   replaces the regular search's result where it is lower.
+#' @section Exact minimum over origins:
+#' The cell count changes only where an origin passes the position of a
+#' point modulo the cell size, so trying those positions on both axes finds
+#' the true minimum. The regular 4 x 4 search can miss it by a cell or two,
+#' which matters near the CR and EN thresholds of B2; random jitter, as in
+#' redlistr, can miss it as well. The exact search costs about the square
+#' of the number of distinct positions, so it is limited to `exact_max`.
 #' @param origin Numeric vector of length 2 (\code{c(x, y)}) or NULL. When
 #'   supplied, the origin search is skipped and this grid origin is used
 #'   verbatim. Required when comparing AOO between two time periods: the
@@ -73,7 +83,8 @@
 #' @export
 calculate_aoo <- function(occurrence_data, grid_size = 2000, year_start = NULL,
                           date_col = "DATUM_OD", n_shifts = 4, year_end = NULL,
-                          origin = NULL, precision = NULL, geometries = NULL) {
+                          origin = NULL, precision = NULL, geometries = NULL,
+                          exact_max = 150) {
 
   if (!isTRUE(all.equal(grid_size, 2000))) {
     warning(
@@ -143,6 +154,15 @@ calculate_aoo <- function(occurrence_data, grid_size = 2000, year_start = NULL,
         }
       }
     }
+    # For few distinct positions the minimum is found exactly; it replaces
+    # the regular search only where it is strictly lower.
+    if (n_shifts > 1) {
+      ex <- .exact_origin(px, py, grid_size, exact_max)
+      if (!is.null(ex) && ex$n_cells < best_n_cells) {
+        best_n_cells <- ex$n_cells
+        best_origin <- ex$origin
+      }
+    }
   }
 
   # 3. Build a raster/polygon representation at the winning origin, for
@@ -187,6 +207,27 @@ calculate_aoo <- function(occurrence_data, grid_size = 2000, year_start = NULL,
     origin = c(x = unname(ox), y = unname(oy)),
     geom = aoo_polygons
   ))
+}
+
+# The exact minimum of occupied cells over grid origins. Along each axis the
+# count is constant between consecutive positions of points modulo the
+# cell size, so these positions are the only candidates; NULL above
+# `max_points` distinct positions.
+.exact_origin <- function(px, py, g, max_points) {
+  xy <- unique(cbind(px, py))
+  if (nrow(xy) > max_points) return(NULL)
+  bx <- sort(unique(xy[, 1] %% g))
+  by <- sort(unique(xy[, 2] %% g))
+  # Cell rows for every candidate y origin at once (points x candidates).
+  cy <- floor(outer(xy[, 2], by, "-") / g)
+  best <- list(n_cells = Inf, origin = NULL)
+  for (ox in bx) {
+    keys <- floor((xy[, 1] - ox) / g) * 1e7 + cy
+    n <- vapply(seq_along(by), function(j) length(unique(keys[, j])), integer(1))
+    j <- which.min(n)
+    if (n[j] < best$n_cells) best <- list(n_cells = n[j], origin = c(x = ox, y = by[j]))
+  }
+  best
 }
 
 # Positional precision per record in metres: an explicit vector, else the

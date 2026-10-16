@@ -13,7 +13,8 @@ calculate_aoo(
   year_end = NULL,
   origin = NULL,
   precision = NULL,
-  geometries = NULL
+  geometries = NULL,
+  exact_max = 150
 )
 }
 \arguments{
@@ -51,6 +52,10 @@ means an exact position; gap analysis, decision D3).}
 \code{ID_LOKAL} column (from \code{attr(occ, "record_geometries")}). Records whose
 \code{ID_LOKAL} has one are placed by that geometry instead of a precision
 disc.}
+
+\item{exact_max}{Integer. Up to this many distinct positions, the minimum
+over origins is also searched exactly (see the section below) and
+replaces the regular search's result where it is lower.}
 }
 \value{
 A list with \code{area_km2}, \code{n_cells}, \code{area_km2_min},
@@ -65,6 +70,16 @@ Counts occupied cells of a uniform grid, per IUCN Guidelines (v16, 2024)
 section 4.10.2, equation 4.1: \code{AOO = no. occupied cells x area of an
 individual cell}.
 }
+\section{Exact minimum over origins}{
+
+The cell count changes only where an origin passes the position of a
+point modulo the cell size, so trying those positions on both axes finds
+the true minimum. The regular 4 x 4 search can miss it by a cell or two,
+which matters near the CR and EN thresholds of B2; random jitter, as in
+redlistr, can miss it as well. The exact search costs about the square
+of the number of distinct positions, so it is limited to \code{exact_max}.
+}
+
 \section{Positional uncertainty}{
 
 \code{area_km2} places every record in the cell containing its point. A record

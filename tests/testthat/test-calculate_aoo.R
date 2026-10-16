@@ -75,3 +75,32 @@ test_that("Empty occurrence data returns zero area", {
   expect_equal(res$area_km2, 0)
   expect_null(res$geom)
 })
+
+test_that("the exact origin search finds the minimum (Guidelines 4.10.2)", {
+  for (seed in 1:5) {
+    set.seed(seed)
+    pts <- sf::st_as_sf(data.frame(x = 4600000 + stats::runif(60, 0, 30000),
+                                   y = 2900000 + stats::runif(60, 0, 30000)),
+                        coords = c("x", "y"), crs = 3035)
+    xy <- sf::st_coordinates(pts)
+    ours <- calculate_aoo(pts)
+    # A fine regular search (100 m steps) never finds fewer cells.
+    off <- seq(0, 1900, by = 100)
+    fine <- min(vapply(off, function(ox) min(vapply(off, function(oy)
+      .aoo_at(xy, c(ox, oy)) / 4, numeric(1))), numeric(1)))
+    expect_lte(ours$n_cells, fine)
+    # Never more than the regular 4 x 4 search alone.
+    expect_lte(ours$n_cells, calculate_aoo(pts, exact_max = 0)$n_cells)
+    # The reported origin gives the reported count.
+    expect_equal(.aoo_at(xy, ours$origin) / 4, ours$n_cells)
+  }
+})
+
+test_that("the exact search lowers AOO where the regular search misses a cell", {
+  # Two points 1.9 km apart in x and in y fit one cell only at an origin
+  # between the regular offsets (0, 500, 1000, 1500 m).
+  pts <- sf::st_as_sf(data.frame(x = c(4600100, 4602000), y = c(2900100, 2902000)),
+                      coords = c("x", "y"), crs = 3035)
+  expect_equal(calculate_aoo(pts, exact_max = 0)$n_cells, 2)
+  expect_equal(calculate_aoo(pts)$n_cells, 1)
+})
