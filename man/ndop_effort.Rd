@@ -10,7 +10,8 @@ ndop_effort(
   group,
   years = c(2000, 2026),
   dir = default_snapshot_dir(),
-  download = NULL
+  download = NULL,
+  units = NULL
 )
 
 read_effort(path)
@@ -26,6 +27,14 @@ Latin (e.g. "Amphibia") or English name; see \code{\link[=generation_lengths]{ge
 \item{dir}{Folder for the layer; defaults to \code{\link[=default_snapshot_dir]{default_snapshot_dir()}}.}
 
 \item{download}{Function used to download one chunk (for tests).}
+
+\item{units}{Optional character vector of NDOP cadastral units (see
+\code{\link[=cadastral_units]{cadastral_units()}}): the layer then holds every record of the group in
+those units only, a random spatial sample. T1 compares occupancy on the
+cells recorded for the group in both windows, and T2 takes its sites and
+visits from the layer, so both stay within the sample. The units and
+their share are kept as attributes \code{sample_units} and
+\code{sample_fraction}.}
 
 \item{path}{Path of a saved layer.}
 }

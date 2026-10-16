@@ -202,13 +202,20 @@ trend_settings <- function(reps = 199, seed = 1, sensitivity_years = 2,
 #' @param years The first and last year.
 #' @param dir Folder for the layer; defaults to [default_snapshot_dir()].
 #' @param download Function used to download one chunk (for tests).
+#' @param units Optional character vector of NDOP cadastral units (see
+#'   [cadastral_units()]): the layer then holds every record of the group in
+#'   those units only, a random spatial sample. T1 compares occupancy on the
+#'   cells recorded for the group in both windows, and T2 takes its sites and
+#'   visits from the layer, so both stay within the sample. The units and
+#'   their share are kept as attributes `sample_units` and
+#'   `sample_fraction`.
 #' @return `ndop_effort()` and `read_effort()`: a data frame of class
 #'   `ndopred_effort` with attributes `group`, `years` and `downloaded`.
 #'   `effort_layer()`: the newest layer for a group in `dir`, or `NULL`.
 #' @seealso [trend_estimate()]
 #' @export
 ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir(),
-                        download = NULL) {
+                        download = NULL, units = NULL) {
   g <- generation_length_for(group)
   tab <- generation_lengths()
   lat <- tab$group_lat[match(g$group, tab$kat_tax)]
@@ -217,15 +224,20 @@ ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir
   path <- file.path(dir, sprintf("effort_%s_%d-%d.rds", gsub("[^A-Za-z]+", "_", lat), years[1], years[2]))
   done <- if (file.exists(path)) readRDS(path) else NULL
   have <- if (is.null(done)) integer(0) else attr(done, "years_done")
-  if (is.null(download)) download <- .download_chunk
+  default_dl <- is.null(download)
+  if (default_dl) download <- function(lat, from, to, max_n = Inf) .download_chunk(lat, from, to, max_n, units)
+  sample <- if (is.null(units)) NULL else
+    list(units = units, fraction = length(units) / length(cadastral_units()))
   parts <- if (is.null(done)) list() else list(as.data.frame(done)[, setdiff(names(done), "visit"), drop = FALSE])
-  # A small group comes in one request for the whole span.
-  if (!length(have) && identical(download, .download_chunk)) {
-    whole <- .download_chunk(lat, sprintf("1.1.%d", years[1]), sprintf("31.12.%d", years[2]), max_n = 20000)
+  # A small group, or a sample of units, comes in one request for the
+  # whole span.
+  if (!length(have) && default_dl) {
+    whole <- download(lat, sprintf("1.1.%d", years[1]), sprintf("31.12.%d", years[2]),
+                      max_n = if (is.null(units)) 20000 else Inf)
     if (!is.null(whole)) {
       if (nrow(whole)) parts[[1]] <- .effort_rows(whole)
       have <- seq(years[1], years[2])
-      out <- .as_effort(parts, lat, g$group, years, have)
+      out <- .as_effort(parts, lat, g$group, years, have, sample)
       saveRDS(out, path)
     }
   }
@@ -248,10 +260,10 @@ ndop_effort <- function(group, years = c(2000, 2026), dir = default_snapshot_dir
     }
     if (!is.null(chunk) && nrow(chunk)) parts[[length(parts) + 1]] <- .effort_rows(chunk)
     have <- c(have, y)
-    out <- .as_effort(parts, lat, g$group, years, have)
+    out <- .as_effort(parts, lat, g$group, years, have, sample)
     saveRDS(out, path)
   }
-  out <- .as_effort(parts, lat, g$group, years, have)
+  out <- .as_effort(parts, lat, g$group, years, have, sample)
   attr(out, "path") <- path
   out
 }
@@ -282,10 +294,11 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
 
 # One chunk from NDOP (rndop): NULL when the query fails or is too large.
 # NULL when the request fails or holds more than `max_n` records.
-.download_chunk <- function(lat, from, to, max_n = Inf) {
+.download_chunk <- function(lat, from, to, max_n = Inf, units = NULL) {
   p <- utils::capture.output(
     payload <- rndop::set_search_payload(rfKategorie = paste0("^", lat, "$"), rfDatumOd = from, rfDatumDo = to)
   )
+  if (length(units)) payload$rfKatastr <- paste(units, collapse = " || ")
   # Two attempts: the NDOP server drops a request now and then.
   for (attempt in 1:2) {
     n <- .ndop_count(payload)
@@ -366,7 +379,7 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
   sum(v * seq_along(v) * 31) %% 2147483647
 }
 
-.as_effort <- function(parts, lat, kat, years, have) {
+.as_effort <- function(parts, lat, kat, years, have, sample = NULL) {
   d <- if (length(parts)) do.call(rbind, parts) else
     data.frame(ID_NALEZ = numeric(0), DRUH = character(0), date = numeric(0), year = numeric(0),
                cell = character(0), visit_key = character(0), negative = logical(0),
@@ -377,6 +390,7 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
   # layer can be extended; `visit` numbers the visits.
   d$visit <- as.integer(factor(d$visit_key))
   structure(d, class = c("ndopred_effort", "data.frame"), group = kat, group_lat = lat,
+            sample_units = sample$units, sample_fraction = sample$fraction,
             years = years, years_done = sort(unique(have)),
             downloaded = format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
 }
@@ -412,4 +426,17 @@ effort_layer <- function(group, dir = default_snapshot_dir()) {
   q <- .q90(boots)
   out$change <- c(min = q[["min"]], best = best, max = q[["max"]])
   out
+}
+
+#' NDOP Cadastral Units
+#'
+#' The cadastral units NDOP can filter by (from rndop), as the values a
+#' search takes, e.g. "600016: Abertamy". Used to draw a random spatial
+#' sample of a large group's effort layer ([ndop_effort()]).
+#'
+#' @return A character vector.
+#' @export
+cadastral_units <- function() {
+  a <- get("area_list", envir = asNamespace("rndop"))
+  a$payload_val[a$type == "KU"]
 }

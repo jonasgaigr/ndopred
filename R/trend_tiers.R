@@ -195,11 +195,14 @@ trend_estimate <- function(occ, config, effort = NULL, taxon = NA_character_) {
                          "range from comparison windows starting ", out$t0$starts[1], "-", out$t0$starts[2])
   }
   if (!is.null(effort) && nrow(effort)) {
+    frac <- attr(effort, "sample_fraction")
+    sampled <- if (is.null(frac)) "" else
+      sprintf(" (effort layer from a random %.1f %% of cadastral units)", 100 * frac)
     out$t1 <- tryCatch(.t1_change(occ, effort, w, s), error = function(e) NULL)
     if (!is.null(out$t1$change)) {
       out$tier <- "T1"
-      out$tier_reason <- sprintf("effort layer: %d cells recorded for the group in both windows",
-                                 out$t1$n_benchmark)
+      out$tier_reason <- paste0(sprintf("effort layer: %d cells recorded for the group in both windows",
+                                 out$t1$n_benchmark), sampled)
       out$change <- out$t1$change
       out$source <- "T1 interim proxy: relative occupancy on cells recorded for the group in both windows"
     } else if (!is.null(out$t1)) {
@@ -211,8 +214,8 @@ trend_estimate <- function(occ, config, effort = NULL, taxon = NA_character_) {
       out$t2 <- tryCatch(.t2_change(taxon, effort, w, s), error = function(e) list(note = conditionMessage(e)))
       if (!is.null(out$t2$change)) {
         out$tier <- "T2"
-        out$tier_reason <- sprintf("repeat visits at %d cells: occupancy-detection model",
-                                   out$t2$n_repeat_sites)
+        out$tier_reason <- paste0(sprintf("repeat visits at %d cells: occupancy-detection model",
+                                   out$t2$n_repeat_sites), sampled)
         out$change <- out$t2$change
         out$source <- "T2 occupancy-detection model (a trend in occupancy, not in mature individuals)"
       } else if (isTRUE(out$t2$eligible) && !isTRUE(s$occupancy_model)) {
