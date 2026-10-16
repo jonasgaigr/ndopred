@@ -18,7 +18,7 @@ trend_settings(
   t2_max_visits = 6,
   t2_mcmc = list(n.batch = 400, batch.length = 25, n.burn = 5000, n.thin = 5, n.chains =
     2),
-  monitoring_projects = character(0),
+  monitoring_projects = .aopk_projects(),
   t3_min_years = 5,
   t3_min_sites = 3,
   alpha = 2
@@ -56,11 +56,14 @@ sampled down to \code{t2_max_sites}, visits per site and year to
 \code{batch.length}, \code{n.burn}, \code{n.thin}, \code{n.chains}.}
 
 \item{monitoring_projects}{Character vector of NDOP \code{PROJEKT} names whose
-counts follow a standardized protocol (data tier T3). Empty by default:
-AOPK names them.}
+counts may form a monitoring series (data tier T3). Defaults to AOPK's
+list, \code{\link[=monitoring_projects]{monitoring_projects()}}.}
 
-\item{t3_min_years, t3_min_sites}{T3 needs counts from those projects in
-at least this many years and sites.}
+\item{t3_min_years, t3_min_sites}{T3 needs counts from those projects at
+at least \code{t3_min_sites} sites counted in two or more years, and in at
+least \code{t3_min_years} years. A site counted once says nothing about the
+change at that site, so it does not count (inventories and mappings
+visit most sites once).}
 
 \item{alpha}{Alpha of the alpha-hull for the change in EOO (Guidelines
 §4.9).}

@@ -210,6 +210,46 @@ test_that("C1 needs an estimated decline: only a consistent-effort series gives 
   expect_equal(with_t3$result$Data_Tier, "T3")
 })
 
+test_that("AOPK's project list is the default for T3 (D14)", {
+  p <- monitoring_projects()
+  expect_length(p, 18)
+  expect_true(all(c("Monitoring druhů ČR", "Inventarizace MZCHÚ",
+                    "Aktualizace mapování biotopů - 2. vlna") %in% p))
+  expect_equal(p, trimws(p))
+  expect_equal(trend_settings()$monitoring_projects, p)
+  path <- withr::local_tempfile(fileext = ".csv")
+  utils::write.csv(data.frame(project = c(" A ", "B", "")), path, row.names = FALSE)
+  withr::local_envvar(NDOPRED_MONITORING_PROJECTS = path)
+  expect_equal(monitoring_projects(), c("A", "B"))
+})
+
+test_that("T3 rests on sites counted in two or more years, not on one-off inventories", {
+  # 60 sites inventoried once each, spread over the years, with falling counts.
+  once <- data.frame(site = 100 + 1:60, year = rep(2000:2026, length.out = 60))
+  once$POCET <- round(40 * exp(-0.1 * (once$year - 2000)))
+  inv <- sf::st_as_sf(data.frame(x = 4600000 + once$site * 1000, y = 2950000,
+                                 DATUM_OD = sprintf("%d0615", once$year), POCET = once$POCET,
+                                 POCITANO = "adulti", PROJEKT = "Inventory", ID_LOKAL = once$site,
+                                 NAZ_LOKAL = paste("Site", once$site), include = TRUE),
+                      coords = c("x", "y"), crs = 3035)
+  cfg <- ndopred_config(2026, trend = trend_settings(monitoring_projects = c("Inventory", "Monitoring X")))
+  te <- trend_estimate(inv, cfg)
+  expect_false(identical(te$tier, "T3"))
+  expect_equal(te$t3$n_sites, 0)
+  expect_equal(te$t3$n_sites_all, 60)
+  # The repeat sites of a real series qualify; the one-off sites beside them
+  # are counted but do not inform the index.
+  both <- rbind(monitoring_fixture()[, names(inv)], inv)
+  te2 <- trend_estimate(both, cfg)
+  expect_equal(te2$tier, "T3")
+  expect_equal(te2$t3$n_sites, 5)
+  expect_match(te2$tier_reason, "5 sites counted in two or more years (of 65)", fixed = TRUE)
+  expect_equal(round(te2$change[["best"]]), round((exp(-0.5) - 1) * 100))
+  # Population metrics of a T3 taxon come from the repeat sites only.
+  res <- assess_taxon(both, "A b", cfg, evaluate_pop = TRUE)
+  expect_equal(res$metrics$pop$n_localities, 5)
+})
+
 # -------------------------------------------------- Guidelines Table 3.1
 
 test_that("Evidence below the minimum quality of its criterion is not used (Table 3.1)", {

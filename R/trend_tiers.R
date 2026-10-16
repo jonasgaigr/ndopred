@@ -96,6 +96,11 @@
 
 # ------------------------------------------------------------------- T3
 
+# The site of a record for T3: its NDOP locality.
+.t3_site <- function(d) {
+  if ("ID_LOKAL" %in% names(d)) as.character(d$ID_LOKAL) else as.character(d$NAZ_LOKAL)
+}
+
 # T3: an abundance index from standardized monitoring counts: a log-linear
 # (quasi-)Poisson model of counts on site and year, TRIM-like, and the
 # change over the gap between the window midpoints with a 90 % interval.
@@ -105,13 +110,20 @@
   d <- if (inherits(occ, "sf")) sf::st_drop_geometry(occ) else occ
   d <- add_year_column(d)
   d$count <- suppressWarnings(as.numeric(as.character(d$POCET)))
-  d$site <- if ("ID_LOKAL" %in% names(d)) as.character(d$ID_LOKAL) else as.character(d$NAZ_LOKAL)
+  d$site <- .t3_site(d)
   neg <- if ("NEGATIV" %in% names(d)) suppressWarnings(as.numeric(d$NEGATIV)) %in% 1 else FALSE
   d$count[neg] <- 0   # a negative finding on a monitored site is a zero count
-  d <- d[d$PROJEKT %in% projs & !is.na(d$count) & !is.na(d$year) &
+  d <- d[d$PROJEKT %in% projs & !is.na(d$count) & !is.na(d$year) & !is.na(d$site) &
            d$year >= w$comp_start & d$year <= w$recent_end, , drop = FALSE]
-  out <- list(n_years = length(unique(d$year)), n_sites = length(unique(d$site)),
-              rows = rownames(d))
+  # Only a site counted in two or more years tells about change; with a
+  # site effect in the model, a site counted once carries no information on
+  # the trend. Inventories and habitat mappings visit most sites once.
+  years_per_site <- tapply(d$year, d$site, function(y) length(unique(y)))
+  repeat_sites <- names(years_per_site)[years_per_site >= 2]
+  n_all <- length(years_per_site)
+  d <- d[d$site %in% repeat_sites, , drop = FALSE]
+  out <- list(n_years = length(unique(d$year)), n_sites = length(repeat_sites),
+              n_sites_all = n_all, sites = repeat_sites, rows = rownames(d))
   if (out$n_years < settings$t3_min_years || out$n_sites < settings$t3_min_sites) return(out)
   sy <- stats::aggregate(list(count = d$count), by = list(site = d$site, year = d$year), FUN = max)
   form <- if (length(unique(sy$site)) > 1) count ~ factor(site) + year else count ~ year
@@ -119,6 +131,7 @@
   if (is.null(fit) || !"year" %in% names(stats::coef(fit))) return(out)
   b <- stats::coef(fit)[["year"]]
   se <- sqrt(diag(stats::vcov(fit)))[["year"]]
+  if (!is.finite(b) || !is.finite(se)) return(out)
   gap <- (w$recent_start + w$recent_end) / 2 - (w$comp_start + w$comp_end) / 2
   ch <- function(slope) (exp(slope * gap) - 1) * 100
   out$change <- c(min = ch(b - 1.645 * se), best = ch(b), max = ch(b + 1.645 * se))
@@ -133,8 +146,9 @@
 #' Classifies a taxon's data into the tiers of the review (Table 5) and
 #' computes the trend estimate the tier allows:
 #' \describe{
-#'   \item{T3}{Counts from standardized monitoring (`monitoring_projects` in
-#'     [trend_settings()]) in enough years and sites: an abundance index, a
+#'   \item{T3}{Counts from the monitoring projects (`monitoring_projects` in
+#'     [trend_settings()]) at sites counted in two or more years, in enough
+#'     years and sites: an abundance index, a
 #'     log-linear model of counts on site and year. A potential basis for
 #'     A2(b), and the only source of an estimated continuing decline (C1) and
 #'     of an extreme-fluctuation diagnosis from records (Guidelines Table
@@ -227,8 +241,8 @@ trend_estimate <- function(occ, config, effort = NULL, taxon = NA_character_) {
   out$t3 <- tryCatch(.t3_change(occ, w, s), error = function(e) NULL)
   if (!is.null(out$t3$change)) {
     out$tier <- "T3"
-    out$tier_reason <- sprintf("standardized monitoring counts: %d sites, %d years",
-                               out$t3$n_sites, out$t3$n_years)
+    out$tier_reason <- sprintf("monitoring counts: %d sites counted in two or more years (of %d), %d years",
+                               out$t3$n_sites, out$t3$n_sites_all, out$t3$n_years)
     out$change <- out$t3$change
     out$basis <- "b"
     out$source <- "T3 abundance index from standardized monitoring (log-linear model of counts)"

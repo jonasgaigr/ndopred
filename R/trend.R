@@ -31,10 +31,13 @@
 #' @param t2_mcmc MCMC settings for [spOccupancy::tPGOcc()]: `n.batch`,
 #'   `batch.length`, `n.burn`, `n.thin`, `n.chains`.
 #' @param monitoring_projects Character vector of NDOP `PROJEKT` names whose
-#'   counts follow a standardized protocol (data tier T3). Empty by default:
-#'   AOPK names them.
-#' @param t3_min_years,t3_min_sites T3 needs counts from those projects in
-#'   at least this many years and sites.
+#'   counts may form a monitoring series (data tier T3). Defaults to AOPK's
+#'   list, [monitoring_projects()].
+#' @param t3_min_years,t3_min_sites T3 needs counts from those projects at
+#'   at least `t3_min_sites` sites counted in two or more years, and in at
+#'   least `t3_min_years` years. A site counted once says nothing about the
+#'   change at that site, so it does not count (inventories and mappings
+#'   visit most sites once).
 #' @param alpha Alpha of the alpha-hull for the change in EOO (Guidelines
 #'   §4.9).
 #' @return A list of class `ndopred_trend_settings`.
@@ -46,10 +49,46 @@ trend_settings <- function(reps = 199, seed = 1, sensitivity_years = 2,
                            t2_buffer_cells = 5, t2_max_sites = 400, t2_max_visits = 6,
                            t2_mcmc = list(n.batch = 400, batch.length = 25, n.burn = 5000,
                                           n.thin = 5, n.chains = 2),
-                           monitoring_projects = character(0),
+                           monitoring_projects = .aopk_projects(),
                            t3_min_years = 5, t3_min_sites = 3, alpha = 2) {
   structure(as.list(environment()), class = "ndopred_trend_settings")
 }
+
+#' NDOP Projects for Data Tier T3
+#'
+#' The NDOP projects (`PROJEKT`) whose counts may form a monitoring series
+#' for data tier T3, as listed by AOPK on 2026-10-16 (gap analysis, D14):
+#' species and site monitoring, inventories and state surveys of protected
+#' areas, habitat mapping and its updates, the national phytosociological
+#' database, and bird counts. Names are matched exactly.
+#'
+#' @section What makes a series:
+#' Several of these projects visit most sites once (inventories, habitat
+#' mapping). A count from one visit says nothing about the change at its
+#' site, so T3 uses only sites counted in two or more years
+#' ([trend_settings()], `t3_min_sites`), and the population metrics of a T3
+#' taxon come from those sites alone.
+#'
+#' @param path A CSV with a `project` column. Defaults to the
+#'   `NDOPRED_MONITORING_PROJECTS` environment variable, else the list
+#'   shipped with the package (`inst/extdata/monitoring_projects.csv`).
+#' @return A character vector of project names.
+#' @seealso [trend_settings()], [trend_estimate()]
+#' @examples
+#' monitoring_projects()
+#' @export
+monitoring_projects <- function(path = Sys.getenv("NDOPRED_MONITORING_PROJECTS")) {
+  if (is.null(path) || !nzchar(path)) {
+    path <- system.file("extdata", "monitoring_projects.csv", package = "ndopred")
+  }
+  if (!file.exists(path)) stop("Monitoring-project list not found: ", path, call. = FALSE)
+  tab <- utils::read.csv(path, fileEncoding = "UTF-8", stringsAsFactors = FALSE)
+  if (!"project" %in% names(tab)) stop("The monitoring-project list needs a `project` column.", call. = FALSE)
+  p <- trimws(tab$project)
+  unique(p[!is.na(p) & nzchar(p)])
+}
+
+.aopk_projects <- function() monitoring_projects()
 
 # Run `expr` with a fixed seed and restore the caller's random state.
 .with_seed <- function(seed, expr) {

@@ -183,7 +183,12 @@ taxon_metrics <- function(occ, config, display_grid_size = 2000,
   # Counts from standardized monitoring (T3) are a consistent-effort series:
   # only they give an estimated decline (C1) and a fluctuation diagnosis.
   t3 <- !is.null(te) && identical(te$tier, "T3")
-  pop_occ <- if (t3) occ[occ$PROJEKT %in% config$trend$monitoring_projects, , drop = FALSE] else occ
+  # A T3 taxon's counts come from the monitoring projects at the sites
+  # counted in two or more years, the series the T3 estimate rests on.
+  pop_occ <- if (t3) {
+    occ[occ$PROJEKT %in% config$trend$monitoring_projects &
+          .t3_site(occ) %in% te$t3$sites, , drop = FALSE]
+  } else occ
   pop <- capture("population", calculate_pop_metrics(
     pop_occ, window_years = w$trend_end - w$trend_start + 1, year_now = w$trend_end,
     mature_terms = mature_terms, consistent_effort = t3

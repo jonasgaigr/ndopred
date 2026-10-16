@@ -29,8 +29,9 @@ data_tier(occ, config, effort = NULL, taxon = NA_character_)
 Classifies a taxon's data into the tiers of the review (Table 5) and
 computes the trend estimate the tier allows:
 \describe{
-\item{T3}{Counts from standardized monitoring (\code{monitoring_projects} in
-\code{\link[=trend_settings]{trend_settings()}}) in enough years and sites: an abundance index, a
+\item{T3}{Counts from the monitoring projects (\code{monitoring_projects} in
+\code{\link[=trend_settings]{trend_settings()}}) at sites counted in two or more years, in enough
+years and sites: an abundance index, a
 log-linear model of counts on site and year. A potential basis for
 A2(b), and the only source of an estimated continuing decline (C1) and
 of an extreme-fluctuation diagnosis from records (Guidelines Table

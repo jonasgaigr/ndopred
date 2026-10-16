@@ -41,8 +41,8 @@ bulk_ui <- function() fluidPage(
       checkboxInput("use_effort", "Use group effort layers from the snapshot folder (T1, T2)", value = TRUE),
       checkboxInput("download_effort", "Download missing effort layers (slow: hours for large groups)", value = FALSE),
       checkboxInput("occupancy_model", "Fit occupancy models where the data allow (T2; slow)", value = FALSE),
-      textAreaInput("monitoring_projects", "Standardized monitoring projects (T3), one NDOP PROJEKT per line:",
-                    value = "", rows = 2),
+      textAreaInput("monitoring_projects", "Monitoring projects for T3 (AOPK list), one NDOP PROJEKT per line:",
+                    value = paste(monitoring_projects(), collapse = "\n"), rows = 4),
       p(tags$small(paste(
         "Without an effort layer a trend is a T0 diagnostic: the raw change with its start-year",
         "range. ndop_effort() builds a layer per group; see trend_estimate()."
