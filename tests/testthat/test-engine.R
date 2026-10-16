@@ -302,3 +302,25 @@ test_that("A threatened best estimate with LC in its range stays, flagged uncert
   expect_false(q$uncertain)
   expect_equal(ndopred_config(2026)$attitude$proposal, "best estimate")
 })
+
+test_that("triage puts taxa that may be CR or EN first and never says LC", {
+  tri <- function(eoo, aoo) {
+    inp <- assessment_inputs(eoo_km2 = eoo, aoo_km2 = aoo, n_records = 50, n_current = 30,
+                             year_last = 2025)
+    p <- categorise(assess_criteria(inp, ndopred_config(2026)))
+    .result_row("x", p, eoo, aoo, NA, NA)[, c("Triage_Priority", "Triage")]
+  }
+  expect_equal(unlist(tri(50, 8)), c(Triage_Priority = "1", Triage = "1: CR possible"))
+  expect_equal(tri(3000, 300)$Triage, "1: EN possible")
+  expect_equal(tri(15000, 1500)$Triage_Priority, 2L)
+  wide <- tri(50000, 5000)
+  expect_equal(wide$Triage_Priority, 4L)
+  expect_match(wide$Triage, "LC candidate")
+  expect_equal(.triage(list(category = "NT", range = "NT"))$priority, 3L)
+  expect_equal(.triage(list(category = "LC", range = "LC-VU"))$priority, 2L)
+  expect_equal(.triage(list(category = NA_character_))$priority, 0L)
+  expect_true(is.na(.triage(list(category = "NA"))$priority))
+  expect_true(is.na(.triage(list(category = "NE"))$priority))
+  expect_equal(.triage(list(category = "RE"))$priority, 1L)
+  expect_equal(.triage(list(category = "DD"))$priority, 2L)
+})

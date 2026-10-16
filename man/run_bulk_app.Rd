@@ -35,8 +35,11 @@ Alongside them: \verb{Kritéria (IUCN zápis)} (IUCN Annex 2 notation),
 \verb{Opora návrhu} (whether the proposal is evidenced or rests on indications
 from the records), \verb{Nutno doložit} (what still needs evidence),
 \verb{Rozsah kategorií} (plausible range), \verb{Nejistý návrh} (the range holds a
-non-threatened and a threatened category), \code{Příznaky} (flags) and
-\verb{issue_*} columns giving the reason for every empty value.
+non-threatened and a threatened category), \code{Příznaky} (flags),
+\verb{Priorita pro experty} and \verb{Třídění pro experty} (the expert queue: 1
+where CR or EN is possible, down to 4 for an LC candidate, never LC) and
+\verb{issue_*} columns giving the reason for every empty value. Every column
+is described in \code{\link[=export_dictionary]{export_dictionary()}}.
 }
 
 \section{Credentials}{

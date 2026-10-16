@@ -125,7 +125,9 @@ bulk_ui <- function() fluidPage(
   data_tier = "\u00darove\u0148 dat (T0-T3)",
   trend_estimate = "Odhad trendu (%)",
   trend_source = "Zdroj trendu",
-  trend_sensitivity = "Citlivost trendu na za\u010d\u00e1tek obdob\u00ed"
+  trend_sensitivity = "Citlivost trendu na za\u010d\u00e1tek obdob\u00ed",
+  triage_priority = "Priorita pro experty",
+  triage = "T\u0159\u00edd\u011bn\u00ed pro experty"
 )
 
 .SUPPORT_CS <- c(
@@ -180,7 +182,9 @@ bulk_ui <- function() fluidPage(
     data_tier = r$Data_Tier,
     trend_estimate = r$Trend_Estimate,
     trend_source = r$Trend_Source,
-    trend_sensitivity = r$Trend_Sensitivity
+    trend_sensitivity = r$Trend_Sensitivity,
+    triage_priority = r$Triage_Priority,
+    triage = r$Triage
   )
   vals <- lapply(vals, function(v) if (is.null(v) || length(v) == 0) NA else v[1])
   row <- as.data.frame(vals, stringsAsFactors = FALSE)
@@ -516,8 +520,11 @@ bulk_server <- function(input, output, session) {
 #' `Opora návrhu` (whether the proposal is evidenced or rests on indications
 #' from the records), `Nutno doložit` (what still needs evidence),
 #' `Rozsah kategorií` (plausible range), `Nejistý návrh` (the range holds a
-#' non-threatened and a threatened category), `Příznaky` (flags) and
-#' `issue_*` columns giving the reason for every empty value.
+#' non-threatened and a threatened category), `Příznaky` (flags),
+#' `Priorita pro experty` and `Třídění pro experty` (the expert queue: 1
+#' where CR or EN is possible, down to 4 for an LC candidate, never LC) and
+#' `issue_*` columns giving the reason for every empty value. Every column
+#' is described in [export_dictionary()].
 #'
 #' @section Credentials:
 #' NDOP requires a login. Set `NDOP_USER` and `NDOP_PWD` in `~/.Renviron`, or

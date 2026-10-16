@@ -117,6 +117,29 @@
     # AOPK, D7: the range holds a non-threatened and a threatened category.
     Uncertain = if (is.na(proposal$category)) NA else identical(proposal$uncertain, TRUE),
     Flags = paste(proposal$flags, collapse = "; "),
+    Triage_Priority = .triage(proposal)$priority,
+    Triage = .triage(proposal)$label,
     stringsAsFactors = FALSE
   )
+}
+
+# Triage for the expert queue: the highest category the plausible range
+# reaches, so that taxa possibly CR or EN are reviewed first. A taxon is an
+# "LC candidate" only when no criterion is met even at the plausible
+# maximum (all unknown subcriteria met); it is never LC without an expert
+# (review section 3, Rapid LC as a low-priority preselection only).
+.triage <- function(proposal) {
+  cat <- proposal$category
+  if (is.null(cat) || is.na(cat)) return(list(priority = 0L, label = "0: rerun (no proposal)"))
+  if (cat == "NA") return(list(priority = NA_integer_, label = "not applicable (regional step one)"))
+  if (cat == "NE") return(list(priority = NA_integer_, label = "not evaluated (no usable records)"))
+  if (cat == "RE") return(list(priority = 1L, label = "1: RE candidate"))
+  if (cat == "DD") return(list(priority = 2L, label = "2: DD candidate"))
+  range <- if (is.null(proposal$range) || is.na(proposal$range)) cat else proposal$range
+  top <- .max_cat(intersect(c(strsplit(range, "-", fixed = TRUE)[[1]], cat), .CATS))
+  switch(top,
+         CR = , EN = list(priority = 1L, label = paste0("1: ", top, " possible")),
+         VU = list(priority = 2L, label = "2: VU possible"),
+         NT = list(priority = 3L, label = "3: NT possible"),
+         list(priority = 4L, label = "4: LC candidate (expert check)"))
 }
