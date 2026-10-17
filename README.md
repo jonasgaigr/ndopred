@@ -37,7 +37,7 @@ What the records cannot show is never assumed absent. An unknown condition is **
 
 The proposal is the **best estimate** (AOPK decision D7). Uncertainty never changes it; it is flagged. Guidelines §10.1 allows NT for a taxon whose range holds LC and VU or EN, and DD when every category from LC to CR is plausible; §10.4 leaves that choice to the assessor's risk tolerance. The flag says which applies. ndopred itself proposes NT only where a criterion is nearly met.
 
-The proposal is step two of the regional procedure (Regional Guidelines v4.0). **Step one** decides whether the regional population is assessed at all: introduced taxa, vagrants, occasional breeders and colonizers reproducing for fewer than 10 years are Not Applicable (NA). **Step three** adjusts the category for populations outside Czechia, normally by one step down when immigration rescues the regional population, and marks it with a degree sign (`VU°`). Without regional evidence a taxon is assessed and left unchanged, as the Guidelines require when the influence of outside populations is unknown.
+The proposal is step two of the regional procedure (Regional Guidelines v4.0). **Step one** decides whether the regional population is assessed at all: introduced taxa, vagrants, occasional breeders and colonizers reproducing for fewer than 10 years are Not Applicable (NA). NDOP records carry no origin, so taxa on the list `introduced_taxa()` are introduced unless the evidence says otherwise. **Step three** adjusts the category for populations outside Czechia, normally by one step down when immigration rescues the regional population, and marks it with a degree sign (`VU°`). Without regional evidence a taxon is assessed and left unchanged, as the Guidelines require when the influence of outside populations is unknown.
 
 The proposal is not a final category. Approval belongs to group experts.
 
@@ -252,6 +252,7 @@ ggplot2::ggsave("bombina.png", p, width = 8, height = 6, dpi = 150, bg = "white"
 | Function | Purpose |
 |---|---|
 | `regional_eligibility()` | Step one: is the regional population assessed, or Not Applicable? |
+| `introduced_taxa()` | Taxa introduced to Czechia, Not Applicable at step one unless the evidence gives an origin (D19) |
 | `regional_adjustment()` | Step three: questions 3a-3f, down- or uplisting with the degree sign |
 | `regional_assessment()` | Both steps around a step-two category, with the global category and share |
 
@@ -397,7 +398,7 @@ The `ndopred` logo showcases a silhouette of a [European stag beetle](https://po
 
 ## Status
 
-Version 0.11.0 (experimental). All phases of the IUCN alignment are done, with AOPK's decisions on generation lengths, T3 projects, the regional filter and validation (D14-D17). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
+Version 0.11.1 (experimental). All phases of the IUCN alignment are done, with AOPK's decisions on generation lengths, T3 projects, the regional filter and validation (D14-D17), on taxa without a trend and on introduced taxa (D18-D19). Proposals are a screening aid; the final category is the assessor's, approved by group experts.
 
 ## References
 

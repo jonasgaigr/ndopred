@@ -4,15 +4,18 @@
 \alias{regional_assessment}
 \title{The Regional Step for One Taxon}
 \usage{
-regional_assessment(category, criteria, ex, config)
+regional_assessment(category, criteria, ex, config, taxon = NA_character_)
 }
 \arguments{
 \item{category, criteria}{The category and criteria from step two.}
 
 \item{ex}{The result of \code{\link[=evidence_for_engine]{evidence_for_engine()}}, or \code{NULL} (no regional
-evidence: assessed, no adjustment).}
+evidence: assessed unless on the list of introduced taxa, no
+adjustment).}
 
 \item{config}{Object from \code{\link[=ndopred_config]{ndopred_config()}}.}
+
+\item{taxon}{Optional taxon name, for the list of introduced taxa.}
 }
 \value{
 A list: \code{eligibility}, \code{adjustment}, \code{category} (final regional

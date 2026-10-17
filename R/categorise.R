@@ -96,7 +96,7 @@ categorise <- function(assessment) {
         support = "candidate",
         needs = c(if (unknown) "DD: AOO/EOO could not be computed" else
                     "DD: current occurrence and search effort (no records in the current window)",
-                  .needs_a_unknown(W)),
+                  .needs_a_unknown(W, inp)),
         flags = "DD candidate"
       ))
     }
@@ -256,8 +256,12 @@ print.ndopred_proposal <- function(x, ...) {
 
 # ---------------------------------------------------- what needs evidence
 
-.needs_a_unknown <- function(W) {
-  if (is.na(W$A$value)) "A: no reduction estimate (no records in the comparison window)" else character(0)
+# No trend without records in both windows (trend_estimate()); a taxon gone
+# from the current window is not read as a 100 % reduction.
+.needs_a_unknown <- function(W, inp) {
+  if (!is.na(W$A$value)) return(character(0))
+  empty <- if (identical(inp$extant, FALSE)) "current" else "comparison"
+  sprintf("A: no reduction estimate (no records in the %s window)", empty)
 }
 
 .needs <- function(assessment, proposal, parts) {
@@ -271,7 +275,7 @@ print.ndopred_proposal <- function(x, ...) {
 
   # Criterion A
   src <- if (is.na(ind_src)) "the records" else ind_src
-  out <- c(out, .needs_a_unknown(W))
+  out <- c(out, .needs_a_unknown(W, inp))
   # What the reduction still needs depends on the data tier behind it
   # (trend_estimate()): T0/T1 are diagnostics, T2 an occupancy trend whose
   # link to the population must be shown (review 7.3), T3 an index to confirm.

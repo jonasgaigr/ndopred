@@ -288,7 +288,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   # The regional step (Regional Guidelines v4.0): step one may make the
   # taxon Not Applicable; step three adjusts the category from step two.
   regional <- if (is.na(proposal$category)) NULL else
-    regional_assessment(proposal$category, proposal$criteria_iucn, ex, config)
+    regional_assessment(proposal$category, proposal$criteria_iucn, ex, config, species)
   if (!is.null(regional) && !regional$eligibility$eligible) {
     proposal <- .proposal("NA", paste0("Not applicable: ", regional$eligibility$reason),
                           support = "evidence", range = "NA",
@@ -308,7 +308,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   row$Generation_Length <- config$generation_length
   row$Generation_Length_Source <- if (is.null(config$generation_length_source)) NA_character_ else
     config$generation_length_source
-  final <- if (!is.null(ex) && !is.null(assessment)) final_assessment(assessment, proposal, ex) else NULL
+  final <- if (!is.null(ex) && !is.null(assessment)) final_assessment(assessment, proposal, ex, species) else NULL
   if (!is.null(final)) final$notes <- c(final$notes, notes)
   opt <- function(x) if (is.null(x) || !length(x) || is.na(x[1]) || !nzchar(x[1])) NA_character_ else x[1]
   row$Regional_Category <- if (is.null(regional)) NA_character_ else regional$display
@@ -387,7 +387,7 @@ assess_taxon <- function(occ = NULL, species, config, evaluate_pop = FALSE,
   keep <- intersect(names(args), c("generation_length", "generation_length_source", "trend_shift",
                                    "min_trend_shift", "time_depth_start", "decline_tolerance", "nt_margin_a",
                                    "nt_margin_c", "re_candidate_years", "d2_aoo_km2", "d2_locations",
-                                   "colonizer_years", "regional_filter_share", "trend"))
+                                   "colonizer_years", "regional_filter_share", "introduced", "trend"))
   cfg <- args[keep]
   if (!is.null(args$re_threshold_years)) cfg$re_candidate_years <- args$re_threshold_years
   do.call(ndopred_config, c(list(...), cfg))

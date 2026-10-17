@@ -5,7 +5,7 @@
 | Date | 2026-10-15 |
 | Branch | `bulk-assesment`: HEAD `6af2b2b` plus an uncommitted working tree (39 modified and 15 new files, about 3,800 changed lines) |
 | Scope | Audit only. No package code was changed. Added: this file, [`ndop_data_dictionary.md`](ndop_data_dictionary.md), [`review_2026-10.md`](review_2026-10.md) (a copy of the review), and the opt-in failing tests in [`tests/testthat/test-gap-phase0.R`](../tests/testthat/test-gap-phase0.R) |
-| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phase 5 done (0.9.0); Phase 6 done (0.10.0); decisions D14–D17 implemented (0.11.0) |
+| Status | **Approved 2026-10-15** with decisions D1, D10 and D11 (§9). Baseline committed as `ec341f9`. Phase 1 (0.3.0) and Phase 2 (0.4.0) done; decisions D4–D7 implemented (0.5.0), D8 revised, generation-length table and D9 recorded (0.6.0); Phase 3 done (0.7.0); Phase 4 done (0.8.0); Phase 5 done (0.9.0); Phase 6 done (0.10.0); decisions D14–D17 implemented (0.11.0); decisions D18–D19 implemented (0.11.1) |
 
 ## 1. Summary
 
@@ -169,7 +169,7 @@ There are no reason columns (GAP-15a, 15b). `batch_assess()` drops a taxon that 
 | 28 | Past-reduction window capped at 100 years | `app.R:53` | §5.2 | 05c |
 | 29 | B(b)(iv) asserted from a change in the cluster count | `summarize_assessment.R:264` | §4.11 | (02) |
 | 30 | NT is a final category, not a candidate. The 20 % A margin and the "<2,000 mature" C margin are conventions not labelled in the output; NT can rest on cluster-based (a) | `summarize_assessment.R:302-307, 341, 414-419` | §10.1; prompt §7 | (02) |
-| 31 | A taxon with earlier records but none in the recent window becomes DD. Under the Guidelines it is a candidate for A2 (disappearance), CR(PE) or RE review | `summarize_assessment.R:500-504` | §11.2, §11.3 | 07b |
+| 31 | A taxon with earlier records but none in the recent window becomes DD. Under the Guidelines it is a candidate for A2 (disappearance), CR(PE) or RE review. *Superseded by D18 (2026-10-17): the A2c this item led to rested on no trend, and such a taxon is a DD candidate again, with surveys listed as needed* | `summarize_assessment.R:500-504` | §11.2, §11.3 | 07b |
 | 32 | E is a bare dropdown in the app; no documentation is stored | `app.R:512` | §9.6 | — (Phase 3) |
 | 33 | **A failed NDOP login destroys the credentials and is reported as DD.** When the login response lacks the session cookie (wrong password, but also an error or maintenance page), `rndop::isop_login()` calls `renv_cleanup()`, which deletes every `NDOP_*` line from `$HOME/.Renviron`. That is `~\.Renviron` from Git Bash but `~\Documents\.Renviron` from RStudio or Rgui. It also reads the cookie by position (`cookies$value[2]`), not by name. ndopred catches the error and writes "DD – No records found" | rndop 0.2.2.9000 (`f78ebae`); login checked 2026-10-15 | prompt §3 (reason codes) | (15a) |
 
@@ -427,11 +427,14 @@ The uncommitted working tree was committed as-is as `ec341f9` ("Baseline: v0.2.0
   - **D15:** the refined generation lengths are the default.
   - **D16:** no regional share filter.
   - **D17:** no validation against blinded expert assessments. `validate_against_experts()` became `compare_categories()`, which takes no list as the truth, and the pilot script became `check_proposals.R`.
+- Decided by AOPK on 2026-10-17 after the bulk run of that day (§9), version 0.11.1:
+  - **D18:** no reduction under A without a trend. A taxon with no records in one of the windows no longer gets A2c from the raw change.
+  - **D19:** introduced taxa are Not Applicable at step one from a list shipped with the package (`introduced_taxa()`), since NDOP records carry no origin.
 - Still open: checking the SIS field mapping against the current SIS schema.
 
 ## 9. Decisions needed from AOPK
 
-**Decided:** D1–D13 (all 2026-10-15). **Open:** the generation-length values themselves (a placeholder of 1 year per group until refined).
+**Decided:** D1–D13 (all 2026-10-15), D14–D17 (2026-10-16), D18–D19 (2026-10-17). **Open:** the generation-length values themselves (a placeholder of 1 year per group until refined).
 
 One question the prompt already settles is not listed: taxa with no usable records become NE with a reason code, not DD (Guidelines §10.4).
 
@@ -454,6 +457,8 @@ One question the prompt already settles is not listed: taxa with no usable recor
 | D15 | Generation lengths: keep the 1-year placeholder or adopt the refined tables? | **Decided 2026-10-16: the refined tables** (`generation_lengths_refined()`; `methodology/generation_lengths/`) are the default; the placeholder can still be chosen |
 | D16 | Should taxa below a share of the global population be Not Applicable (Regional Guidelines IV.2, optional filter)? | **Decided 2026-10-16: no.** `regional_filter_share` stays `NA` |
 | D17 | Should the proposals be validated against blinded expert assessments (review §9)? | **Decided 2026-10-16: no.** Experts often depart from the IUCN criteria, so their categories are no gold standard. The reference is the criteria (tests at the thresholds, the unknown paths, the notation and the Guidelines' worked examples). `compare_categories()` sets the proposals beside any list without taking either side as the truth, and `final_assessment()` checks expert categories against the evidence |
+| D18 | May a taxon recorded in only one of the two windows be proposed under A2c from the raw change? | **Decided 2026-10-17: no.** Item 31 had been implemented as CR A2c from the raw −100 % change in AOO for a taxon gone from the current window. With a window empty no trend can be estimated, and `trend_estimate()` says so; the raw change no longer stands in for the missing estimate. Such a taxon is a DD candidate, or an RE candidate after `re_candidate_years`. The 2026-10-17 run had proposed eight taxa as CR A2c this way, two of them on a single record |
+| D19 | Introduced taxa in runs without an evidence file: assessed, or Not Applicable? | **Decided 2026-10-17: Not Applicable.** NDOP records carry no origin, so `introduced_taxa()` (`inst/extdata/introduced_taxa.csv`) lists taxa known to be introduced; it is the default of `ndopred_config(introduced)`, and step one makes them NA unless the evidence gives an origin. AOPK named *Testudo hermanni* (CR in the 2026-10-17 run) and *Hemidactylus turcicus* (EN). Four introduced turtles from the same run are listed for AOPK to confirm: *Testudo horsfieldii*, *Trachemys scripta*, *Graptemys pseudogeographica* and *Pelodiscus sinensis* |
 
 ## 10. Running the gap tests
 

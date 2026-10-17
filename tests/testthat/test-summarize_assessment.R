@@ -173,21 +173,22 @@ test_that("Severe fragmentation can satisfy condition (a) without few locations"
   expect_match(res$result$Criteria, "B1ab")
 })
 
-test_that("A taxon gone from the current window after a decline is proposed under A2c", {
-  # Recorded in the comparison window, absent from the current one: the
-  # records indicate a 100% loss of observed AOO (Guidelines 11.2 prefers
-  # A2 for recent disappearances). The proposal says what must be checked.
+test_that("A taxon gone from the current window is a DD candidate, not CR A2c", {
+  # Recorded in the comparison window, absent from the current one: the raw
+  # AOO change is -100 %, but with a window empty no trend can be estimated
+  # (trend_estimate()), so it is no reduction under A. The 2026-10-17 bulk
+  # run proposed nine such taxa as CR A2c, two of them on a single record.
   res <- sa(
     species = "Absent Species",
     eoo = list(area_km2 = 0), aoo = list(area_km2 = 0),
     trend = list(percent_change = -100),
     locations = 0, pop_metrics = empty_pop(),
-    evaluate_pop = FALSE, year_last = 2010, n_records = 10
+    evaluate_pop = FALSE, year_last = 2010, n_records = 1
   )
-  expect_equal(res$result$Category, "CR")
-  expect_equal(res$result$Criteria, "A2c")
+  expect_equal(res$result$Category, "DD")
+  expect_equal(res$result$Support, "candidate")
+  expect_false(grepl("A2", res$result$Criteria))
   expect_match(res$result$Needs_Evidence, "current occurrence")
-  expect_match(res$result$Needs_Evidence, "A2:")
 })
 
 test_that("A taxon absent from the current window with nothing else is a DD candidate", {

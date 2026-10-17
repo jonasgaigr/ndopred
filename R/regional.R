@@ -17,6 +17,37 @@
   NA
 }
 
+#' Taxa Introduced to Czechia
+#'
+#' Taxa in NDOP that are not native to Czechia: escaped or released pets and
+#' taxa brought in with goods. NDOP records carry no origin, so this list
+#' answers the origin question of the regional step one
+#' ([regional_eligibility()]) wherever the evidence does not; an `origin`
+#' entry in the evidence wins. Names are matched exactly against the taxon
+#' name as in NDOP.
+#'
+#' @param path A CSV with a `taxon` column. Defaults to the
+#'   `NDOPRED_INTRODUCED_TAXA` environment variable, else the list shipped
+#'   with the package (`inst/extdata/introduced_taxa.csv`, which gives the
+#'   source of each entry).
+#' @return A character vector of taxon names.
+#' @seealso [regional_eligibility()], [ndopred_config()]
+#' @references IUCN (2012) Guidelines for Application of IUCN Red List
+#'   Criteria at Regional and National Levels v4.0, section IV.2.
+#' @examples
+#' introduced_taxa()
+#' @export
+introduced_taxa <- function(path = Sys.getenv("NDOPRED_INTRODUCED_TAXA")) {
+  if (is.null(path) || !nzchar(path)) {
+    path <- system.file("extdata", "introduced_taxa.csv", package = "ndopred")
+  }
+  if (!file.exists(path)) stop("List of introduced taxa not found: ", path, call. = FALSE)
+  tab <- utils::read.csv(path, fileEncoding = "UTF-8", stringsAsFactors = FALSE)
+  if (!"taxon" %in% names(tab)) stop("The list of introduced taxa needs a `taxon` column.", call. = FALSE)
+  t <- trimws(tab$taxon)
+  unique(t[!is.na(t) & nzchar(t)])
+}
+
 #' Regional Step One: Is the Regional Population Assessed?
 #'
 #' Follows the flowchart of the Regional Guidelines v4.0 (Annex 3; section
@@ -28,14 +59,19 @@
 #' consecutive years ("typically for at least 10"), and taxa below an
 #' optional filter on the share of the global population. As in the
 #' flowchart, an answer the assessor does not know leads to assessment.
+#' A taxon on the config's list of introduced taxa ([introduced_taxa()]) is
+#' introduced unless the evidence gives its origin.
 #'
 #' @param eligibility A list with `origin` (native, introduced, reintroduced,
 #'   uncertain), `occurrence_status` (resident, breeding, visitor, vagrant,
 #'   occasional_breeder, uncertain), `reproduction_since` (first year of
 #'   established reproduction in the region) and `global_share` (per cent of
 #'   the global population in the region); missing entries are unknown.
-#' @param config Object from [ndopred_config()]: the reference year and the
-#'   conventions `colonizer_years` and `regional_filter_share`.
+#' @param config Object from [ndopred_config()]: the reference year, the
+#'   list of introduced taxa and the conventions `colonizer_years` and
+#'   `regional_filter_share`.
+#' @param taxon Optional taxon name as in NDOP, looked up in the list of
+#'   introduced taxa.
 #' @return A list: `eligible` (logical), `population` ("breeding" or
 #'   "visiting"), `reason` and `documented` (whether eligibility evidence was
 #'   given).
@@ -43,10 +79,11 @@
 #' @examples
 #' cfg <- ndopred_config(2026)
 #' regional_eligibility(list(origin = "introduced"), cfg)$eligible          # FALSE
+#' regional_eligibility(list(), cfg, taxon = "Trachemys scripta")$eligible  # FALSE
 #' regional_eligibility(list(reproduction_since = 2021), cfg)$reason        # recent colonizer
 #' regional_eligibility(list(), cfg)$reason                                 # assessed, not documented
 #' @export
-regional_eligibility <- function(eligibility, config) {
+regional_eligibility <- function(eligibility, config, taxon = NA_character_) {
   el <- if (is.null(eligibility)) list() else eligibility
   get <- function(k) {
     v <- el[[k]]
@@ -62,8 +99,11 @@ regional_eligibility <- function(eligibility, config) {
   out <- function(eligible, reason) {
     list(eligible = eligible, population = population, reason = reason, documented = documented)
   }
-  if (identical(origin, "introduced")) {
-    return(out(FALSE, "introduced: not a wild population within its natural range (RG IV.2)"))
+  listed <- is.na(origin) && length(taxon) == 1 && !is.na(taxon) && taxon %in% config$introduced
+  if (identical(origin, "introduced") || listed) {
+    return(out(FALSE, paste0("introduced",
+                             if (listed) " (on the list of introduced taxa, introduced_taxa())",
+                             ": not a wild population within its natural range (RG IV.2)")))
   }
   if (identical(status, "vagrant")) {
     return(out(FALSE, "vagrant: \"Vagrant taxa should NOT be assessed\" (RG IV.2)"))
@@ -181,15 +221,17 @@ regional_adjustment <- function(category, answers = character(0), population = "
 #'
 #' @param category,criteria The category and criteria from step two.
 #' @param ex The result of [evidence_for_engine()], or `NULL` (no regional
-#'   evidence: assessed, no adjustment).
+#'   evidence: assessed unless on the list of introduced taxa, no
+#'   adjustment).
 #' @param config Object from [ndopred_config()].
+#' @param taxon Optional taxon name, for the list of introduced taxa.
 #' @return A list: `eligibility`, `adjustment`, `category` (final regional
 #'   category without the degree sign), `display`, `criteria`, `global`
 #'   (category and criteria) and `global_share`.
 #' @export
-regional_assessment <- function(category, criteria, ex, config) {
+regional_assessment <- function(category, criteria, ex, config, taxon = NA_character_) {
   reg <- if (is.null(ex)) list() else ex$regional
-  el <- regional_eligibility(if (is.null(ex)) list() else ex$eligibility, config)
+  el <- regional_eligibility(if (is.null(ex)) list() else ex$eligibility, config, taxon)
   glob <- if (is.null(reg$global)) list(category = NA_character_, criteria = NA_character_) else reg$global
   share <- if (is.null(reg$global_share)) NA_real_ else reg$global_share
   if (!el$eligible) {

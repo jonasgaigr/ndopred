@@ -17,8 +17,12 @@
   # change indicates nothing either way.
   declining <- function(x) if (is.na(x)) NA else (x < 0 && abs(x) >= tolerance)
 
-  aoo_change <- num(aoo_change)
-  eoo_change <- num(eoo_change)
+  # A change of -100 % means the later window has no records, and with a
+  # window empty no trend can be estimated (trend_estimate()): it indicates
+  # neither a reduction nor a continuing decline.
+  no_trend <- function(x) if (!is.na(x) && x <= -100) NA_real_ else x
+  aoo_change <- no_trend(num(aoo_change))
+  eoo_change <- no_trend(num(eoo_change))
   pm <- if (is.null(pop_metrics)) list() else pop_metrics
   pop_rate <- if (evaluate_pop) num(pm$decline_rate) else NA_real_
   total <- if (evaluate_pop) num(pm$total_mature) else NA_real_
@@ -36,13 +40,16 @@
   # the count-based decline (basis b). The count-based one counts only past
   # the tolerance, and wins ties on category, as before. With a trend
   # estimate (trend_estimate()), the spatial decline is its tiered estimate
-  # with its interval; otherwise the raw change.
+  # with its interval; otherwise the raw change. An estimate without a
+  # change (a window without records) means no trend, and the raw change is
+  # not used in its place.
   te <- trend_est
-  has_te <- !is.null(te) && !is.null(te$change) && !is.na(te$change[["best"]])
+  has_te <- !is.null(te)
   if (has_te) {
-    spatial <- .as_reduction(te$change)
+    te_change <- !is.null(te$change) && !is.na(te$change[["best"]])
+    spatial <- if (te_change) .as_reduction(te$change) else NA_real_
     spatial_basis <- te$basis
-    spatial_source <- te$source
+    spatial_source <- if (te_change) te$source else te$tier_reason
   } else {
     spatial <- suppressWarnings(min(c(aoo_change, eoo_change), na.rm = TRUE))
     spatial <- if (is.finite(spatial)) max(0, -spatial) else NA_real_

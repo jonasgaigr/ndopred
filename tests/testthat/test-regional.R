@@ -13,6 +13,28 @@ test_that("Introduced taxa, vagrants and occasional breeders are Not Applicable"
   expect_match(regional_eligibility(list(origin = "introduced"), cfg)$reason, "introduced")
 })
 
+test_that("A taxon on the list of introduced taxa is NA unless the evidence gives its origin", {
+  # NDOP records carry no origin. The 2026-10-17 bulk run proposed Testudo
+  # hermanni as CR and Hemidactylus turcicus as EN.
+  expect_true(all(c("Testudo hermanni", "Hemidactylus turcicus") %in% introduced_taxa()))
+  expect_equal(cfg$introduced, introduced_taxa())
+  listed <- regional_eligibility(list(), cfg, taxon = "Testudo hermanni")
+  expect_false(listed$eligible)
+  expect_match(listed$reason, "^introduced \\(on the list of introduced taxa")
+  # An assessor's origin entry wins over the list.
+  expect_true(regional_eligibility(list(origin = "native"), cfg, taxon = "Testudo hermanni")$eligible)
+  expect_true(regional_eligibility(list(origin = "uncertain"), cfg, taxon = "Testudo hermanni")$eligible)
+  # Not on the list, no taxon given, or no list: assessed.
+  expect_true(regional_eligibility(list(), cfg, taxon = "Emys orbicularis")$eligible)
+  expect_true(regional_eligibility(list(), cfg)$eligible)
+  expect_true(regional_eligibility(list(), ndopred_config(2026, introduced = character(0)),
+                                   taxon = "Testudo hermanni")$eligible)
+  path <- withr::local_tempfile(fileext = ".csv")
+  utils::write.csv(data.frame(taxon = c(" A b ", "C d", "")), path, row.names = FALSE)
+  withr::local_envvar(NDOPRED_INTRODUCED_TAXA = path)
+  expect_equal(introduced_taxa(), c("A b", "C d"))
+})
+
 test_that("A colonizer is assessed after reproducing for 10 consecutive years", {
   young <- regional_eligibility(list(reproduction_since = 2018), cfg)   # 9 years to 2026
   expect_false(young$eligible)
@@ -130,6 +152,27 @@ test_that("Step one makes an introduced taxon NA before any criterion is applied
   expect_equal(res$result$Category, "NA")
   expect_equal(res$result$Regional_Category, "NA")
   expect_match(res$result$Criteria, "^Not applicable: introduced")
+})
+
+test_that("A listed introduced taxon is NA in the pipeline without any evidence", {
+  local_mock_ndop()
+  sp <- "Declining sp"
+  occ <- get_assessment_data(sp)
+  cfg_sp <- ndopred_config(as.numeric(format(Sys.Date(), "%Y")), introduced = sp)
+  res <- assess_taxon(occ, sp, cfg_sp)
+  expect_equal(res$result$Category, "NA")
+  expect_equal(res$result$Regional_Category, "NA")
+  expect_match(res$result$Criteria, "^Not applicable: introduced \\(on the list")
+  # The list survives a taxon's own config (here its generation length).
+  gl <- assess_taxon(occ, sp, cfg_sp, evidence = evidence_of(ev_row("generation_length", best = 2, taxon = sp)))
+  expect_equal(gl$config$introduced, sp)
+  expect_equal(gl$result$Category, "NA")
+  # An assessor's origin entry overrides the list, here and in the final check.
+  ev <- evidence_of(ev_row("origin", "native", taxon = sp))
+  native <- assess_taxon(occ, sp, cfg_sp, evidence = ev)
+  expect_false(identical(native$result$Category, "NA"))
+  expect_true(native$regional$eligibility$eligible)
+  expect_false(grepl("^NA", native$final$evidence_only$regional))
 })
 
 # An assessment with EOO 4,000 km2 and AOO 400 km2 and the given evidence,

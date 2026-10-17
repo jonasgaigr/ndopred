@@ -340,9 +340,11 @@ standardized monitoring counts (T3) and is unknown otherwise.
 * **NE.** A taxon with no usable records has not been evaluated (§10.4). A
   failed download gives no proposal at all, never DD or NE.
 
-A taxon recorded in the comparison window but not in the current one is
-proposed under A2c from the indicated loss, with current occurrence listed as
-needing evidence (§11.2 prefers A2 for recent disappearances).
+A taxon recorded in the comparison window but not in the current one has no
+trend: with a window empty no reduction can be estimated, and the raw loss of
+AOO (−100 %) is not read as one (AOPK, D18). It is a DD candidate, or an RE
+candidate after `re_candidate_years`, with current occurrence and search effort
+listed as needing evidence.
 
 # Part III. From a proposal to an approved category
 
@@ -383,7 +385,9 @@ outside the region.
 "only to wild populations inside their natural range and to populations
 resulting from benign introductions". Not Applicable (NA), and not assessed:
 
-* introduced taxa;
+* introduced taxa: given as evidence (`origin`), or, since NDOP records carry
+  no origin, on the list `introduced_taxa()` (`ndopred_config(introduced)`;
+  AOPK, D19), where an `origin` entry in the evidence wins;
 * vagrants ("Vagrant taxa should NOT be assessed");
 * occasional breeders that regularly become regionally extinct;
 * colonizers until they have reproduced in the region "for several years

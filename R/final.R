@@ -32,6 +32,9 @@
 #' @param assessment Object from [assess_criteria()], with the evidence.
 #' @param proposal Object from [categorise()].
 #' @param ex The result of [evidence_for_engine()].
+#' @param taxon Optional taxon name, for the list of introduced taxa
+#'   ([introduced_taxa()]); by default the taxon of the evidence when it is
+#'   about one taxon.
 #' @return A list of class `ndopred_final`: `category` (the final category
 #'   when approved, else `NA`), `display` (the same with the degree sign when
 #'   the regional step adjusted it), `claimed`, `criteria`, `status` ("no
@@ -41,7 +44,11 @@
 #'   alone) and `approvals`.
 #' @seealso [evidence_for_engine()], [assess_taxon()]
 #' @export
-final_assessment <- function(assessment, proposal, ex) {
+final_assessment <- function(assessment, proposal, ex, taxon = NULL) {
+  if (is.null(taxon)) {
+    tx <- unique(ex$entries$taxon)
+    taxon <- if (length(tx) == 1) tx else NA_character_
+  }
   fin <- ex$final
   eo <- .evidence_only(assessment)
   eo_cat <- .scenario_category(eo$scenarios$working)
@@ -50,7 +57,7 @@ final_assessment <- function(assessment, proposal, ex) {
   threatened <- c("CR", "EN", "VU")
   step2 <- if (eo_cat %in% threatened) paste0(eo_cat, " ", eo_str) else eo_cat
   # The regional step applied to what the evidence supports (RG IV.2, IV.4).
-  reg <- regional_assessment(eo_cat, eo_str, ex, assessment$config)
+  reg <- regional_assessment(eo_cat, eo_str, ex, assessment$config, taxon)
   el <- reg$eligibility
   adj <- reg$adjustment
   sup_cat <- reg$category

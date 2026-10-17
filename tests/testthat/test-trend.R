@@ -76,6 +76,22 @@ test_that("T0: the raw change with its start-year range, labelled a diagnostic",
   expect_equal(nrow(te$sensitivity$table), 5)
 })
 
+test_that("No records in the current window: no trend, and no reduction from the raw change", {
+  # The 2026-10-17 bulk run: records in the comparison window only (one, for
+  # Pleurophorus pannonicus), a raw AOO change of -100 % and "no trend" from
+  # trend_estimate(), yet the raw change stood in and gave CR A2c.
+  for (occ in list(cell_records(1, 2008), cell_records(1:4, 2004))) {
+    res <- assess_taxon(occ, "A b", cfg26)
+    expect_equal(res$metrics$aoo_change, -100)
+    expect_match(res$result$Trend_Source, "no trend")
+    expect_true(is.na(res$assessment$inputs$indication$reduction))
+    expect_true(is.na(res$assessment$scenarios$high$A$level))
+    expect_equal(res$result$Category, "DD")
+    expect_match(res$result$Needs_Evidence, "no reduction estimate (no records in the current window)",
+                 fixed = TRUE)
+  }
+})
+
 # --------------------------------------------------------------------- T1
 
 # An effort layer: the group recorded in cells 1-100 in 2005 and in 2020.

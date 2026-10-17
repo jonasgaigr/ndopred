@@ -4,7 +4,7 @@
 \alias{final_assessment}
 \title{Check the Final Category Against the Evidence, and Its Approval}
 \usage{
-final_assessment(assessment, proposal, ex)
+final_assessment(assessment, proposal, ex, taxon = NULL)
 }
 \arguments{
 \item{assessment}{Object from \code{\link[=assess_criteria]{assess_criteria()}}, with the evidence.}
@@ -12,6 +12,10 @@ final_assessment(assessment, proposal, ex)
 \item{proposal}{Object from \code{\link[=categorise]{categorise()}}.}
 
 \item{ex}{The result of \code{\link[=evidence_for_engine]{evidence_for_engine()}}.}
+
+\item{taxon}{Optional taxon name, for the list of introduced taxa
+(\code{\link[=introduced_taxa]{introduced_taxa()}}); by default the taxon of the evidence when it is
+about one taxon.}
 }
 \value{
 A list of class \code{ndopred_final}: \code{category} (the final category

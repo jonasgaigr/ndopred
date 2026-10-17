@@ -143,11 +143,17 @@ test_that("GAP-07a: few records are not DD by default", {
   expect_false(identical(res$result$Category, "DD"))
 })
 
-test_that("GAP-07b: absence from the recent window is not DD by default", {
+test_that("GAP-07b: absence from the recent window is a DD candidate, not CR A2c", {
+  # Item 31 had made such a taxon CR A2c from the raw -100 % change. With a
+  # window empty there is no trend (AOPK, D18): the taxon is proposed as a
+  # DD candidate (never a DD finding), with surveys of its current
+  # occurrence listed as needed.
   res <- gap_assess(eoo = list(area_km2 = 0), aoo = list(area_km2 = 0),
                     trend = list(percent_change = -100),
                     year_last = gap_year - 12, n_records = 10)
-  expect_false(identical(res$result$Category, "DD"))
+  expect_equal(res$result$Category, "DD")
+  expect_equal(res$result$Support, "candidate")
+  expect_true(needs(res$result$Needs_Evidence, "current occurrence and search effort"))
 })
 
 test_that("GAP-07c: a taxon with no records at all is NE, not DD", {

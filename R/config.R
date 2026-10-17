@@ -73,6 +73,10 @@
 #'   cent) of the global population in the region are Not Applicable. `NA`
 #'   (default) applies no filter: AOPK, the regional Red List authority,
 #'   decided on 2026-10-16 not to set one (gap analysis, D16).
+#' @param introduced Character. Taxa treated as introduced at step one of
+#'   the regional procedure, and so Not Applicable, unless the evidence gives
+#'   their origin (Regional Guidelines v4.0 IV.2). NDOP records carry no
+#'   origin. Default [introduced_taxa()]; `character(0)` for none.
 #' @param trend Settings of the trend module, from [trend_settings()].
 #' @return An object of class `ndopred_config`.
 #' @seealso [assess_criteria()], [categorise()], [assess_taxon()]
@@ -103,6 +107,7 @@ ndopred_config <- function(reference_year,
                            d2_locations = 5,
                            colonizer_years = 10,
                            regional_filter_share = NA,
+                           introduced = introduced_taxa(),
                            trend = trend_settings()) {
   if (missing(reference_year) || length(reference_year) != 1 ||
       is.na(suppressWarnings(as.numeric(reference_year)))) {
@@ -174,6 +179,8 @@ ndopred_config <- function(reference_year,
         min_trend_shift = min_trend_shift,
         time_depth_start = time_depth_start
       ),
+      # Regional step one (RG IV.2): taxa introduced to the region.
+      introduced = as.character(introduced),
       trend = trend,
       versions = list(
         ndopred = as.character(utils::packageVersion("ndopred")),
@@ -199,6 +206,7 @@ print.ndopred_config <- function(x, ...) {
   }
   cat("  proposal:", x$attitude$proposal, "- flagged uncertain when the", x$attitude$uncertain_when, "\n")
   cat("  conventions:", paste(names(x$conventions), unlist(x$conventions), sep = " = ", collapse = ", "), "\n")
+  cat("  introduced taxa (regional step one):", length(x$introduced), "\n")
   invisible(x)
 }
 
@@ -218,6 +226,7 @@ print.ndopred_config <- function(x, ...) {
          comp_start = if (derived) NULL else rs - shift,
          comp_end = if (derived) NULL else w$recent_end - shift,
          generation_length = gl, generation_length_source = src,
+         introduced = if (is.null(cfg$introduced)) introduced_taxa() else cfg$introduced,
          trend = if (is.null(cfg$trend)) trend_settings() else cfg$trend),
     cfg$conventions
   ))

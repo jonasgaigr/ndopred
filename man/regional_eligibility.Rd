@@ -4,7 +4,7 @@
 \alias{regional_eligibility}
 \title{Regional Step One: Is the Regional Population Assessed?}
 \usage{
-regional_eligibility(eligibility, config)
+regional_eligibility(eligibility, config, taxon = NA_character_)
 }
 \arguments{
 \item{eligibility}{A list with \code{origin} (native, introduced, reintroduced,
@@ -13,8 +13,12 @@ occasional_breeder, uncertain), \code{reproduction_since} (first year of
 established reproduction in the region) and \code{global_share} (per cent of
 the global population in the region); missing entries are unknown.}
 
-\item{config}{Object from \code{\link[=ndopred_config]{ndopred_config()}}: the reference year and the
-conventions \code{colonizer_years} and \code{regional_filter_share}.}
+\item{config}{Object from \code{\link[=ndopred_config]{ndopred_config()}}: the reference year, the
+list of introduced taxa and the conventions \code{colonizer_years} and
+\code{regional_filter_share}.}
+
+\item{taxon}{Optional taxon name as in NDOP, looked up in the list of
+introduced taxa.}
 }
 \value{
 A list: \code{eligible} (logical), \code{population} ("breeding" or
@@ -31,10 +35,13 @@ that have not yet reproduced in the region for \code{colonizer_years}
 consecutive years ("typically for at least 10"), and taxa below an
 optional filter on the share of the global population. As in the
 flowchart, an answer the assessor does not know leads to assessment.
+A taxon on the config's list of introduced taxa (\code{\link[=introduced_taxa]{introduced_taxa()}}) is
+introduced unless the evidence gives its origin.
 }
 \examples{
 cfg <- ndopred_config(2026)
 regional_eligibility(list(origin = "introduced"), cfg)$eligible          # FALSE
+regional_eligibility(list(), cfg, taxon = "Trachemys scripta")$eligible  # FALSE
 regional_eligibility(list(reproduction_since = 2021), cfg)$reason        # recent colonizer
 regional_eligibility(list(), cfg)$reason                                 # assessed, not documented
 }

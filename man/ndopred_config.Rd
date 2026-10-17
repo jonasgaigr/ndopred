@@ -24,6 +24,7 @@ ndopred_config(
   d2_locations = 5,
   colonizer_years = 10,
   regional_filter_share = NA,
+  introduced = introduced_taxa(),
   trend = trend_settings()
 )
 }
@@ -105,6 +106,11 @@ filter of Regional Guidelines v4.0 IV.2: taxa with a smaller share (per
 cent) of the global population in the region are Not Applicable. \code{NA}
 (default) applies no filter: AOPK, the regional Red List authority,
 decided on 2026-10-16 not to set one (gap analysis, D16).}
+
+\item{introduced}{Character. Taxa treated as introduced at step one of
+the regional procedure, and so Not Applicable, unless the evidence gives
+their origin (Regional Guidelines v4.0 IV.2). NDOP records carry no
+origin. Default \code{\link[=introduced_taxa]{introduced_taxa()}}; \code{character(0)} for none.}
 
 \item{trend}{Settings of the trend module, from \code{\link[=trend_settings]{trend_settings()}}.}
 }

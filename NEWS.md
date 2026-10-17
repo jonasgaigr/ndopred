@@ -1,3 +1,35 @@
+# ndopred 0.11.1
+
+AOPK's decisions of 2026-10-17 after that day's bulk run
+(`methodology/gap_analysis.md`, D18-D19).
+
+## No reduction without a trend (D18)
+
+* A taxon with records in the comparison window but none in the current
+  one was proposed as CR A2c: `trend_estimate()` found no trend, and the
+  raw AOO change of -100 % stood in for it. With a window empty there is
+  no reduction indication now, and the taxon is a DD candidate (or an RE
+  candidate after `re_candidate_years`). In the 2026-10-17 run this
+  affected eight taxa (six Scarabaeidae, two Lycaenidae), two of them
+  resting on a single record. `summarize_assessment()` reads a raw change
+  of -100 % the same way.
+* "A: no reduction estimate" names the window without records.
+
+## Introduced taxa are Not Applicable (D19)
+
+* New `introduced_taxa()` (`inst/extdata/introduced_taxa.csv`, or the
+  `NDOPRED_INTRODUCED_TAXA` environment variable): taxa introduced to
+  Czechia. NDOP records carry no origin, so in a run without an evidence
+  file every taxon had been assessed as native. The list is the default of
+  the new `ndopred_config(introduced)`, and regional step one makes a
+  listed taxon NA unless the evidence gives its origin.
+  `regional_eligibility()`, `regional_assessment()` and
+  `final_assessment()` take the taxon name.
+* The list holds *Testudo hermanni* and *Hemidactylus turcicus*, named by
+  AOPK, and four introduced turtles from the same run for AOPK to confirm
+  (*Testudo horsfieldii*, *Trachemys scripta*, *Graptemys
+  pseudogeographica*, *Pelodiscus sinensis*).
+
 # ndopred 0.11.0
 
 AOPK's decisions of 2026-10-16 (`methodology/gap_analysis.md`, D14-D17):
